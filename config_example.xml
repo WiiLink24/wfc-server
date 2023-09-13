@@ -1,0 +1,12 @@
+<Config>
+    <!-- The address which HTTP will bind to -->
+    <address>127.0.0.1:8080</address>
+
+    <!-- Database Credentials -->
+    <username>username</username>
+    <password>password</password>
+
+    <!-- Database information-->
+    <databaseAddress>127.0.0.1</databaseAddress>
+    <databaseName>wwfc</databaseName>
+</Config>
