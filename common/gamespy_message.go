@@ -16,49 +16,54 @@ var (
 	InvalidGameSpyCommand = errors.New("invalid command received")
 )
 
-func ParseGameSpyMessage(msg string) (*GameSpyCommand, error) {
-	g := &GameSpyCommand{
-		OtherValues: map[string]string{},
-	}
-
+func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {
 	if !strings.Contains(msg, `\\`) || !strings.Contains(msg, `\final\`) {
 		return nil, InvalidGameSpyCommand
 	}
 
-	foundCommand := false
-	for len(msg) > 0 {
-		keyEnd := strings.Index(msg[1:], `\`) + 1
-		key := msg[1:keyEnd]
-		value := ""
-		msg = msg[keyEnd+1:]
-
-		if key == "final" {
-			// We are done.
-			break
+	var commands []GameSpyCommand
+	for len(msg) > 0 && string(msg[0]) == `\` && strings.Contains(msg, `\final\`) {
+		foundCommand := false
+		g := GameSpyCommand{
+			OtherValues: map[string]string{},
 		}
 
-		if strings.Contains(msg, `\`) {
-			if msg[0] != '\\' {
-				valueEnd := strings.Index(msg[1:], `\`)
-				value = msg[:valueEnd+1]
-				msg = msg[valueEnd+1:]
+		for len(msg) > 0 && string(msg[0]) == `\` {
+			keyEnd := strings.Index(msg[1:], `\`) + 1
+			key := msg[1:keyEnd]
+			value := ""
+			msg = msg[keyEnd+1:]
+
+			if key == "final" {
+				// We are done.
+				break
 			}
-		} else {
-			// We have most likely reached the end of the line.
-			// However, we do not want to exit out without parsing the final key.
-			value = msg
+
+			if strings.Contains(msg, `\`) {
+				if msg[0] != '\\' {
+					valueEnd := strings.Index(msg[1:], `\`)
+					value = msg[:valueEnd+1]
+					msg = msg[valueEnd+1:]
+				}
+			} else {
+				// We have most likely reached the end of the line.
+				// However, we do not want to exit out without parsing the final key.
+				value = msg
+			}
+
+			if !foundCommand {
+				g.Command = key
+				g.CommandValue = value
+				foundCommand = true
+			} else {
+				g.OtherValues[key] = value
+			}
 		}
 
-		if !foundCommand {
-			g.Command = key
-			g.CommandValue = value
-			foundCommand = true
-		} else {
-			g.OtherValues[key] = value
-		}
+		commands = append(commands, g)
 	}
 
-	return g, nil
+	return commands, nil
 }
 
 func CreateGameSpyMessage(command GameSpyCommand) string {

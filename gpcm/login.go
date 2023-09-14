@@ -32,7 +32,7 @@ func generateProof(gpcmChallenge, nasChallenge, authToken, clientChallenge strin
 	return generateResponse(clientChallenge, nasChallenge, authToken, gpcmChallenge)
 }
 
-func login(pool *pgxpool.Pool, ctx context.Context, command *common.GameSpyCommand, challenge string) string {
+func login(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand, challenge string) string {
 	// TODO: Validate login token with one in database
 	authToken := command.OtherValues["authtoken"]
 	response := generateResponse(challenge, "0qUekMb4", authToken, command.OtherValues["challenge"])
@@ -45,7 +45,8 @@ func login(pool *pgxpool.Pool, ctx context.Context, command *common.GameSpyComma
 	// Perform the login with the database.
 	user := database.LoginUserToGCPM(pool, ctx, authToken)
 	loginTicket := strings.Replace(base64.StdEncoding.EncodeToString([]byte(common.RandomString(16))), "=", "_", -1)
-
+	// TODO: REMOVE!!!!!
+	userId = user.UserId
 	// Now initiate the session
 	_ = database.CreateSession(pool, ctx, user.ProfileId, loginTicket)
 

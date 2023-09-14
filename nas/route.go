@@ -2,6 +2,7 @@ package nas
 
 import (
 	"encoding/base64"
+	"fmt"
 	"github.com/logrusorgru/aurora/v3"
 	"log"
 	"net/http"
@@ -59,6 +60,7 @@ func (route *Route) Handle() http.Handler {
 		path := strings.Replace(r.URL.Path, "/", "", -1)
 		actionName, _ := base64.StdEncoding.DecodeString(strings.Replace(r.PostForm.Get("action"), "*", "=", -1))
 
+		fmt.Println(string(actionName))
 		var action Action
 		for _, _action := range route.Actions {
 			if path == _action.ServiceType && string(actionName) == _action.ActionName {

@@ -89,7 +89,7 @@ func LoginUserToGCPM(pool *pgxpool.Pool, ctx context.Context, authToken string) 
 		user.CreateUser(pool, ctx)
 	} else {
 		// TODO get the profile ID!!!!!
-		user.ProfileId = 4
+		user.ProfileId = 474888031
 	}
 
 	return user

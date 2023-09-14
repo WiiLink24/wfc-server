@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	ctx  = context.Background()
-	pool *pgxpool.Pool
+	ctx    = context.Background()
+	pool   *pgxpool.Pool
+	userId int
 )
 
 func checkError(err error) {
@@ -89,25 +90,31 @@ func handleRequest(conn net.Conn) {
 			}
 		}
 
-		command, err := common.ParseGameSpyMessage(string(buffer))
+		commands, err := common.ParseGameSpyMessage(string(buffer))
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		log.Printf("%s: Message received. Command: %s", aurora.Green("[NOTICE]"), aurora.Yellow(command.Command))
-		switch command.Command {
-		case "ka":
-			conn.Write([]byte(`\ka\final\`))
-			break
-		case "login":
-			payload := login(pool, ctx, command, challenge)
-			conn.Write([]byte(payload))
-			break
-		case "getprofile":
-			payload := getProfile(pool, ctx, command)
-			fmt.Println(payload)
-			conn.Write([]byte(payload))
-			break
+		for _, command := range commands {
+			log.Printf("%s: Message received. Command: %s", aurora.Green("[NOTICE]"), aurora.Yellow(command.Command))
+			switch command.Command {
+			case "ka":
+				conn.Write([]byte(`\ka\\final\`))
+				break
+			case "login":
+				payload := login(pool, ctx, command, challenge)
+				conn.Write([]byte(payload))
+				break
+			case "getprofile":
+				payload := getProfile(pool, ctx, command)
+				fmt.Println(payload)
+				conn.Write([]byte(payload))
+				break
+			case "updatepro":
+				// Nothing is written here.
+				updateProfile(pool, ctx, command)
+				break
+			}
 		}
 	}
 }
