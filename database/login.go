@@ -2,8 +2,9 @@ package database
 
 import (
 	"context"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"wwfc/common"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 const (
@@ -88,8 +89,10 @@ func LoginUserToGCPM(pool *pgxpool.Pool, ctx context.Context, authToken string) 
 		// Create the GPCM account
 		user.CreateUser(pool, ctx)
 	} else {
-		// TODO get the profile ID!!!!!
-		user.ProfileId = 474888031
+		err := pool.QueryRow(ctx, GetUserProfileID, userId).Scan(&user.ProfileId)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	return user

@@ -5,12 +5,13 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/database"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {
@@ -45,8 +46,7 @@ func login(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyComman
 	// Perform the login with the database.
 	user := database.LoginUserToGCPM(pool, ctx, authToken)
 	loginTicket := strings.Replace(base64.StdEncoding.EncodeToString([]byte(common.RandomString(16))), "=", "_", -1)
-	// TODO: REMOVE!!!!!
-	userId = user.UserId
+
 	// Now initiate the session
 	_ = database.CreateSession(pool, ctx, user.ProfileId, loginTicket)
 

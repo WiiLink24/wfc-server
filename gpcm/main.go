@@ -5,14 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"log"
 	"net"
 	"os"
 	"time"
 	"wwfc/common"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
@@ -97,6 +98,19 @@ func handleRequest(conn net.Conn) {
 
 		for _, command := range commands {
 			log.Printf("%s: Message received. Command: %s", aurora.Green("[NOTICE]"), aurora.Yellow(command.Command))
+		}
+
+		// Make sure update profile runs before get profile
+		for _, command := range commands {
+			switch command.Command {
+			case "updatepro":
+				// Nothing is written here.
+				updateProfile(pool, ctx, command)
+				break
+			}
+		}
+
+		for _, command := range commands {
 			switch command.Command {
 			case "ka":
 				conn.Write([]byte(`\ka\\final\`))
@@ -109,10 +123,6 @@ func handleRequest(conn net.Conn) {
 				payload := getProfile(pool, ctx, command)
 				fmt.Println(payload)
 				conn.Write([]byte(payload))
-				break
-			case "updatepro":
-				// Nothing is written here.
-				updateProfile(pool, ctx, command)
 				break
 			}
 		}
