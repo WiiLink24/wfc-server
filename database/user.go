@@ -3,10 +3,9 @@ package database
 import (
 	"context"
 	"errors"
-	"wwfc/common"
-
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"wwfc/common"
 )
 
 const (

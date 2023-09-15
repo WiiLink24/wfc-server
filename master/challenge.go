@@ -1,0 +1,5 @@
+package master
+
+func challenge() {
+
+}

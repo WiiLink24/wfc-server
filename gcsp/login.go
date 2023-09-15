@@ -1,4 +1,4 @@
-package gpcm
+package gcsp
 
 import (
 	"context"
@@ -45,7 +45,7 @@ func login(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyComman
 	// Perform the login with the database.
 	user := database.LoginUserToGCPM(pool, ctx, authToken)
 	loginTicket := strings.Replace(base64.StdEncoding.EncodeToString([]byte(common.RandomString(16))), "=", "_", -1)
-	// TODO: Remove in favour of proper thread safe holding
+	// TODO: REMOVE!!!!!
 	userId = user.UserId
 	// Now initiate the session
 	_ = database.CreateSession(pool, ctx, user.ProfileId, loginTicket)

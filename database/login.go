@@ -2,9 +2,8 @@ package database
 
 import (
 	"context"
-	"wwfc/common"
-
 	"github.com/jackc/pgx/v4/pgxpool"
+	"wwfc/common"
 )
 
 const (

@@ -1,4 +1,4 @@
-package gpcm
+package matchmaking
 
 import (
 	"bufio"
@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"log"
 	"net"
 	"os"
 	"time"
 	"wwfc/common"
+	"wwfc/logging"
 )
 
 var (
@@ -21,9 +21,14 @@ var (
 	userId int
 )
 
+const (
+	ServerList = iota
+	ModuleName = "MATCHMAKING"
+)
+
 func checkError(err error) {
 	if err != nil {
-		log.Fatalf("GPCM server has encountered a fatal error! Reason: %v\n", err)
+		log.Fatalf("GCSP server has encountered a fatal error! Reason: %v\n", err)
 	}
 }
 
@@ -38,14 +43,14 @@ func StartServer() {
 	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
 	checkError(err)
 
-	l, err := net.Listen("tcp", "127.0.0.1:29900")
+	l, err := net.Listen("tcp", "127.0.0.1:28910")
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
 		os.Exit(1)
 	}
 	// Close the listener when the application closes.
 	defer l.Close()
-	fmt.Println("Listening on " + "127.0.0.1:29900")
+	fmt.Println("Listening on " + "127.0.0.1:28910")
 	for {
 		// Listen for an incoming connection.
 		conn, err := l.Accept()
@@ -63,9 +68,6 @@ func StartServer() {
 func handleRequest(conn net.Conn) {
 	defer conn.Close()
 
-	// Set session ID and challenge
-	challenge := common.RandomString(10)
-
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
 		fmt.Printf("Unable to set keepalive - %s", err)
@@ -76,8 +78,8 @@ func handleRequest(conn net.Conn) {
 		fmt.Printf("Unable to set keepalive - %s", err)
 	}
 
-	log.Printf("%s: Connection established from %s. Sending challenge.", aurora.Green("[NOTICE]"), aurora.Yellow(conn.RemoteAddr()))
-	conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
+	// log.Printf("%s: Connection established from %s. Sending challenge.", aurora.Green("[NOTICE]"), aurora.Yellow(conn.RemoteAddr()))
+	// conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
 
 	// Here we go into the listening loop
 	for {
@@ -90,39 +92,11 @@ func handleRequest(conn net.Conn) {
 			}
 		}
 
-		commands, err := common.ParseGameSpyMessage(string(buffer))
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, command := range commands {
-			log.Printf("%s: Message received. Command: %s", aurora.Green("[NOTICE]"), aurora.Yellow(command.Command))
-		}
-
-		// Make sure update profile runs before get profile
-		for _, command := range commands {
-			switch command.Command {
-			case "updatepro":
-				// Nothing is written here.
-				updateProfile(pool, ctx, command)
-				break
-			}
-		}
-
-		for _, command := range commands {
-			switch command.Command {
-			case "ka":
-				conn.Write([]byte(`\ka\\final\`))
-				break
-			case "login":
-				payload := login(pool, ctx, command, challenge)
-				conn.Write([]byte(payload))
-				break
-			case "getprofile":
-				payload := getProfile(pool, ctx, command)
-				conn.Write([]byte(payload))
-				break
-			}
+		logging.Notice(ModuleName, "Help me please")
+		switch buffer[2] {
+		case ServerList:
+			serverList(conn, buffer)
+			break
 		}
 	}
 }

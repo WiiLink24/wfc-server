@@ -1,4 +1,4 @@
-package gpcm
+package gcsp
 
 import (
 	"bufio"
@@ -13,6 +13,7 @@ import (
 	"os"
 	"time"
 	"wwfc/common"
+	"wwfc/logging"
 )
 
 var (
@@ -23,7 +24,7 @@ var (
 
 func checkError(err error) {
 	if err != nil {
-		log.Fatalf("GPCM server has encountered a fatal error! Reason: %v\n", err)
+		log.Fatalf("GCSP server has encountered a fatal error! Reason: %v\n", err)
 	}
 }
 
@@ -38,14 +39,14 @@ func StartServer() {
 	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
 	checkError(err)
 
-	l, err := net.Listen("tcp", "127.0.0.1:29900")
+	l, err := net.Listen("tcp", "127.0.0.1:29901")
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
 		os.Exit(1)
 	}
 	// Close the listener when the application closes.
 	defer l.Close()
-	fmt.Println("Listening on " + "127.0.0.1:29900")
+	fmt.Println("Listening on " + "127.0.0.1:29901")
 	for {
 		// Listen for an incoming connection.
 		conn, err := l.Accept()
@@ -63,9 +64,6 @@ func StartServer() {
 func handleRequest(conn net.Conn) {
 	defer conn.Close()
 
-	// Set session ID and challenge
-	challenge := common.RandomString(10)
-
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
 		fmt.Printf("Unable to set keepalive - %s", err)
@@ -76,8 +74,8 @@ func handleRequest(conn net.Conn) {
 		fmt.Printf("Unable to set keepalive - %s", err)
 	}
 
-	log.Printf("%s: Connection established from %s. Sending challenge.", aurora.Green("[NOTICE]"), aurora.Yellow(conn.RemoteAddr()))
-	conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
+	// log.Printf("%s: Connection established from %s. Sending challenge.", aurora.Green("[NOTICE]"), aurora.Yellow(conn.RemoteAddr()))
+	// conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
 
 	// Here we go into the listening loop
 	for {
@@ -96,30 +94,21 @@ func handleRequest(conn net.Conn) {
 		}
 
 		for _, command := range commands {
-			log.Printf("%s: Message received. Command: %s", aurora.Green("[NOTICE]"), aurora.Yellow(command.Command))
-		}
-
-		// Make sure update profile runs before get profile
-		for _, command := range commands {
-			switch command.Command {
-			case "updatepro":
-				// Nothing is written here.
-				updateProfile(pool, ctx, command)
-				break
-			}
-		}
-
-		for _, command := range commands {
+			logging.Notice("GCSP", "Message received. Command:", aurora.Yellow(command.Command).String())
 			switch command.Command {
 			case "ka":
 				conn.Write([]byte(`\ka\\final\`))
 				break
-			case "login":
-				payload := login(pool, ctx, command, challenge)
-				conn.Write([]byte(payload))
-				break
-			case "getprofile":
-				payload := getProfile(pool, ctx, command)
+			case "otherslist":
+				payload := common.CreateGameSpyMessage(common.GameSpyCommand{
+					Command:      "otherslist",
+					CommandValue: "",
+					OtherValues: map[string]string{
+						"o":          "0",
+						"uniquenick": "7me4ijr5sRMCJ3d9uhvh",
+						"oldone":     "",
+					},
+				})
 				conn.Write([]byte(payload))
 				break
 			}
