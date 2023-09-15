@@ -3,6 +3,7 @@ package matchmaking
 import (
 	"encoding/binary"
 	"net"
+	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/logging"
@@ -35,9 +36,18 @@ func serverList(conn net.Conn, buffer []byte) {
 	logging.Notice(ModuleName, "Values", queryGame, gameName, string(challenge), string(options))
 
 	// TODO: Find a game if possible, but there is nobody to do that with yet!
-	output := []byte(strings.Replace(conn.RemoteAddr().String(), ".", "", -1))
+	var output []byte
+	for _, s := range strings.Split(strings.Split(conn.RemoteAddr().String(), ":")[0], ".") {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			panic(err)
+		}
+
+		output = append(output, byte(val))
+	}
+
 	output = binary.BigEndian.AppendUint16(output, 6500)
 
-	// encrypted := common.EncryptTypeX([]byte("9r3Rmy"), challenge, output)
-	conn.Write(output)
+	encrypted := common.EncryptTypeX([]byte("9r3Rmy"), challenge, output)
+	conn.Write(encrypted)
 }
