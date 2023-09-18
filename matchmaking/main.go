@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"io"
 	"log"
 	"net"
@@ -13,6 +12,9 @@ import (
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
@@ -92,10 +94,13 @@ func handleRequest(conn net.Conn) {
 			}
 		}
 
-		logging.Notice(ModuleName, "Help me please")
 		switch buffer[2] {
 		case ServerList:
 			serverList(conn, buffer)
+			break
+
+		default:
+			logging.Notice(ModuleName, "Command:", aurora.Yellow(buffer[2]).String())
 			break
 		}
 	}

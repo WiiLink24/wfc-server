@@ -91,6 +91,7 @@ func handleRequest(conn net.Conn) {
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				// Client closed connection, terminate.
+				logging.Notice("GPCM", "Client closed connection")
 				return
 			}
 		}

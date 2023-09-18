@@ -2,11 +2,8 @@ package master
 
 import (
 	"encoding/binary"
-	"fmt"
 	"net"
-	"strconv"
 	"strings"
-	"wwfc/common"
 	"wwfc/logging"
 )
 
@@ -24,34 +21,10 @@ func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		payload[values[i]] = values[i+1]
 	}
 
-	// Generate challenge and send to server
-	var hexIP string
-	for _, i := range strings.Split(payload["localip0"], ".") {
-		val, err := strconv.ParseUint(i, 10, 64)
-		if err != nil {
-			panic(err)
-		}
-
-		hexIP += fmt.Sprintf("%02X", val)
+	publicip, ok := payload["publicip"]
+	if ok && publicip != "0" {
+		return
 	}
 
-	port, err := strconv.ParseUint(payload["localport"], 10, 64)
-	if err != nil {
-		panic(err)
-	}
-
-	hexPort := fmt.Sprintf("%04X", port)
-
-	challenge := common.RandomString(6) + "00" + hexIP + hexPort
-	mutex.Lock()
-	session := sessions[sessionId]
-	session.Challenge = challenge
-	mutex.Unlock()
-
-	response := []byte{0xfe, 0xfd, 0x01}
-	response = binary.BigEndian.AppendUint32(response, sessionId)
-	response = append(response, []byte(challenge)...)
-	response = append(response, 0)
-
-	conn.WriteTo(response, addr)
+	sendChallenge(conn, addr, sessionId)
 }

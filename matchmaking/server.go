@@ -11,10 +11,6 @@ import (
 
 func serverList(conn net.Conn, buffer []byte) {
 	logging.Notice(ModuleName, "Received server list command")
-	// TODO: Make a custom decoder for this? Go's binary decoder does not support strings as they are not a fixed width.
-	//listVersion := buffer[3]
-	//encodingVersion := buffer[4]
-	//gameVersion := binary.BigEndian.Uint32(buffer[5:])
 
 	index := 9
 	queryGame := common.GetString(buffer[index:])
