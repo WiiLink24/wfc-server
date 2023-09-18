@@ -12,34 +12,26 @@ import (
 
 const (
 	DoesAuthTokenExist = `SELECT EXISTS(SELECT 1 FROM logins WHERE auth_token = $1)`
-	DoesNASUserExist   = `SELECT EXISTS(SELECT 1 FROM logins WHERE user_id = $1)`
-	UpdateUserLogin    = `UPDATE logins SET auth_token = $1 WHERE user_id = $2`
+	DoesNASUserExist   = `SELECT EXISTS(SELECT 1 FROM logins WHERE user_id = $1 AND gsbrcd = $2)`
+	UpdateUserLogin    = `UPDATE logins SET auth_token = $1 WHERE user_id = $2 AND gsbrcd = $2`
 	InsertUserLogin    = `INSERT INTO logins (auth_token, user_id, gsbrcd) VALUES ($1, $2, $3)`
 	GetNASUserLogin    = `SELECT user_id, gsbrcd FROM logins WHERE auth_token = $1 LIMIT 1`
-	GetUserAuthToken   = `SELECT auth_token FROM logins WHERE user_id = $1`
+	GetUserAuthToken   = `SELECT auth_token FROM logins WHERE user_id = $1 AND gsbrcd = $2`
 )
 
 func GenerateAuthToken(pool *pgxpool.Pool, ctx context.Context, userId int, gsbrcd string) string {
-	var exists bool
-	err := pool.QueryRow(ctx, DoesNASUserExist, userId).Scan(&exists)
-	if err != nil {
-		panic(err)
-	}
+	var authToken string
+	err := pool.QueryRow(ctx, GetUserAuthToken, userId, gsbrcd).Scan(&authToken)
 
-	if exists {
+	if err == nil {
 		// Temporary(?) workaround for multiple sessions with the same user ID (i.e. multiple Dolphin instances).
 		// Just don't change the user's auth token... ever.
 		// TODO: What do we actually do here? Do we even care about proper authentication at this stage?
-		var authToken string
-		err := pool.QueryRow(ctx, GetUserAuthToken, userId).Scan(&authToken)
-		if err != nil {
-			panic(err)
-		}
-
 		return authToken
 	}
 
-	authToken := "NDS" + common.RandomString(80)
+	exists := false
+	authToken = "NDS" + common.RandomString(80)
 	for {
 		// We must make sure that the auth token doesn't exist before attempting to insert it into the database.
 		var exists bool
@@ -57,7 +49,7 @@ func GenerateAuthToken(pool *pgxpool.Pool, ctx context.Context, userId int, gsbr
 
 	if exists {
 		// UPDATE rather than INSERT
-		_, err = pool.Exec(ctx, UpdateUserLogin, authToken, userId)
+		_, err = pool.Exec(ctx, UpdateUserLogin, authToken, userId, gsbrcd)
 		if err != nil {
 			panic(err)
 		}

@@ -95,8 +95,6 @@ func handleRequest(conn net.Conn) {
 			}
 		}
 
-		logging.Notice("GPCM", "Raw data:", string(buffer))
-
 		commands, err := common.ParseGameSpyMessage(string(buffer))
 		if err != nil {
 			logging.Notice("GPCM", "Error parsing message:", err.Error())
