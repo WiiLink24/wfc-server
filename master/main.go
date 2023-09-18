@@ -2,13 +2,9 @@ package master
 
 import (
 	"encoding/binary"
-	"fmt"
 	"log"
 	"net"
-	"strconv"
-	"strings"
 	"sync"
-	"wwfc/common"
 	"wwfc/logging"
 
 	"github.com/logrusorgru/aurora/v3"
@@ -65,8 +61,8 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	case Command_CHALLENGE:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("CHALLENGE").String())
-		// sessionId := binary.BigEndian.Uint32(buffer[1:5])
-		// conn.WriteTo(createResponseHeader(Command_CLIENT_REGISTERED, sessionId), addr)
+		sessionId := binary.BigEndian.Uint32(buffer[1:5])
+		conn.WriteTo(createResponseHeader(Command_CLIENT_REGISTERED, sessionId), addr)
 		break
 
 	case Command_ECHO:
@@ -115,38 +111,4 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 func createResponseHeader(command byte, sessionId uint32) []byte {
 	return binary.BigEndian.AppendUint32([]byte{0xfe, 0xfd, command}, sessionId)
-}
-
-func sendChallenge(conn net.PacketConn, addr net.Addr, sessionId uint32) {
-	addrString := strings.Split(addr.String(), ":")
-
-	// Generate challenge and send to server
-	var hexIP string
-	for _, i := range strings.Split(addrString[0], ".") {
-		val, err := strconv.ParseUint(i, 10, 64)
-		if err != nil {
-			panic(err)
-		}
-
-		hexIP += fmt.Sprintf("%02X", val)
-	}
-
-	port, err := strconv.ParseUint(addrString[1], 10, 64)
-	if err != nil {
-		panic(err)
-	}
-
-	hexPort := fmt.Sprintf("%04X", port)
-
-	challenge := common.RandomString(6) + "00" + hexIP + hexPort
-	mutex.Lock()
-	session := sessions[sessionId]
-	session.Challenge = challenge
-	mutex.Unlock()
-
-	response := createResponseHeader(Command_CHALLENGE, sessionId)
-	response = append(response, []byte(challenge)...)
-	response = append(response, 0)
-
-	conn.WriteTo(response, addr)
 }
