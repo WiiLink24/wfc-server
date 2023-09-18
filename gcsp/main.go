@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"log"
 	"net"
@@ -14,6 +12,9 @@ import (
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
@@ -66,16 +67,15 @@ func handleRequest(conn net.Conn) {
 
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
-		fmt.Printf("Unable to set keepalive - %s", err)
+		logging.Notice("GCSP", "Unable to set keepalive:", err.Error())
 	}
 
 	err = conn.(*net.TCPConn).SetKeepAlivePeriod(time.Hour * 1000)
 	if err != nil {
-		fmt.Printf("Unable to set keepalive - %s", err)
+		logging.Notice("GCSP", "Unable to set keepalive:", err.Error())
 	}
 
-	// log.Printf("%s: Connection established from %s. Sending challenge.", aurora.Green("[NOTICE]"), aurora.Yellow(conn.RemoteAddr()))
-	// conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
+	logging.Notice("GCSP", "Connection established from", conn.RemoteAddr().String())
 
 	// Here we go into the listening loop
 	for {
@@ -94,7 +94,7 @@ func handleRequest(conn net.Conn) {
 		}
 
 		for _, command := range commands {
-			logging.Notice("GCSP", "Message received. Command:", aurora.Yellow(command.Command).String())
+			logging.Notice("GCSP", "Command:", aurora.Yellow(command.Command).String())
 			switch command.Command {
 			case "ka":
 				conn.Write([]byte(`\ka\\final\`))

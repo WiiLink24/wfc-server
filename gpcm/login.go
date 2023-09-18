@@ -5,12 +5,13 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/database"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {
@@ -43,7 +44,8 @@ func login(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyComman
 	proof := generateProof(challenge, "0qUekMb4", command.OtherValues["authtoken"], command.OtherValues["challenge"])
 
 	// Perform the login with the database.
-	user := database.LoginUserToGCPM(pool, ctx, authToken)
+	// TODO: Check valid result
+	user, _ := database.LoginUserToGPCM(pool, ctx, authToken)
 	loginTicket := strings.Replace(base64.StdEncoding.EncodeToString([]byte(common.RandomString(16))), "=", "_", -1)
 	// TODO: Remove in favour of proper thread safe holding
 	userId = user.UserId

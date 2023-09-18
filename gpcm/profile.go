@@ -2,10 +2,13 @@ package gpcm
 
 import (
 	"context"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"strconv"
 	"wwfc/common"
 	"wwfc/database"
+	"wwfc/logging"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 )
 
 func getProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) string {
@@ -48,6 +51,24 @@ func updateProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameS
 	}
 
 	database.UpdateUser(pool, ctx, firstName, lastName, userId)
+}
+
+func addFriend(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+	profileid := command.OtherValues["newprofileid"]
+
+	profileid_int, err := strconv.ParseUint(profileid, 10, 32)
+	if err != nil {
+		logging.Notice("GPCM", "Error parsing profileid:", err.Error())
+		return
+	}
+
+	fc := common.CalcFriendCodeString(uint32(profileid_int), "RMCJ")
+	logging.Notice("GPCM", "Add friend:", aurora.Cyan(profileid).String(), aurora.Cyan(fc).String())
+	// TODO
+}
+
+func removeFriend(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+	// TODO
 }
 
 func createStatus() string {

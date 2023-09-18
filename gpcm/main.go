@@ -5,14 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"log"
 	"net"
 	"os"
 	"time"
 	"wwfc/common"
+	"wwfc/logging"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
@@ -68,16 +70,19 @@ func handleRequest(conn net.Conn) {
 
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
-		fmt.Printf("Unable to set keepalive - %s", err)
+		logging.Notice("GPCM", "Unable to set keepalive:", err.Error())
 	}
 
 	err = conn.(*net.TCPConn).SetKeepAlivePeriod(time.Hour * 1000)
 	if err != nil {
-		fmt.Printf("Unable to set keepalive - %s", err)
+		logging.Notice("GPCM", "Unable to set keepalive:", err.Error())
 	}
 
-	log.Printf("%s: Connection established from %s. Sending challenge.", aurora.Green("[NOTICE]"), aurora.Yellow(conn.RemoteAddr()))
 	conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
+
+	logging.Notice("GPCM", "Connection established from", conn.RemoteAddr().String())
+
+	loggedIn := false
 
 	// Here we go into the listening loop
 	for {
@@ -92,19 +97,59 @@ func handleRequest(conn net.Conn) {
 
 		commands, err := common.ParseGameSpyMessage(string(buffer))
 		if err != nil {
-			log.Fatal(err)
+			logging.Notice("GPCM", "Error parsing message:", err.Error())
+			logging.Notice("GPCM", "Raw data:", string(buffer))
+			return
 		}
 
 		for _, command := range commands {
-			log.Printf("%s: Message received. Command: %s", aurora.Green("[NOTICE]"), aurora.Yellow(command.Command))
+			logging.Notice("GPCM", "Command:", aurora.Yellow(command.Command).String())
+
+			if loggedIn == false {
+				if command.Command != "login" {
+					logging.Notice("GPCM", "Attempt to run command before login!!!")
+					return
+				}
+
+				payload := login(pool, ctx, command, challenge)
+				if userId != 0 {
+					loggedIn = true
+				}
+
+				conn.Write([]byte(payload))
+			}
 		}
 
-		// Make sure update profile runs before get profile
+		// Make sure commands that update the profile run before getprofile
 		for _, command := range commands {
 			switch command.Command {
+			case "login":
+				// User should already be authenticated
+				break
+
+			case "logout":
+				// Bye
+				return
+
 			case "updatepro":
-				// Nothing is written here.
 				updateProfile(pool, ctx, command)
+				break
+
+			case "status":
+				logging.Notice("GPCM", "statstring:", aurora.Cyan(command.OtherValues["statstring"]).String())
+				if command.OtherValues["locstring"] == "" {
+					logging.Notice("GPCM", "locstring: (empty)")
+				} else {
+					logging.Notice("GPCM", "locstring:", aurora.Cyan(command.OtherValues["locstring"]).String())
+				}
+				break
+
+			case "addbuddy":
+				addFriend(pool, ctx, command)
+				break
+
+			case "delbuddy":
+				removeFriend(pool, ctx, command)
 				break
 			}
 		}
@@ -114,10 +159,7 @@ func handleRequest(conn net.Conn) {
 			case "ka":
 				conn.Write([]byte(`\ka\\final\`))
 				break
-			case "login":
-				payload := login(pool, ctx, command, challenge)
-				conn.Write([]byte(payload))
-				break
+
 			case "getprofile":
 				payload := getProfile(pool, ctx, command)
 				conn.Write([]byte(payload))

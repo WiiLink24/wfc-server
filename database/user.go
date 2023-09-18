@@ -3,9 +3,10 @@ package database
 import (
 	"context"
 	"errors"
+	"wwfc/common"
+
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"wwfc/common"
 )
 
 const (
@@ -15,7 +16,7 @@ const (
 	CreateUserSession = `INSERT INTO sessions (session_key, profile_id, login_ticket) VALUES ($1, $2, $3)`
 	DoesUserExist     = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	DeleteUserSession = `DELETE FROM sessions WHERE profile_id = $1`
-	GetUserProfileID  = `SELECT profile_id FROM users WHERE user_id = $1`
+	GetUserProfileID  = `SELECT profile_id FROM users WHERE user_id = $1 AND gsbrcd = $2`
 )
 
 type User struct {
