@@ -17,7 +17,7 @@ var (
 )
 
 func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {
-	if !strings.Contains(msg, `\\`) || !strings.Contains(msg, `\final\`) {
+	if !strings.Contains(msg, `\final\`) {
 		return nil, InvalidGameSpyCommand
 	}
 
