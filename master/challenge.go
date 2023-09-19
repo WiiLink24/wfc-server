@@ -35,7 +35,7 @@ func sendChallenge(conn net.PacketConn, addr net.Addr, sessionId uint32) {
 	session.Challenge = challenge
 	mutex.Unlock()
 
-	response := createResponseHeader(Command_CHALLENGE, sessionId)
+	response := createResponseHeader(CommandChallenge, sessionId)
 	response = append(response, []byte(challenge)...)
 	response = append(response, 0)
 

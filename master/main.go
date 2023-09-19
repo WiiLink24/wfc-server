@@ -17,17 +17,17 @@ var (
 )
 
 const (
-	Command_QUERY              = 0x00
-	Command_CHALLENGE          = 0x01
-	Command_ECHO               = 0x02
-	Command_HEARTBEAT          = 0x03
-	Command_ADDERROR           = 0x04
-	Command_ECHO_RESPONSE      = 0x05
-	Command_CLIENT_MESSAGE     = 0x06
-	Command_CLIENT_MESSAGE_ACK = 0x07
-	Command_KEEPALIVE          = 0x08
-	Command_AVAILABLE          = 0x09
-	Command_CLIENT_REGISTERED  = 0x0A
+	CommandQuery            = 0x00
+	CommandChallenge        = 0x01
+	CommandEcho             = 0x02
+	CommandHeartbeat        = 0x03
+	CommandAddError         = 0x04
+	CommandEchoResponse     = 0x05
+	CommandClientMessage    = 0x06
+	CommandClientMessageAck = 0x07
+	CommandKeepAlive        = 0x08
+	CommandAvailable        = 0x09
+	CommandClientRegistered = 0x0A
 )
 
 func StartServer() {
@@ -55,51 +55,51 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	}
 
 	switch buffer[0] {
-	case Command_QUERY:
+	case CommandQuery:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("QUERY").String())
 		break
 
-	case Command_CHALLENGE:
+	case CommandChallenge:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("CHALLENGE").String())
 		sessionId := binary.BigEndian.Uint32(buffer[1:5])
-		conn.WriteTo(createResponseHeader(Command_CLIENT_REGISTERED, sessionId), addr)
+		conn.WriteTo(createResponseHeader(CommandClientRegistered, sessionId), addr)
 		break
 
-	case Command_ECHO:
+	case CommandEcho:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("ECHO").String())
 		break
 
-	case Command_HEARTBEAT:
+	case CommandHeartbeat:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("HEARTBEAT").String())
 		heartbeat(conn, addr, buffer)
 		break
 
-	case Command_ADDERROR:
+	case CommandAddError:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("ADDERROR").String())
 		break
 
-	case Command_ECHO_RESPONSE:
+	case CommandEchoResponse:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("ECHO_RESPONSE").String())
 		break
 
-	case Command_CLIENT_MESSAGE:
+	case CommandClientMessage:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("CLIENT_MESSAGE").String())
 		return
 
-	case Command_CLIENT_MESSAGE_ACK:
+	case CommandClientMessageAck:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK").String())
 		return
 
-	case Command_KEEPALIVE:
+	case CommandKeepAlive:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("KEEPALIVE").String())
 		return
 
-	case Command_AVAILABLE:
+	case CommandAvailable:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("AVAILABLE").String())
-		conn.WriteTo(createResponseHeader(Command_AVAILABLE, 0), addr)
+		conn.WriteTo(createResponseHeader(CommandAvailable, 0), addr)
 		break
 
-	case Command_CLIENT_REGISTERED:
+	case CommandClientRegistered:
 		logging.Notice("MASTER", "Command:", aurora.Yellow("QUERY").String())
 		break
 

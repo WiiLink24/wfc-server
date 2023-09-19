@@ -100,15 +100,8 @@ func handleRequest(conn net.Conn) {
 				conn.Write([]byte(`\ka\\final\`))
 				break
 			case "otherslist":
-				payload := common.CreateGameSpyMessage(common.GameSpyCommand{
-					Command:      "otherslist",
-					CommandValue: "",
-					OtherValues: map[string]string{
-						"o":          "0",
-						"uniquenick": "7me4ijr5sRMCJ3d9uhvh",
-						"oldone":     "",
-					},
-				})
+				// This message needs to be sorted so we can't use a regular map
+				payload := `\otherslist\\oldone\\o\0\uniquenick\7me4ijr5sRMCJ3d9uhvh\final\`
 				conn.Write([]byte(payload))
 				break
 			}
