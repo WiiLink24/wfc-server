@@ -12,7 +12,7 @@ import (
 func main() {
 	wg := &sync.WaitGroup{}
 	actions := []func(){nas.StartServer, gpcm.StartServer, master.StartServer, gcsp.StartServer, matchmaking.StartServer}
-	wg.Add(4)
+	wg.Add(5)
 	for _, action := range actions {
 		go func(ac func()) {
 			defer wg.Done()
