@@ -10,7 +10,7 @@ import (
 
 func getProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) string {
 	strProfileId := command.OtherValues["profileid"]
-	profileId, _ := strconv.Atoi(strProfileId)
+	profileId, _ := strconv.ParseInt(strProfileId, 10, 0)
 
 	user := database.GetProfile(pool, ctx, profileId)
 
@@ -21,7 +21,7 @@ func getProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyC
 		OtherValues: map[string]string{
 			"profileid":  command.OtherValues["profileid"],
 			"nick":       user.UniqueNick,
-			"userid":     strconv.Itoa(user.UserId),
+			"userid":     strconv.FormatInt(user.UserId, 10),
 			"email":      user.Email,
 			"sig":        "b126556e5ee62d4da9629dfad0f6b2a8",
 			"uniquenick": user.UniqueNick,

@@ -20,7 +20,7 @@ import (
 var (
 	ctx    = context.Background()
 	pool   *pgxpool.Pool
-	userId int
+	userId int64
 )
 
 func checkError(err error) {

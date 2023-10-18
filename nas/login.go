@@ -14,7 +14,7 @@ const Challenge = "0qUekMb4"
 func login(r *Response) {
 	// Validate the user id. It must be an integer.
 	strUserId, _ := base64.StdEncoding.DecodeString(strings.Replace(r.request.PostForm.Get("userid"), "*", "=", -1))
-	userId, err := strconv.Atoi(string(strUserId))
+	userId, err := strconv.ParseInt(string(strUserId), 10, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -31,7 +31,6 @@ func login(r *Response) {
 	param.Set("token", strings.Replace(base64.StdEncoding.EncodeToString([]byte(authToken)), "=", "*", -1))
 
 	// Encode and send off to be written!
-	r.payload = []byte(param.Encode())
 	r.payload = []byte(param.Encode())
 	r.payload = []byte(strings.Replace(string(r.payload), "%2A", "*", -1))
 }

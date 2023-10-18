@@ -58,8 +58,8 @@ func login(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyComman
 		OtherValues: map[string]string{
 			"sesskey":    "199714190",
 			"proof":      proof,
-			"userid":     strconv.Itoa(user.UserId),
-			"profileid":  strconv.Itoa(user.ProfileId),
+			"userid":     strconv.FormatInt(user.UserId, 10),
+			"profileid":  strconv.FormatInt(user.ProfileId, 10),
 			"uniquenick": user.UniqueNick,
 			"lt":         loginTicket,
 			"id":         command.OtherValues["id"],

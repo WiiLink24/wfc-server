@@ -2,7 +2,7 @@ package common
 
 import "fmt"
 
-func Base32Encode(value int) string {
+func Base32Encode(value int64) string {
 	alpha := "0123456789abcdefghijklmnopqrstuv"
 
 	encoded := ""

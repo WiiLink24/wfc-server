@@ -36,6 +36,7 @@ func StartServer() {
 	r := NewRoute()
 	ac := r.HandleGroup("ac")
 	{
+		ac.HandleAction("acctcreate", acctcreate)
 		ac.HandleAction("login", login)
 	}
 

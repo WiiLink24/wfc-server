@@ -19,7 +19,7 @@ const (
 	GetUserAuthToken   = `SELECT auth_token FROM logins WHERE user_id = $1 AND gsbrcd = $2`
 )
 
-func GenerateAuthToken(pool *pgxpool.Pool, ctx context.Context, userId int, gsbrcd string) string {
+func GenerateAuthToken(pool *pgxpool.Pool, ctx context.Context, userId int64, gsbrcd string) string {
 	var authToken string
 	err := pool.QueryRow(ctx, GetUserAuthToken, userId, gsbrcd).Scan(&authToken)
 
@@ -63,8 +63,8 @@ func GenerateAuthToken(pool *pgxpool.Pool, ctx context.Context, userId int, gsbr
 	return authToken
 }
 
-func GetNASLogin(pool *pgxpool.Pool, ctx context.Context, authToken string) (int, string) {
-	var userId int
+func GetNASLogin(pool *pgxpool.Pool, ctx context.Context, authToken string) (int64, string) {
+	var userId int64
 	var gsbrcd string
 	err := pool.QueryRow(ctx, GetNASUserLogin, authToken).Scan(&userId, &gsbrcd)
 	if err != nil {

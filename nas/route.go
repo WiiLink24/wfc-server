@@ -3,10 +3,10 @@ package nas
 import (
 	"encoding/base64"
 	"github.com/logrusorgru/aurora/v3"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"wwfc/logging"
 )
 
 type Route struct {
@@ -48,16 +48,25 @@ func (r *RoutingGroup) HandleAction(action string, function func(*Response)) {
 
 func (route *Route) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s via %s", aurora.Yellow(r.Method), aurora.Cyan(r.URL), aurora.Cyan(r.Host))
+		logging.Notice("NAS", aurora.Yellow(r.Method).String(), aurora.Cyan(r.URL).String(), "via", aurora.Cyan(r.Host).String())
 		err := r.ParseForm()
 		if err != nil {
-			log.Printf(aurora.Red("failed to parse form").String())
+			logging.Notice("NAS", aurora.Red("Failed to parse form").String())
 			return
 		}
 
-		// While generally a bad idea, we can only have a path with a depth of one.
-		path := strings.Replace(r.URL.Path, "/", "", -1)
+		if !strings.HasPrefix(r.URL.Path, "/") {
+			logging.Notice("NAS", aurora.Red("Invalid URL").String())
+			return
+		}
+
+		path := r.URL.Path[1:]
 		actionName, _ := base64.StdEncoding.DecodeString(strings.Replace(r.PostForm.Get("action"), "*", "=", -1))
+
+		if string(actionName) == "" {
+			logging.Notice("NAS", aurora.Red("No action in form").String())
+			return
+		}
 
 		var action Action
 		for _, _action := range route.Actions {
@@ -68,7 +77,7 @@ func (route *Route) Handle() http.Handler {
 
 		// Make sure we found an action
 		if action.ActionName == "" && action.ServiceType == "" {
-			log.Printf(aurora.Red("no action found").String())
+			logging.Notice("NAS", aurora.Red("No action for").String(), aurora.Yellow(string(actionName)).String())
 			return
 		}
 

@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"wwfc/common"
 
 	"github.com/jackc/pgx/v4"
@@ -20,8 +21,8 @@ const (
 )
 
 type User struct {
-	ProfileId  int
-	UserId     int
+	ProfileId  int64
+	UserId     int64
 	GsbrCode   string
 	Password   string
 	Email      string
@@ -37,7 +38,12 @@ func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) {
 	}
 }
 
-func UpdateUser(pool *pgxpool.Pool, ctx context.Context, firstName string, lastName string, userId int) User {
+func GetUniqueUserID() int64 {
+	// Not guaranteed unique but doesn't matter in practice if multiple people have the same user ID.
+	return rand.Int63n(100000000000000)
+}
+
+func UpdateUser(pool *pgxpool.Pool, ctx context.Context, firstName string, lastName string, userId int64) User {
 	user := User{}
 	_, err := pool.Exec(ctx, UpdateUserTable, firstName, lastName, userId)
 	if err != nil {
@@ -47,7 +53,7 @@ func UpdateUser(pool *pgxpool.Pool, ctx context.Context, firstName string, lastN
 	return user
 }
 
-func CreateSession(pool *pgxpool.Pool, ctx context.Context, profileId int, loginTicket string) string {
+func CreateSession(pool *pgxpool.Pool, ctx context.Context, profileId int64, loginTicket string) string {
 	// Delete session first.
 	deleteSession(pool, ctx, profileId)
 
@@ -60,14 +66,14 @@ func CreateSession(pool *pgxpool.Pool, ctx context.Context, profileId int, login
 	return sessionKey
 }
 
-func deleteSession(pool *pgxpool.Pool, ctx context.Context, profileId int) {
+func deleteSession(pool *pgxpool.Pool, ctx context.Context, profileId int64) {
 	_, err := pool.Exec(ctx, DeleteUserSession, profileId)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		panic(err)
 	}
 }
 
-func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId int) User {
+func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId int64) User {
 	user := User{}
 	row := pool.QueryRow(ctx, GetUser, profileId)
 	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Password, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName)
