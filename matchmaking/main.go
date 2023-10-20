@@ -79,9 +79,6 @@ func handleRequest(conn net.Conn) {
 		fmt.Printf("Unable to set keepalive - %s", err)
 	}
 
-	// log.Printf("%s: Connection established from %s. Sending challenge.", aurora.Green("[NOTICE]"), aurora.Yellow(conn.RemoteAddr()))
-	// conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
-
 	// Here we go into the listening loop
 	for {
 		buffer := make([]byte, 1024)
@@ -95,11 +92,13 @@ func handleRequest(conn net.Conn) {
 
 		switch buffer[2] {
 		case ServerList:
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("SERVER_LIST").String())
+
 			serverList(conn, buffer)
 			break
 
 		default:
-			logging.Notice(ModuleName, "Command:", aurora.Yellow(buffer[2]).String())
+			logging.Notice(ModuleName, "Unknown command:", aurora.Yellow(buffer[2]).String())
 			break
 		}
 	}
