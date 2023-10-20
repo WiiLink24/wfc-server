@@ -4,26 +4,32 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"wwfc/common"
+	"wwfc/logging"
 )
 
 func StartServer() {
-	l, err := net.Listen("tcp", "127.0.0.1:27900")
+	// Get config
+	config := common.GetConfig()
+
+	address := config.Address + ":27900"
+	l, err := net.Listen("tcp", address)
 	if err != nil {
-		fmt.Println("Error listening:", err.Error())
-		os.Exit(1)
+		panic(err)
 	}
+
 	// Close the listener when the application closes.
 	defer l.Close()
-	fmt.Println("Listening on " + "127.0.0.1:29901")
+	logging.Notice("GPSP", "Listening on", address)
+
 	for {
 		// Listen for an incoming connection.
 		conn, err := l.Accept()
 		if err != nil {
-			fmt.Println("Error accepting: ", err.Error())
-			os.Exit(1)
+			panic(err)
 		}
+
 		// Handle connections in a new goroutine.
-		fmt.Println("aaaa")
 		go handleRequest(conn)
 	}
 }
@@ -35,10 +41,9 @@ func handleRequest(conn net.Conn) {
 	// Read the incoming connection into the buffer.
 	reqLen, err := conn.Read(buf)
 	if err != nil {
-		fmt.Println("Error reading:", err.Error())
+		panic(err)
 	}
-	fmt.Println(reqLen)
-	fmt.Println(string(buf))
+
 	// Send a response back to person contacting us.
 	conn.Write([]byte(`\ka\\final\`))
 	// Close the connection when you're done with it.

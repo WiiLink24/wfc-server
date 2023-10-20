@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 	"wwfc/common"
+	"wwfc/logging"
 	"wwfc/nhttp"
 )
 
@@ -14,12 +15,6 @@ var (
 	pool *pgxpool.Pool
 )
 
-func checkError(err error) {
-	if err != nil {
-		log.Fatalf("NAS server has encountered a fatal error! Reason: %v\n", err)
-	}
-}
-
 func StartServer() {
 	// Get config
 	config := common.GetConfig()
@@ -27,12 +22,17 @@ func StartServer() {
 	// Start SQL
 	dbString := fmt.Sprintf("postgres://%s:%s@%s/%s", config.Username, config.Password, config.DatabaseAddress, config.DatabaseName)
 	dbConf, err := pgxpool.ParseConfig(dbString)
-	checkError(err)
+	if err != nil {
+		panic(err)
+	}
+
 	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
-	checkError(err)
+	if err != nil {
+		panic(err)
+	}
 
 	// Finally, initialize the HTTP server
-	fmt.Printf("Starting HTTP connection (%s)...\nNot using the usual port for HTTP?\nBe sure to use a proxy, otherwise the Wii can't connect!\n", "[::1]")
+	address := config.Address + ":80"
 	r := NewRoute()
 	ac := r.HandleGroup("ac")
 	{
@@ -40,5 +40,6 @@ func StartServer() {
 		ac.HandleAction("login", login)
 	}
 
+	logging.Notice("NAS", "Starting HTTP server on", address)
 	log.Fatal(nhttp.ListenAndServe("0.0.0.0:80", r.Handle()))
 }

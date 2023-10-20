@@ -5,13 +5,12 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/database"
-
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {

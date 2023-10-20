@@ -2,12 +2,11 @@ package master
 
 import (
 	"encoding/binary"
-	"log"
+	"github.com/logrusorgru/aurora/v3"
 	"net"
 	"sync"
+	"wwfc/common"
 	"wwfc/logging"
-
-	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
@@ -31,12 +30,18 @@ const (
 )
 
 func StartServer() {
-	conn, err := net.ListenPacket("udp", ":27900")
+	// Get config
+	config := common.GetConfig()
+
+	address := config.Address + ":27900"
+	conn, err := net.ListenPacket("udp", address)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
+	// Close the listener when the application closes.
 	defer conn.Close()
+	logging.Notice("MASTER", "Listening on", address)
 
 	for {
 		buf := make([]byte, 1024)

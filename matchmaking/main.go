@@ -5,16 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 	"io"
-	"log"
 	"net"
 	"os"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
-
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
@@ -28,12 +26,6 @@ const (
 	ModuleName = "MATCHMAKING"
 )
 
-func checkError(err error) {
-	if err != nil {
-		log.Fatalf("GCSP server has encountered a fatal error! Reason: %v\n", err)
-	}
-}
-
 func StartServer() {
 	// Get config
 	config := common.GetConfig()
@@ -41,18 +33,25 @@ func StartServer() {
 	// Start SQL
 	dbString := fmt.Sprintf("postgres://%s:%s@%s/%s", config.Username, config.Password, config.DatabaseAddress, config.DatabaseName)
 	dbConf, err := pgxpool.ParseConfig(dbString)
-	checkError(err)
-	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
-	checkError(err)
-
-	l, err := net.Listen("tcp", "127.0.0.1:28910")
 	if err != nil {
-		fmt.Println("Error listening:", err.Error())
-		os.Exit(1)
+		panic(err)
 	}
+
+	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
+	if err != nil {
+		panic(err)
+	}
+
+	address := config.Address + ":28910"
+	l, err := net.Listen("tcp", address)
+	if err != nil {
+		panic(err)
+	}
+
 	// Close the listener when the application closes.
 	defer l.Close()
-	fmt.Println("Listening on " + "127.0.0.1:28910")
+	logging.Notice("MATCHMAKING", "Listening on", address)
+
 	for {
 		// Listen for an incoming connection.
 		conn, err := l.Accept()

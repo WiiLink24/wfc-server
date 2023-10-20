@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"wwfc/common"
 	"wwfc/logging"
 
@@ -105,11 +106,15 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, authToken string) 
 	if !exists {
 		// Create the GPCM account
 		user.CreateUser(pool, ctx)
+
+		logging.Notice("DATABASE", "Created new GPCM user:", aurora.Cyan(strconv.FormatInt(user.UserId, 10)).String(), aurora.Cyan(user.GsbrCode).String(), "-", aurora.Cyan(strconv.FormatInt(user.ProfileId, 10)).String())
 	} else {
 		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId)
 		if err != nil {
 			panic(err)
 		}
+
+		logging.Notice("DATABASE", "Log in GPCM user:", aurora.Cyan(strconv.FormatInt(user.UserId, 10)).String(), aurora.Cyan(user.GsbrCode).String(), "-", aurora.Cyan(strconv.FormatInt(user.ProfileId, 10)).String())
 	}
 
 	return user, true

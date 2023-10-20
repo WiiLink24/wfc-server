@@ -1,6 +1,6 @@
 <Config>
-    <!-- The address which HTTP will bind to -->
-    <address>127.0.0.1:8080</address>
+    <!-- The address the server will bind to -->
+    <address>127.0.0.1</address>
 
     <!-- Database Credentials -->
     <username>username</username>
