@@ -40,7 +40,7 @@ func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) {
 
 func GetUniqueUserID() int64 {
 	// Not guaranteed unique but doesn't matter in practice if multiple people have the same user ID.
-	return rand.Int63n(100000000000000)
+	return rand.Int63n(0x80000000000)
 }
 
 func UpdateUser(pool *pgxpool.Pool, ctx context.Context, firstName string, lastName string, userId int64) User {
