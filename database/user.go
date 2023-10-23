@@ -21,7 +21,7 @@ const (
 )
 
 type User struct {
-	ProfileId  int64
+	ProfileId  uint32
 	UserId     int64
 	GsbrCode   string
 	Password   string
@@ -53,10 +53,7 @@ func UpdateUser(pool *pgxpool.Pool, ctx context.Context, firstName string, lastN
 	return user
 }
 
-func CreateSession(pool *pgxpool.Pool, ctx context.Context, profileId int64, loginTicket string) string {
-	// Delete session first.
-	deleteSession(pool, ctx, profileId)
-
+func CreateSession(pool *pgxpool.Pool, ctx context.Context, profileId uint32, loginTicket string) string {
 	sessionKey := common.RandomString(8)
 	_, err := pool.Exec(ctx, CreateUserSession, sessionKey, profileId, loginTicket)
 	if err != nil {
@@ -66,14 +63,14 @@ func CreateSession(pool *pgxpool.Pool, ctx context.Context, profileId int64, log
 	return sessionKey
 }
 
-func deleteSession(pool *pgxpool.Pool, ctx context.Context, profileId int64) {
+func deleteSession(pool *pgxpool.Pool, ctx context.Context, profileId uint32) {
 	_, err := pool.Exec(ctx, DeleteUserSession, profileId)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		panic(err)
 	}
 }
 
-func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId int64) User {
+func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) User {
 	user := User{}
 	row := pool.QueryRow(ctx, GetUser, profileId)
 	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Password, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName)

@@ -23,10 +23,10 @@ func CalcFriendCode(pid uint32, gameId string) uint64 {
 }
 
 func CalcFriendCodeString(pid uint32, gameId string) string {
-	return GetFriendCodeString(CalcFriendCode(pid, gameId))
+	return GetRawFriendCodeString(CalcFriendCode(pid, gameId))
 }
 
-func GetFriendCodeString(fc uint64) string {
+func GetRawFriendCodeString(fc uint64) string {
 	s := fmt.Sprintf("%012d", fc)
 	return s[len(s)-12:len(s)-8] + "-" + s[len(s)-8:len(s)-4] + "-" + s[len(s)-4:]
 }

@@ -22,8 +22,23 @@ var (
 )
 
 const (
-	ServerList = iota
 	ModuleName = "MATCHMAKING"
+
+	// Requests sent from the client
+	ServerListRequest   = 0x00
+	ServerInfoRequest   = 0x01
+	SendMessageRequest  = 0x02
+	KeepaliveReply      = 0x03
+	MapLoopRequest      = 0x04
+	PlayerSearchRequest = 0x05
+
+	// Requests sent from the server to the client
+	PushKeysMessage     = 0x01
+	PushServerMessage   = 0x02
+	KeepaliveMessage    = 0x03
+	DeleteServerMessage = 0x04
+	MapLoopMessage      = 0x05
+	PlayerSearchMessage = 0x06
 )
 
 func StartServer() {
@@ -91,10 +106,30 @@ func handleRequest(conn net.Conn) {
 		}
 
 		switch buffer[2] {
-		case ServerList:
-			logging.Notice(ModuleName, "Command:", aurora.Yellow("SERVER_LIST").String())
+		case ServerListRequest:
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("SERVER_LIST_REQUEST").String())
+			handleServerListRequest(conn, buffer)
+			break
 
-			serverList(conn, buffer)
+		case ServerInfoRequest:
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("SERVER_INFO_REQUEST").String())
+			break
+
+		case SendMessageRequest:
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("SEND_MESSAGE_REQUEST").String())
+			// TODO
+			break
+
+		case KeepaliveReply:
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("KEEPALIVE_REPLY").String())
+			break
+
+		case MapLoopRequest:
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("MAPLOOP_REQUEST").String())
+			break
+
+		case PlayerSearchRequest:
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("PLAYER_SEARCH_REQUEST").String())
 			break
 
 		default:

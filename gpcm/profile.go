@@ -2,20 +2,22 @@ package gpcm
 
 import (
 	"context"
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
-
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 )
 
-func getProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) string {
+func GetProfile(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) string {
 	strProfileId := command.OtherValues["profileid"]
-	profileId, _ := strconv.ParseInt(strProfileId, 10, 0)
+	profileId, err := strconv.ParseInt(strProfileId, 10, 32)
+	if err != nil {
+		panic(err)
+	}
 
-	user := database.GetProfile(pool, ctx, profileId)
+	user := database.GetProfile(pool, ctx, uint32(profileId))
 
 	_ = common.RandomHexString(32)
 	return common.CreateGameSpyMessage(common.GameSpyCommand{
@@ -39,7 +41,7 @@ func getProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyC
 	})
 }
 
-func updateProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func UpdateProfile(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
 	var firstName string
 	var lastName string
 	if v, ok := command.OtherValues["firstname"]; ok {
@@ -50,24 +52,22 @@ func updateProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameS
 		lastName = v
 	}
 
-	database.UpdateUser(pool, ctx, firstName, lastName, userId)
+	database.UpdateUser(pool, ctx, firstName, lastName, session.User.UserId)
 }
 
-func addFriend(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
-	profileid := command.OtherValues["newprofileid"]
-
-	profileid_int, err := strconv.ParseUint(profileid, 10, 32)
+func AddFriend(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+	strProfileId := command.OtherValues["newprofileid"]
+	profileId, err := strconv.ParseUint(strProfileId, 10, 32)
 	if err != nil {
-		logging.Notice("GPCM", "Error parsing profileid:", err.Error())
-		return
+		panic(err)
 	}
 
-	fc := common.CalcFriendCodeString(uint32(profileid_int), "RMCJ")
-	logging.Notice("GPCM", "Add friend:", aurora.Cyan(profileid).String(), aurora.Cyan(fc).String())
+	fc := common.CalcFriendCodeString(uint32(profileId), "RMCJ")
+	logging.Notice(session.ModuleName, "Add friend:", aurora.Cyan(strProfileId).String(), aurora.Cyan(fc).String())
 	// TODO
 }
 
-func removeFriend(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func RemoveFriend(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
 	// TODO
 }
 

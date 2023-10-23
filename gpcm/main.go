@@ -11,13 +11,19 @@ import (
 	"net"
 	"time"
 	"wwfc/common"
+	"wwfc/database"
 	"wwfc/logging"
 )
 
+type GameSpySession struct {
+	User       database.User
+	ModuleName string
+	LoggedIn   bool
+}
+
 var (
-	ctx    = context.Background()
-	pool   *pgxpool.Pool
-	userId int64
+	ctx  = context.Background()
+	pool *pgxpool.Pool
 )
 
 func StartServer() {
@@ -60,6 +66,12 @@ func StartServer() {
 
 // Handles incoming requests.
 func handleRequest(conn net.Conn) {
+	session := GameSpySession{
+		User:       database.User{},
+		ModuleName: "GPCM",
+		LoggedIn:   false,
+	}
+
 	defer conn.Close()
 
 	// Set session ID and challenge
@@ -67,19 +79,17 @@ func handleRequest(conn net.Conn) {
 
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
-		logging.Notice("GPCM", "Unable to set keepalive:", err.Error())
+		logging.Notice(session.ModuleName, "Unable to set keepalive:", err.Error())
 	}
 
 	err = conn.(*net.TCPConn).SetKeepAlivePeriod(time.Hour * 1000)
 	if err != nil {
-		logging.Notice("GPCM", "Unable to set keepalive:", err.Error())
+		logging.Notice(session.ModuleName, "Unable to set keepalive:", err.Error())
 	}
 
 	conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
 
-	logging.Notice("GPCM", "Connection established from", conn.RemoteAddr().String())
-
-	loggedIn := false
+	logging.Notice(session.ModuleName, "Connection established from", conn.RemoteAddr().String())
 
 	// Here we go into the listening loop
 	for {
@@ -88,32 +98,31 @@ func handleRequest(conn net.Conn) {
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				// Client closed connection, terminate.
-				logging.Notice("GPCM", "Client closed connection")
+				logging.Notice(session.ModuleName, "Client closed connection")
 				return
 			}
+
+			logging.Notice(session.ModuleName, "Connection lost")
+			return
 		}
 
 		commands, err := common.ParseGameSpyMessage(string(buffer))
 		if err != nil {
-			logging.Notice("GPCM", "Error parsing message:", err.Error())
-			logging.Notice("GPCM", "Raw data:", string(buffer))
+			logging.Notice(session.ModuleName, "Error parsing message:", err.Error())
+			logging.Notice(session.ModuleName, "Raw data:", string(buffer))
 			return
 		}
 
 		for _, command := range commands {
-			logging.Notice("GPCM", "Command:", aurora.Yellow(command.Command).String())
+			logging.Notice(session.ModuleName, "Command:", aurora.Yellow(command.Command).String())
 
-			if loggedIn == false {
+			if session.LoggedIn == false {
 				if command.Command != "login" {
-					logging.Notice("GPCM", "Attempt to run command before login!!!")
+					logging.Notice(session.ModuleName, "Attempt to run command before login!!!")
 					return
 				}
 
-				payload := login(pool, ctx, command, challenge)
-				if userId != 0 {
-					loggedIn = true
-				}
-
+				payload, _ := Login(&session, pool, ctx, command, challenge)
 				conn.Write([]byte(payload))
 			}
 		}
@@ -130,24 +139,24 @@ func handleRequest(conn net.Conn) {
 				return
 
 			case "updatepro":
-				updateProfile(pool, ctx, command)
+				UpdateProfile(&session, pool, ctx, command)
 				break
 
 			case "status":
-				logging.Notice("GPCM", "statstring:", aurora.Cyan(command.OtherValues["statstring"]).String())
+				logging.Notice(session.ModuleName, "statstring:", aurora.Cyan(command.OtherValues["statstring"]).String())
 				if command.OtherValues["locstring"] == "" {
-					logging.Notice("GPCM", "locstring: (empty)")
+					logging.Notice(session.ModuleName, "locstring: (empty)")
 				} else {
-					logging.Notice("GPCM", "locstring:", aurora.Cyan(command.OtherValues["locstring"]).String())
+					logging.Notice(session.ModuleName, "locstring:", aurora.Cyan(command.OtherValues["locstring"]).String())
 				}
 				break
 
 			case "addbuddy":
-				addFriend(pool, ctx, command)
+				AddFriend(&session, pool, ctx, command)
 				break
 
 			case "delbuddy":
-				removeFriend(pool, ctx, command)
+				RemoveFriend(&session, pool, ctx, command)
 				break
 			}
 		}
@@ -159,7 +168,7 @@ func handleRequest(conn net.Conn) {
 				break
 
 			case "getprofile":
-				payload := getProfile(pool, ctx, command)
+				payload := GetProfile(&session, pool, ctx, command)
 				conn.Write([]byte(payload))
 				break
 			}
