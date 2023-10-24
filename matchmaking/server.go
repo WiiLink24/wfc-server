@@ -8,6 +8,7 @@ import (
 	"strings"
 	"wwfc/common"
 	"wwfc/logging"
+	"wwfc/master"
 )
 
 const (
@@ -27,36 +28,18 @@ const (
 	KeyTypeShort  = 0x02
 
 	// Options for ServerListRequest
+	SendFieldsForAllOption  = 1 << 0 // 0x01 / 1
 	NoServerListOption      = 1 << 1 // 0x02 / 2
 	PushUpdatesOption       = 1 << 2 // 0x04 / 4
 	AlternateSourceIPOption = 1 << 3 // 0x08 / 8
+	SendGroupsOption        = 1 << 5 // 0x20 / 32
 	NoListCacheOption       = 1 << 6 // 0x40 / 64
 	LimitResultCountOption  = 1 << 7 // 0x80 / 128
 )
 
 func FindServers(gueryGame string, filter string) ([]map[string]string, error) {
-	// TODO
-
-	// This is a temporary hardcoded server
-	server := map[string]string{
-		"localip0":      "192.168.1.100",
-		"localport":     "64174",
-		"natneg":        "1",
-		"gamename":      "mariokartwii",
-		"publicip":      "2130706433", // 127.0.0.1
-		"publicport":    "64174",
-		"numplayers":    "0",
-		"maxplayers":    "11",
-		"dwc_pid":       "27",
-		"dwc_mtype":     "2",
-		"dwc_mver":      "90",
-		"dwc_eval":      "1",
-		"dwc_groupid":   "100000027",
-		"dwc_hoststate": "2",
-		"dwc_suspend":   "1",
-	}
-
-	return []map[string]string{server}, nil
+	// TODO: Handle gueryGame, filter
+	return master.GetSessionServers(), nil
 }
 
 func popString(buffer []byte, index int) (string, int) {

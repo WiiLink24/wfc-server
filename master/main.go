@@ -4,7 +4,9 @@ import (
 	"encoding/binary"
 	"github.com/logrusorgru/aurora/v3"
 	"net"
+	"strconv"
 	"sync"
+	"time"
 	"wwfc/common"
 	"wwfc/logging"
 )
@@ -16,17 +18,17 @@ var (
 )
 
 const (
-	CommandQuery            = 0x00
-	CommandChallenge        = 0x01
-	CommandEcho             = 0x02
-	CommandHeartbeat        = 0x03
-	CommandAddError         = 0x04
-	CommandEchoResponse     = 0x05
-	CommandClientMessage    = 0x06
-	CommandClientMessageAck = 0x07
-	CommandKeepAlive        = 0x08
-	CommandAvailable        = 0x09
-	CommandClientRegistered = 0x0A
+	QueryRequest            = 0x00
+	ChallengeRequest        = 0x01
+	EchoRequest             = 0x02
+	HeartbeatRequest        = 0x03
+	AddErrorRequest         = 0x04
+	EchoResponseRequest     = 0x05
+	ClientMessageRequest    = 0x06
+	ClientMessageAckRequest = 0x07
+	KeepAliveRequest        = 0x08
+	AvailableRequest        = 0x09
+	ClientRegisteredReply   = 0x0A
 )
 
 func StartServer() {
@@ -55,61 +57,71 @@ func StartServer() {
 }
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
-	if buffer[0] != 9 {
-		addSession(addr, buffer)
+	if buffer[0] == AvailableRequest {
+		logging.Notice("MASTER", "Command:", aurora.Yellow("AVAILABLE").String())
+		conn.WriteTo(createResponseHeader(AvailableRequest, 0), addr)
+		return
 	}
 
+	sessionId := binary.BigEndian.Uint32(buffer[1:5])
+	moduleName := "MASTER:" + strconv.FormatInt(int64(sessionId), 10)
+
 	switch buffer[0] {
-	case CommandQuery:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("QUERY").String())
+	case QueryRequest:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("QUERY").String())
 		break
 
-	case CommandChallenge:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("CHALLENGE").String())
-		sessionId := binary.BigEndian.Uint32(buffer[1:5])
-		conn.WriteTo(createResponseHeader(CommandClientRegistered, sessionId), addr)
+	case ChallengeRequest:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("CHALLENGE").String())
+
+		mutex.Lock()
+		sessions[sessionId].Authenticated = true
+		mutex.Unlock()
+		conn.WriteTo(createResponseHeader(ClientRegisteredReply, sessionId), addr)
 		break
 
-	case CommandEcho:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("ECHO").String())
+	case EchoRequest:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("ECHO").String())
 		break
 
-	case CommandHeartbeat:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("HEARTBEAT").String())
+	case HeartbeatRequest:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("HEARTBEAT").String())
 		heartbeat(conn, addr, buffer)
 		break
 
-	case CommandAddError:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("ADDERROR").String())
+	case AddErrorRequest:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("ADDERROR").String())
 		break
 
-	case CommandEchoResponse:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("ECHO_RESPONSE").String())
+	case EchoResponseRequest:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("ECHO_RESPONSE").String())
 		break
 
-	case CommandClientMessage:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("CLIENT_MESSAGE").String())
+	case ClientMessageRequest:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE").String())
 		return
 
-	case CommandClientMessageAck:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK").String())
+	case ClientMessageAckRequest:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK").String())
 		return
 
-	case CommandKeepAlive:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("KEEPALIVE").String())
+	case KeepAliveRequest:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("KEEPALIVE").String())
+		sessionId := binary.BigEndian.Uint32(buffer[1:5])
+		mutex.Lock()
+		sessions[sessionId].LastKeepAlive = time.Now().Unix()
+		mutex.Unlock()
 		return
 
-	case CommandAvailable:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("AVAILABLE").String())
-		conn.WriteTo(createResponseHeader(CommandAvailable, 0), addr)
-		break
+	case AvailableRequest:
+		return
 
-	case CommandClientRegistered:
-		logging.Notice("MASTER", "Command:", aurora.Yellow("QUERY").String())
+	case ClientRegisteredReply:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_REGISTERED").String())
 		break
 
 	default:
-		logging.Notice("MASTER", "Unknown command:", aurora.Yellow(buffer[0]).String())
+		logging.Notice(moduleName, "Unknown command:", aurora.Yellow(buffer[0]).String())
 		return
 	}
 }

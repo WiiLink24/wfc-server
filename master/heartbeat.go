@@ -11,7 +11,7 @@ import (
 
 func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	sessionId := binary.BigEndian.Uint32(buffer[1:5])
-	moduleName := "AVAILABLE:" + strconv.FormatInt(int64(sessionId), 10)
+	moduleName := "MASTER:" + strconv.FormatInt(int64(sessionId), 10)
 
 	logging.Notice(moduleName, "Received heartbeat from", aurora.Cyan(addr).String())
 	values := strings.Split(string(buffer[5:]), "\u0000")
@@ -26,28 +26,49 @@ func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		logging.Notice(moduleName, aurora.Cyan(values[i]).String()+":", aurora.Cyan(values[i+1]).String())
 	}
 
-	publicip, ok := payload["publicip"]
-	if !ok || publicip == "0" {
-		sendChallenge(conn, addr, sessionId)
-		return
-	}
-
-	// TODO: Check if the client is registered
-
-	statechanged, ok := payload["statechanged"]
-	if ok {
+	if statechanged, ok := payload["statechanged"]; ok {
 		if statechanged == "1" {
-			// statechanged is 1 and publicip is not 0
 			// TODO: This would be a good place to run the server->client message exploit
 			// for DNS patcher games that require code patches. The status code should be
-			// set to 5 at this point, which is required.
-			logging.Notice(moduleName, "Client server update")
+			// set to 5 at this point (if publicip is not 0), which is required.
+			logging.Notice(moduleName, "Client session update")
 			// Fall through
 		}
 
 		if statechanged == "2" {
-			logging.Notice(moduleName, "Client server shutdown")
+			logging.Notice(moduleName, "Client session shutdown")
+			removeSession(sessionId)
 			return
 		}
+	}
+
+	addrString := strings.Split(addr.String(), ":")
+
+	var rawIP int
+	for i, s := range strings.Split(addrString[0], ".") {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			panic(err)
+		}
+
+		rawIP |= val << (24 - i*8)
+	}
+
+	// TODO: Check if this handles negative numbers correctly
+	realIP := strconv.FormatInt(int64(int32(rawIP)), 10)
+	realPort := addrString[1]
+
+	publicIPKey, hasPublicIPKey := payload["publicip"]
+	if !hasPublicIPKey || publicIPKey != realIP {
+		// Set the public IP key to the real IP, and then send the challenge (done later)
+		payload["publicip"] = realIP
+		payload["publicport"] = realPort
+	}
+
+	session := setSessionData(sessionId, payload)
+	if !session.Authenticated || !hasPublicIPKey || publicIPKey != realIP {
+		logging.Notice(moduleName, "Sending challenge")
+		sendChallenge(conn, addr, session)
+		return
 	}
 }

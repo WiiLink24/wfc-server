@@ -8,34 +8,35 @@ import (
 	"wwfc/common"
 )
 
-func sendChallenge(conn net.PacketConn, addr net.Addr, sessionId uint32) {
-	addrString := strings.Split(addr.String(), ":")
+func sendChallenge(conn net.PacketConn, addr net.Addr, session Session) {
+	challenge := session.Challenge
+	if challenge == "" {
+		// Generate challenge
+		addrString := strings.Split(addr.String(), ":")
+		var hexIP string
+		for _, i := range strings.Split(addrString[0], ".") {
+			val, err := strconv.ParseUint(i, 10, 64)
+			if err != nil {
+				panic(err)
+			}
 
-	// Generate challenge and send to server
-	var hexIP string
-	for _, i := range strings.Split(addrString[0], ".") {
-		val, err := strconv.ParseUint(i, 10, 64)
+			hexIP += fmt.Sprintf("%02X", val)
+		}
+
+		port, err := strconv.ParseUint(addrString[1], 10, 64)
 		if err != nil {
 			panic(err)
 		}
 
-		hexIP += fmt.Sprintf("%02X", val)
+		hexPort := fmt.Sprintf("%04X", port)
+
+		challenge = common.RandomString(6) + "00" + hexIP + hexPort
+		mutex.Lock()
+		sessions[session.SessionID].Challenge = challenge
+		mutex.Unlock()
 	}
 
-	port, err := strconv.ParseUint(addrString[1], 10, 64)
-	if err != nil {
-		panic(err)
-	}
-
-	hexPort := fmt.Sprintf("%04X", port)
-
-	challenge := common.RandomString(6) + "00" + hexIP + hexPort
-	mutex.Lock()
-	session := sessions[sessionId]
-	session.Challenge = challenge
-	mutex.Unlock()
-
-	response := createResponseHeader(CommandChallenge, sessionId)
+	response := createResponseHeader(ChallengeRequest, session.SessionID)
 	response = append(response, []byte(challenge)...)
 	response = append(response, 0)
 
