@@ -2,6 +2,7 @@ package matchmaking
 
 import (
 	"encoding/binary"
+	"fmt"
 	"github.com/logrusorgru/aurora/v3"
 	"net"
 	"strconv"
@@ -237,4 +238,16 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 
 	// Write the encrypted reply
 	conn.Write(common.EncryptTypeX([]byte("9r3Rmy"), challenge, output))
+}
+
+func handleSendMessageRequest(conn net.Conn, buffer []byte) {
+	// Read destination IP from buffer
+	destIP := fmt.Sprintf("%d.%d.%d.%d:%d", buffer[3], buffer[4], buffer[5], buffer[6], binary.BigEndian.Uint16(buffer[7:9]))
+
+	logging.Notice(ModuleName, "Send message from", aurora.Cyan(conn.RemoteAddr()).String(), "to", aurora.Cyan(destIP).String())
+
+	// TODO: Perform basic packet verification
+	// TODO SECURITY: Check if the selected IP is actually online, or at least make sure it's not a local IP
+
+	master.SendClientMessage(destIP, buffer[9:])
 }

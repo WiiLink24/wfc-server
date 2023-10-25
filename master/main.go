@@ -13,8 +13,9 @@ import (
 
 var (
 	// I would use a sync.Map instead of the map mutex combo, but this performs better.
-	sessions = map[uint32]*Session{}
-	mutex    = sync.RWMutex{}
+	sessions   = map[uint32]*Session{}
+	mutex      = sync.RWMutex{}
+	masterConn net.PacketConn
 )
 
 const (
@@ -40,6 +41,8 @@ func StartServer() {
 	if err != nil {
 		panic(err)
 	}
+
+	masterConn = conn
 
 	// Close the listener when the application closes.
 	defer conn.Close()

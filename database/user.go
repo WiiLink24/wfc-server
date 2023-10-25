@@ -3,11 +3,10 @@ package database
 import (
 	"context"
 	"errors"
-	"math/rand"
-	"wwfc/common"
-
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"math/rand"
+	"wwfc/common"
 )
 
 const (
@@ -70,13 +69,14 @@ func deleteSession(pool *pgxpool.Pool, ctx context.Context, profileId uint32) {
 	}
 }
 
-func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) User {
+func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, bool) {
 	user := User{}
 	row := pool.QueryRow(ctx, GetUser, profileId)
 	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Password, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName)
 	if err != nil {
-		panic(err)
+		return User{}, false
 	}
 
-	return user
+	user.ProfileId = profileId
+	return user, true
 }

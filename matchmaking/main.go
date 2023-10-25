@@ -3,6 +3,7 @@ package matchmaking
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -95,20 +96,50 @@ func handleRequest(conn net.Conn) {
 	}
 
 	// Here we go into the listening loop
+	bufferSize := 0
+	packetSize := uint16(0)
+	buffer := []byte{}
 	for {
-		buffer := make([]byte, 1024)
-		_, err := bufio.NewReader(conn).Read(buffer)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				// Client closed connection, terminate.
+		// Remove stale data and remake the buffer
+		buffer = append(buffer[packetSize:], make([]byte, 1024-packetSize)...)
+		bufferSize -= int(packetSize)
+		packetSize = 0
+
+		for {
+			if bufferSize > 2 {
+				packetSize = binary.BigEndian.Uint16(buffer[:2])
+				if packetSize < 3 {
+					logging.Notice(ModuleName, "Invalid packet size - terminating")
+					return
+				}
+
+				if bufferSize >= int(packetSize) {
+					// Got a full packet, break to continue
+					break
+				}
+			}
+
+			readSize, err := bufio.NewReader(conn).Read(buffer[bufferSize:])
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					logging.Notice(ModuleName, "Connection closed")
+					return
+				}
+
+				logging.Notice(ModuleName, "Connection error")
 				return
 			}
+
+			bufferSize += readSize
 		}
+
+		logging.Notice(ModuleName, "packet size:", aurora.Cyan(packetSize).String())
+		logging.Notice(ModuleName, "buffer size:", aurora.Cyan(bufferSize).String())
 
 		switch buffer[2] {
 		case ServerListRequest:
 			logging.Notice(ModuleName, "Command:", aurora.Yellow("SERVER_LIST_REQUEST").String())
-			handleServerListRequest(conn, buffer)
+			handleServerListRequest(conn, buffer[:packetSize])
 			break
 
 		case ServerInfoRequest:
@@ -117,7 +148,7 @@ func handleRequest(conn net.Conn) {
 
 		case SendMessageRequest:
 			logging.Notice(ModuleName, "Command:", aurora.Yellow("SEND_MESSAGE_REQUEST").String())
-			// TODO
+			handleSendMessageRequest(conn, buffer[:packetSize])
 			break
 
 		case KeepaliveReply:

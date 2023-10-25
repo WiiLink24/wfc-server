@@ -9,6 +9,7 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"net"
+	"sync"
 	"time"
 	"wwfc/common"
 	"wwfc/database"
@@ -16,14 +17,19 @@ import (
 )
 
 type GameSpySession struct {
+	Conn       net.Conn
 	User       database.User
 	ModuleName string
 	LoggedIn   bool
+	Status     string
 }
 
 var (
 	ctx  = context.Background()
 	pool *pgxpool.Pool
+	// I would use a sync.Map instead of the map mutex combo, but this performs better.
+	sessions = map[uint32]*GameSpySession{}
+	mutex    = sync.RWMutex{}
 )
 
 func StartServer() {
@@ -64,15 +70,27 @@ func StartServer() {
 	}
 }
 
+func closeSession(session *GameSpySession) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	session.Conn.Close()
+	if session.LoggedIn {
+		delete(sessions, session.User.ProfileId)
+	}
+}
+
 // Handles incoming requests.
 func handleRequest(conn net.Conn) {
 	session := GameSpySession{
+		Conn:       conn,
 		User:       database.User{},
 		ModuleName: "GPCM",
 		LoggedIn:   false,
+		Status:     "",
 	}
 
-	defer conn.Close()
+	defer closeSession(&session)
 
 	// Set session ID and challenge
 	challenge := common.RandomString(10)
@@ -118,7 +136,7 @@ func handleRequest(conn net.Conn) {
 
 			if session.LoggedIn == false {
 				if command.Command != "login" {
-					logging.Notice(session.ModuleName, "Attempt to run command before login!!!")
+					logging.Notice(session.ModuleName, "Attempt to run command before login!")
 					return
 				}
 
@@ -139,24 +157,19 @@ func handleRequest(conn net.Conn) {
 				return
 
 			case "updatepro":
-				UpdateProfile(&session, pool, ctx, command)
+				updateProfile(&session, pool, ctx, command)
 				break
 
 			case "status":
-				logging.Notice(session.ModuleName, "statstring:", aurora.Cyan(command.OtherValues["statstring"]).String())
-				if command.OtherValues["locstring"] == "" {
-					logging.Notice(session.ModuleName, "locstring: (empty)")
-				} else {
-					logging.Notice(session.ModuleName, "locstring:", aurora.Cyan(command.OtherValues["locstring"]).String())
-				}
+				setStatus(&session, pool, ctx, command)
 				break
 
 			case "addbuddy":
-				AddFriend(&session, pool, ctx, command)
+				addFriend(&session, pool, ctx, command)
 				break
 
 			case "delbuddy":
-				RemoveFriend(&session, pool, ctx, command)
+				removeFriend(&session, pool, ctx, command)
 				break
 			}
 		}
@@ -168,7 +181,7 @@ func handleRequest(conn net.Conn) {
 				break
 
 			case "getprofile":
-				payload := GetProfile(&session, pool, ctx, command)
+				payload := getProfile(&session, pool, ctx, command)
 				conn.Write([]byte(payload))
 				break
 			}

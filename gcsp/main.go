@@ -9,8 +9,11 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 	"wwfc/common"
+	"wwfc/database"
 	"wwfc/logging"
 )
 
@@ -62,17 +65,20 @@ func StartServer() {
 func handleRequest(conn net.Conn) {
 	defer conn.Close()
 
+	moduleName := "GCSP"
+	knownProfileId := uint32(0)
+
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
-		logging.Notice("GCSP", "Unable to set keepalive:", err.Error())
+		logging.Notice(moduleName, "Unable to set keepalive:", err.Error())
 	}
 
 	err = conn.(*net.TCPConn).SetKeepAlivePeriod(time.Hour * 1000)
 	if err != nil {
-		logging.Notice("GCSP", "Unable to set keepalive:", err.Error())
+		logging.Notice(moduleName, "Unable to set keepalive:", err.Error())
 	}
 
-	logging.Notice("GCSP", "Connection established from", conn.RemoteAddr().String())
+	logging.Notice(moduleName, "Connection established from", conn.RemoteAddr().String())
 
 	// Here we go into the listening loop
 	for {
@@ -91,17 +97,97 @@ func handleRequest(conn net.Conn) {
 		}
 
 		for _, command := range commands {
-			logging.Notice("GCSP", "Command:", aurora.Yellow(command.Command).String())
+			logging.Notice(moduleName, "Command:", aurora.Yellow(command.Command).String())
 			switch command.Command {
 			case "ka":
 				conn.Write([]byte(`\ka\\final\`))
 				break
+
 			case "otherslist":
-				// This message needs to be sorted so we can't use a regular map
-				payload := `\otherslist\\oldone\\o\0\uniquenick\7me4ijr5sRMCJ3d9uhvh\final\`
-				conn.Write([]byte(payload))
+				strProfileId, ok := command.OtherValues["profileid"]
+				if !ok {
+					logging.Notice(moduleName, "Missing profileid in otherslist")
+					return
+				}
+
+				profileId, err := strconv.ParseUint(strProfileId, 10, 32)
+				if err != nil {
+					panic(err)
+				}
+
+				if knownProfileId == 0 {
+					knownProfileId = uint32(profileId)
+					moduleName = "GCSP:" + strconv.FormatUint(profileId, 10)
+					moduleName += "/" + common.CalcFriendCodeString(uint32(profileId), "RMCJ")
+				} else if uint32(profileId) != knownProfileId {
+					logging.Notice(moduleName, "WARN: Mismatched profile ID in otherslist:", aurora.Cyan(strProfileId).String())
+				}
+
+				conn.Write([]byte(handleOthersList(moduleName, uint32(profileId), command)))
 				break
 			}
 		}
 	}
+}
+
+func handleOthersList(moduleName string, profileId uint32, command common.GameSpyCommand) string {
+	empty := `\otherslist\\final\`
+
+	_, ok := command.OtherValues["sesskey"]
+	if !ok {
+		logging.Notice(moduleName, "Missing sesskey in otherslist")
+		return empty
+	}
+
+	numopids, ok := command.OtherValues["numopids"]
+	if !ok {
+		logging.Notice(moduleName, "Missing numopids in otherslist")
+		return empty
+	}
+
+	opids, ok := command.OtherValues["opids"]
+	if !ok {
+		logging.Notice(moduleName, "Missing opids in otherslist")
+		return empty
+	}
+
+	_, ok = command.OtherValues["gamename"]
+	if !ok {
+		logging.Notice(moduleName, "Missing gamename in otherslist")
+		return empty
+	}
+
+	numOpidsValue, err := strconv.Atoi(numopids)
+	if err != nil {
+		panic(err)
+	}
+
+	opidsSplit := strings.Split(opids, "|")
+	if len(opidsSplit) != numOpidsValue {
+		logging.Notice(moduleName, "Mismatch opids length with numopids:", aurora.Cyan(len(opidsSplit)).String(), "!=", aurora.Cyan(numOpidsValue).String())
+		return empty
+	}
+
+	payload := `\otherslist\`
+	for _, strOtherId := range opidsSplit {
+		otherId, err := strconv.ParseUint(strOtherId, 10, 32)
+		if err != nil {
+			panic(err)
+		}
+
+		// TODO: Perhaps this could be condensed into one database query
+		// Also TODO: Check if the players are actually friends
+		user, ok := database.GetProfile(pool, ctx, uint32(otherId))
+		if !ok {
+			logging.Notice(moduleName, "Other ID doesn't exist:", aurora.Cyan(strOtherId).String())
+			// If the profile doesn't exist then skip adding it
+			continue
+		}
+
+		payload += `\o\` + strconv.FormatUint(uint64(user.ProfileId), 10)
+		payload += `\uniquenick\` + user.UniqueNick
+	}
+
+	payload += `\oldone\\final\`
+	return payload
 }

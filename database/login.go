@@ -3,12 +3,11 @@ package database
 import (
 	"context"
 	"database/sql"
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"wwfc/common"
 	"wwfc/logging"
-
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 )
 
 const (

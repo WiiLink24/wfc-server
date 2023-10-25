@@ -56,6 +56,18 @@ func Login(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, com
 	}
 	session.User = user
 
+	// Check to see if a session is already open with this profile ID
+	// TODO: Test this
+	mutex.Lock()
+	_, exists := sessions[session.User.ProfileId]
+	if exists {
+		mutex.Unlock()
+		// TODO: Return an error
+		log.Fatalf("Session with profile ID %u is already open", session.User.ProfileId)
+	}
+	sessions[session.User.ProfileId] = session
+	mutex.Unlock()
+
 	loginTicket := strings.Replace(base64.StdEncoding.EncodeToString([]byte(common.RandomString(16))), "=", "_", -1)
 	// Now initiate the session
 	_ = database.CreateSession(pool, ctx, session.User.ProfileId, loginTicket)
