@@ -78,7 +78,7 @@ func handleRequest(conn net.Conn) {
 		logging.Notice(moduleName, "Unable to set keepalive:", err.Error())
 	}
 
-	logging.Notice(moduleName, "Connection established from", conn.RemoteAddr().String())
+	logging.Notice(moduleName, "Connection established from", aurora.BrightCyan(conn.RemoteAddr()))
 
 	// Here we go into the listening loop
 	for {
@@ -97,7 +97,7 @@ func handleRequest(conn net.Conn) {
 		}
 
 		for _, command := range commands {
-			logging.Notice(moduleName, "Command:", aurora.Yellow(command.Command).String())
+			logging.Notice(moduleName, "Command:", aurora.Yellow(command.Command))
 			switch command.Command {
 			case "ka":
 				conn.Write([]byte(`\ka\\final\`))
@@ -106,7 +106,7 @@ func handleRequest(conn net.Conn) {
 			case "otherslist":
 				strProfileId, ok := command.OtherValues["profileid"]
 				if !ok {
-					logging.Notice(moduleName, "Missing profileid in otherslist")
+					logging.Error(moduleName, "Missing profileid in otherslist")
 					return
 				}
 
@@ -120,7 +120,7 @@ func handleRequest(conn net.Conn) {
 					moduleName = "GPSP:" + strconv.FormatUint(profileId, 10)
 					moduleName += "/" + common.CalcFriendCodeString(uint32(profileId), "RMCJ")
 				} else if uint32(profileId) != knownProfileId {
-					logging.Notice(moduleName, "WARN: Mismatched profile ID in otherslist:", aurora.Cyan(strProfileId).String())
+					logging.Warn(moduleName, "Mismatched profile ID in otherslist:", aurora.Cyan(strProfileId))
 				}
 
 				conn.Write([]byte(handleOthersList(moduleName, uint32(profileId), command)))
@@ -135,25 +135,25 @@ func handleOthersList(moduleName string, profileId uint32, command common.GameSp
 
 	_, ok := command.OtherValues["sesskey"]
 	if !ok {
-		logging.Notice(moduleName, "Missing sesskey in otherslist")
+		logging.Error(moduleName, "Missing sesskey in otherslist")
 		return empty
 	}
 
 	numopids, ok := command.OtherValues["numopids"]
 	if !ok {
-		logging.Notice(moduleName, "Missing numopids in otherslist")
+		logging.Error(moduleName, "Missing numopids in otherslist")
 		return empty
 	}
 
 	opids, ok := command.OtherValues["opids"]
 	if !ok {
-		logging.Notice(moduleName, "Missing opids in otherslist")
+		logging.Error(moduleName, "Missing opids in otherslist")
 		return empty
 	}
 
 	_, ok = command.OtherValues["gamename"]
 	if !ok {
-		logging.Notice(moduleName, "Missing gamename in otherslist")
+		logging.Error(moduleName, "Missing gamename in otherslist")
 		return empty
 	}
 
@@ -164,7 +164,7 @@ func handleOthersList(moduleName string, profileId uint32, command common.GameSp
 
 	opidsSplit := strings.Split(opids, "|")
 	if len(opidsSplit) != numOpidsValue {
-		logging.Notice(moduleName, "Mismatch opids length with numopids:", aurora.Cyan(len(opidsSplit)).String(), "!=", aurora.Cyan(numOpidsValue).String())
+		logging.Error(moduleName, "Mismatch opids length with numopids:", aurora.Cyan(len(opidsSplit)), "!=", aurora.Cyan(numOpidsValue))
 		return empty
 	}
 
@@ -179,7 +179,7 @@ func handleOthersList(moduleName string, profileId uint32, command common.GameSp
 		// Also TODO: Check if the players are actually friends
 		user, ok := database.GetProfile(pool, ctx, uint32(otherId))
 		if !ok {
-			logging.Notice(moduleName, "Other ID doesn't exist:", aurora.Cyan(strOtherId).String())
+			logging.Error(moduleName, "Other ID doesn't exist:", aurora.Cyan(strOtherId))
 			// If the profile doesn't exist then skip adding it
 			continue
 		}

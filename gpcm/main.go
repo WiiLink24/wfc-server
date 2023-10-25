@@ -107,7 +107,7 @@ func handleRequest(conn net.Conn) {
 
 	conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
 
-	logging.Notice(session.ModuleName, "Connection established from", conn.RemoteAddr().String())
+	logging.Notice(session.ModuleName, "Connection established from", conn.RemoteAddr())
 
 	// Here we go into the listening loop
 	for {
@@ -132,7 +132,7 @@ func handleRequest(conn net.Conn) {
 		}
 
 		for _, command := range commands {
-			logging.Notice(session.ModuleName, "Command:", aurora.Yellow(command.Command).String())
+			logging.Notice(session.ModuleName, "Command:", aurora.Yellow(command.Command))
 
 			if session.LoggedIn == false {
 				if command.Command != "login" {

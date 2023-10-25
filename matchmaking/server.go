@@ -88,7 +88,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 
 	if options&NoServerListOption != 0 || len(fieldList) == 0 {
 		// The client requests its own public IP and game port
-		logging.Notice(ModuleName, "Reply without server list", aurora.Cyan(conn.RemoteAddr()).String())
+		logging.Info(ModuleName, "Reply without server list", aurora.Cyan(conn.RemoteAddr()))
 
 		// The default game port 6500
 		output = binary.BigEndian.AppendUint16(output, 6500)
@@ -98,7 +98,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 		return
 	}
 
-	logging.Notice(ModuleName, "Reply with server list", aurora.Cyan(conn.RemoteAddr()).String())
+	logging.Info(ModuleName, "Reply with server list", aurora.Cyan(conn.RemoteAddr()))
 
 	// The client's port
 	port, err := strconv.Atoi(strings.Split(conn.RemoteAddr().String(), ":")[1])
@@ -135,13 +135,13 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 
 		var publicip string
 		if publicip, exists = server["publicip"]; !exists {
-			logging.Notice(ModuleName, "Server exists without public IP")
+			logging.Error(ModuleName, "Server exists without public IP")
 			continue
 		}
 
 		ip, err := strconv.ParseUint(publicip, 10, 32)
 		if err != nil {
-			logging.Notice(ModuleName, "Server has invalid public IP value")
+			logging.Error(ModuleName, "Server has invalid public IP value:", aurora.Cyan(publicip))
 		}
 
 		flagsBuffer = binary.BigEndian.AppendUint32(flagsBuffer, uint32(ip))
@@ -151,14 +151,14 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 		if !exists {
 			// Fall back to local port if public port doesn't exist
 			if port, exists = server["localport"]; !exists {
-				logging.Notice(ModuleName, "Server exists without port")
+				logging.Error(ModuleName, "Server exists without port (publicip =", aurora.Cyan(publicip).String()+")")
 				continue
 			}
 		}
 
 		portValue, err := strconv.ParseUint(port, 10, 16)
 		if err != nil {
-			logging.Notice(ModuleName, "Server has invalid port value")
+			logging.Error(ModuleName, "Server has invalid port value:", aurora.Cyan(port))
 			continue
 		}
 
@@ -172,7 +172,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 			// localip is written like "192.168.255.255" for example, so it needs to be parsed
 			ipSplit := strings.Split(localip0, ".")
 			if len(ipSplit) != 4 {
-				logging.Notice(ModuleName, "Server has invalid local IP")
+				logging.Error(ModuleName, "Server has invalid local IP:", aurora.Cyan(localip0))
 				continue
 			}
 
@@ -187,7 +187,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 			}
 
 			if err != nil {
-				logging.Notice(ModuleName, "Server has invalid local IP value")
+				logging.Error(ModuleName, "Server has invalid local IP value:", aurora.Cyan(localip0))
 				continue
 			}
 		}
@@ -195,7 +195,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 		if localport, exists := server["localport"]; exists {
 			portValue, err = strconv.ParseUint(localport, 10, 16)
 			if err != nil {
-				logging.Notice(ModuleName, "Server has invalid local port value")
+				logging.Error(ModuleName, "Server has invalid local port value:", aurora.Cyan(localport))
 				continue
 			}
 
@@ -214,7 +214,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 
 		if (flags & HasKeysFlag) == 0 {
 			// Server does not have keys, so skip them
-			logging.Notice(ModuleName, "Wrote server without keys")
+			logging.Info(ModuleName, "Wrote server without keys")
 			continue
 		}
 
@@ -230,7 +230,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 			output = append(output, 0x00)
 		}
 
-		logging.Notice(ModuleName, "Wrote server with keys")
+		logging.Info(ModuleName, "Wrote server with keys")
 	}
 
 	// Server with 0 flags and IP of 0xffffffff terminates the list
@@ -244,7 +244,7 @@ func handleSendMessageRequest(conn net.Conn, buffer []byte) {
 	// Read destination IP from buffer
 	destIP := fmt.Sprintf("%d.%d.%d.%d:%d", buffer[3], buffer[4], buffer[5], buffer[6], binary.BigEndian.Uint16(buffer[7:9]))
 
-	logging.Notice(ModuleName, "Send message from", aurora.Cyan(conn.RemoteAddr()).String(), "to", aurora.Cyan(destIP).String())
+	logging.Notice(ModuleName, "Send message from", aurora.BrightCyan(conn.RemoteAddr()), "to", aurora.BrightCyan(destIP).String())
 
 	// TODO: Perform basic packet verification
 	// TODO SECURITY: Check if the selected IP is actually online, or at least make sure it's not a local IP

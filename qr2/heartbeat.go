@@ -13,7 +13,7 @@ func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	sessionId := binary.BigEndian.Uint32(buffer[1:5])
 	moduleName := "QR2:" + strconv.FormatInt(int64(sessionId), 10)
 
-	logging.Notice(moduleName, "Received heartbeat from", aurora.Cyan(addr).String())
+	logging.Info(moduleName, "Received heartbeat from", aurora.BrightCyan(addr))
 	values := strings.Split(string(buffer[5:]), "\u0000")
 
 	payload := map[string]string{}
@@ -23,7 +23,7 @@ func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		}
 
 		payload[values[i]] = values[i+1]
-		logging.Notice(moduleName, aurora.Cyan(values[i]).String()+":", aurora.Cyan(values[i+1]).String())
+		logging.Info(moduleName, aurora.Cyan(values[i]).String()+":", aurora.Cyan(values[i+1]))
 	}
 
 	if statechanged, ok := payload["statechanged"]; ok {

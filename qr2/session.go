@@ -123,12 +123,12 @@ func SendClientMessage(destIP string, message []byte) {
 				panic(err)
 			}
 
-			logging.Notice("QR2", "Sending message...")
+			logging.Info("QR2", "Sending message")
 			masterConn.WriteTo(payload, destIPAddr)
 			return
 		}
 	}
 	mutex.Unlock()
 
-	logging.Notice("QR2", "Could not find destination server")
+	logging.Error("QR2", "Could not find destination server")
 }

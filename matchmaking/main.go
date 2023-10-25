@@ -87,13 +87,15 @@ func handleRequest(conn net.Conn) {
 
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
-		fmt.Printf("Unable to set keepalive - %s", err)
+		logging.Notice(ModuleName, "Unable to set keepalive", err.Error())
 	}
 
 	err = conn.(*net.TCPConn).SetKeepAlivePeriod(time.Hour * 1000)
 	if err != nil {
-		fmt.Printf("Unable to set keepalive - %s", err)
+		logging.Notice(ModuleName, "Unable to set keepalive", err.Error())
 	}
+
+	logging.Notice(ModuleName, "Connection established from", aurora.BrightCyan(conn.RemoteAddr()))
 
 	// Here we go into the listening loop
 	bufferSize := 0
@@ -110,7 +112,7 @@ func handleRequest(conn net.Conn) {
 			if bufferSize > 2 {
 				packetSize = binary.BigEndian.Uint16(buffer[:2])
 				if packetSize < 3 || packetSize >= 1024 {
-					logging.Notice(ModuleName, "Invalid packet size - terminating")
+					logging.Error(ModuleName, "Invalid packet size - terminating")
 					return
 				}
 
@@ -127,7 +129,7 @@ func handleRequest(conn net.Conn) {
 					return
 				}
 
-				logging.Notice(ModuleName, "Connection error")
+				logging.Error(ModuleName, "Connection error")
 				return
 			}
 
@@ -136,33 +138,33 @@ func handleRequest(conn net.Conn) {
 
 		switch buffer[2] {
 		case ServerListRequest:
-			logging.Notice(ModuleName, "Command:", aurora.Yellow("SERVER_LIST_REQUEST").String())
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("SERVER_LIST_REQUEST"))
 			handleServerListRequest(conn, buffer[:packetSize])
 			break
 
 		case ServerInfoRequest:
-			logging.Notice(ModuleName, "Command:", aurora.Yellow("SERVER_INFO_REQUEST").String())
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("SERVER_INFO_REQUEST"))
 			break
 
 		case SendMessageRequest:
-			logging.Notice(ModuleName, "Command:", aurora.Yellow("SEND_MESSAGE_REQUEST").String())
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("SEND_MESSAGE_REQUEST"))
 			handleSendMessageRequest(conn, buffer[:packetSize])
 			break
 
 		case KeepaliveReply:
-			logging.Notice(ModuleName, "Command:", aurora.Yellow("KEEPALIVE_REPLY").String())
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("KEEPALIVE_REPLY"))
 			break
 
 		case MapLoopRequest:
-			logging.Notice(ModuleName, "Command:", aurora.Yellow("MAPLOOP_REQUEST").String())
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("MAPLOOP_REQUEST"))
 			break
 
 		case PlayerSearchRequest:
-			logging.Notice(ModuleName, "Command:", aurora.Yellow("PLAYER_SEARCH_REQUEST").String())
+			logging.Notice(ModuleName, "Command:", aurora.Yellow("PLAYER_SEARCH_REQUEST"))
 			break
 
 		default:
-			logging.Notice(ModuleName, "Unknown command:", aurora.Yellow(buffer[2]).String())
+			logging.Error(ModuleName, "Unknown command:", aurora.Cyan(buffer[2]))
 			break
 		}
 	}

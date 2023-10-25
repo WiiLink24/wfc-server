@@ -70,7 +70,7 @@ func setStatus(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context,
 		if statstring == "" {
 			logging.Notice(session.ModuleName, "statstring: (empty)")
 		} else {
-			logging.Notice(session.ModuleName, "statstring:", aurora.Cyan(statstring).String())
+			logging.Notice(session.ModuleName, "statstring:", aurora.Cyan(statstring))
 		}
 	}
 
@@ -82,7 +82,7 @@ func setStatus(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context,
 		if locstring == "" {
 			logging.Notice(session.ModuleName, "locstring: (empty)")
 		} else {
-			logging.Notice(session.ModuleName, "locstring:", aurora.Cyan(locstring).String())
+			logging.Notice(session.ModuleName, "locstring:", aurora.Cyan(locstring))
 		}
 	}
 
@@ -122,7 +122,7 @@ func addFriend(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context,
 	}
 
 	fc := common.CalcFriendCodeString(uint32(profileId), "RMCJ")
-	logging.Notice(session.ModuleName, "Add friend:", aurora.Cyan(strProfileId).String(), aurora.Cyan(fc).String())
+	logging.Notice(session.ModuleName, "Add friend:", aurora.Cyan(strProfileId), aurora.Cyan(fc))
 	// TODO
 }
 

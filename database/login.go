@@ -82,7 +82,7 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, authToken string) 
 	// Query login table with the auth token.
 	userId, gsbrcd := GetNASLogin(pool, ctx, authToken)
 	if userId == 0 {
-		logging.Notice("DATABASE", "Invalid auth token:", aurora.Cyan(authToken).String())
+		logging.Error("DATABASE", "Invalid auth token:", aurora.Cyan(authToken))
 		return User{}, false
 	}
 
@@ -106,14 +106,14 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, authToken string) 
 		// Create the GPCM account
 		user.CreateUser(pool, ctx)
 
-		logging.Notice("DATABASE", "Created new GPCM user:", aurora.Cyan(strconv.FormatInt(user.UserId, 10)).String(), aurora.Cyan(user.GsbrCode).String(), "-", aurora.Cyan(strconv.FormatInt(int64(user.ProfileId), 10)).String())
+		logging.Notice("DATABASE", "Created new GPCM user:", aurora.Cyan(strconv.FormatInt(user.UserId, 10)), aurora.Cyan(user.GsbrCode), "-", aurora.Cyan(strconv.FormatInt(int64(user.ProfileId), 10)))
 	} else {
 		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId)
 		if err != nil {
 			panic(err)
 		}
 
-		logging.Notice("DATABASE", "Log in GPCM user:", aurora.Cyan(strconv.FormatInt(user.UserId, 10)).String(), aurora.Cyan(user.GsbrCode).String(), "-", aurora.Cyan(strconv.FormatInt(int64(user.ProfileId), 10)).String())
+		logging.Notice("DATABASE", "Log in GPCM user:", aurora.Cyan(strconv.FormatInt(user.UserId, 10)), aurora.Cyan(user.GsbrCode), "-", aurora.Cyan(strconv.FormatInt(int64(user.ProfileId), 10)))
 	}
 
 	return user, true

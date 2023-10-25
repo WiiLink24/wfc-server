@@ -48,15 +48,15 @@ func (r *RoutingGroup) HandleAction(action string, function func(*Response)) {
 
 func (route *Route) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logging.Notice("NAS", aurora.Yellow(r.Method).String(), aurora.Cyan(r.URL).String(), "via", aurora.Cyan(r.Host).String())
+		logging.Notice("NAS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host))
 		err := r.ParseForm()
 		if err != nil {
-			logging.Notice("NAS", aurora.Red("Failed to parse form").String())
+			logging.Error("NAS", "Failed to parse form")
 			return
 		}
 
 		if !strings.HasPrefix(r.URL.Path, "/") {
-			logging.Notice("NAS", aurora.Red("Invalid URL").String())
+			logging.Error("NAS", "Invalid URL")
 			return
 		}
 
@@ -64,7 +64,7 @@ func (route *Route) Handle() http.Handler {
 		actionName, _ := base64.StdEncoding.DecodeString(strings.Replace(r.PostForm.Get("action"), "*", "=", -1))
 
 		if string(actionName) == "" {
-			logging.Notice("NAS", aurora.Red("No action in form").String())
+			logging.Error("NAS", "No action in form")
 			return
 		}
 
@@ -77,7 +77,7 @@ func (route *Route) Handle() http.Handler {
 
 		// Make sure we found an action
 		if action.ActionName == "" && action.ServiceType == "" {
-			logging.Notice("NAS", aurora.Red("No action for").String(), aurora.Yellow(string(actionName)).String())
+			logging.Error("NAS", "No action for", aurora.Cyan(string(actionName)))
 			return
 		}
 

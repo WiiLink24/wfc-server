@@ -61,7 +61,7 @@ func StartServer() {
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	if buffer[0] == AvailableRequest {
-		logging.Notice("QR2", "Command:", aurora.Yellow("AVAILABLE").String())
+		logging.Notice("QR2", "Command:", aurora.Yellow("AVAILABLE"))
 		conn.WriteTo(createResponseHeader(AvailableRequest, 0), addr)
 		return
 	}
@@ -71,11 +71,11 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	switch buffer[0] {
 	case QueryRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("QUERY").String())
+		logging.Notice(moduleName, "Command:", aurora.Yellow("QUERY"))
 		break
 
 	case ChallengeRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("CHALLENGE").String())
+		logging.Notice(moduleName, "Command:", aurora.Yellow("CHALLENGE"))
 
 		mutex.Lock()
 		sessions[sessionId].Authenticated = true
@@ -84,32 +84,32 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		break
 
 	case EchoRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("ECHO").String())
+		logging.Notice(moduleName, "Command:", aurora.Yellow("ECHO"))
 		break
 
 	case HeartbeatRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("HEARTBEAT").String())
+		logging.Notice(moduleName, "Command:", aurora.Yellow("HEARTBEAT"))
 		heartbeat(conn, addr, buffer)
 		break
 
 	case AddErrorRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("ADDERROR").String())
+		logging.Notice(moduleName, "Command:", aurora.Yellow("ADDERROR"))
 		break
 
 	case EchoResponseRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("ECHO_RESPONSE").String())
+		logging.Notice(moduleName, "Command:", aurora.Yellow("ECHO_RESPONSE"))
 		break
 
 	case ClientMessageRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE").String())
+		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE"))
 		return
 
 	case ClientMessageAckRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK").String())
+		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK"))
 		return
 
 	case KeepAliveRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("KEEPALIVE").String())
+		logging.Notice(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
 		sessionId := binary.BigEndian.Uint32(buffer[1:5])
 		mutex.Lock()
 		sessions[sessionId].LastKeepAlive = time.Now().Unix()
@@ -120,11 +120,11 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		return
 
 	case ClientRegisteredReply:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_REGISTERED").String())
+		logging.Notice(moduleName, "Command:", aurora.Cyan("CLIENT_REGISTERED"))
 		break
 
 	default:
-		logging.Notice(moduleName, "Unknown command:", aurora.Yellow(buffer[0]).String())
+		logging.Error(moduleName, "Unknown command:", aurora.Yellow(buffer[0]))
 		return
 	}
 }
