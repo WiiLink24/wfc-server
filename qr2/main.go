@@ -1,4 +1,4 @@
-package master
+package qr2
 
 import (
 	"encoding/binary"
@@ -46,7 +46,7 @@ func StartServer() {
 
 	// Close the listener when the application closes.
 	defer conn.Close()
-	logging.Notice("MASTER", "Listening on", address)
+	logging.Notice("QR2", "Listening on", address)
 
 	for {
 		buf := make([]byte, 1024)
@@ -61,13 +61,13 @@ func StartServer() {
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	if buffer[0] == AvailableRequest {
-		logging.Notice("MASTER", "Command:", aurora.Yellow("AVAILABLE").String())
+		logging.Notice("QR2", "Command:", aurora.Yellow("AVAILABLE").String())
 		conn.WriteTo(createResponseHeader(AvailableRequest, 0), addr)
 		return
 	}
 
 	sessionId := binary.BigEndian.Uint32(buffer[1:5])
-	moduleName := "MASTER:" + strconv.FormatInt(int64(sessionId), 10)
+	moduleName := "QR2:" + strconv.FormatInt(int64(sessionId), 10)
 
 	switch buffer[0] {
 	case QueryRequest:

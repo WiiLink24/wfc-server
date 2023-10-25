@@ -1,4 +1,4 @@
-package master
+package qr2
 
 import (
 	"encoding/binary"
@@ -38,7 +38,7 @@ func setSessionData(sessionId uint32, payload map[string]string) Session {
 
 	session, exists := sessions[sessionId]
 	if !exists {
-		logging.Notice("MASTER", "Creating session", aurora.Cyan(sessionId).String())
+		logging.Notice("QR2", "Creating session", aurora.Cyan(sessionId).String())
 		data := Session{
 			SessionID:     sessionId,
 			Challenge:     "",
@@ -123,12 +123,12 @@ func SendClientMessage(destIP string, message []byte) {
 				panic(err)
 			}
 
-			logging.Notice("MASTER", "Sending message...")
+			logging.Notice("QR2", "Sending message...")
 			masterConn.WriteTo(payload, destIPAddr)
 			return
 		}
 	}
 	mutex.Unlock()
 
-	logging.Notice("MASTER", "Could not find destination server")
+	logging.Notice("QR2", "Could not find destination server")
 }

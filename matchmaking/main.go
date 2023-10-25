@@ -23,7 +23,7 @@ var (
 )
 
 const (
-	ModuleName = "MATCHMAKING"
+	ModuleName = "SB"
 
 	// Requests sent from the client
 	ServerListRequest   = 0x00
@@ -66,7 +66,7 @@ func StartServer() {
 
 	// Close the listener when the application closes.
 	defer l.Close()
-	logging.Notice("MATCHMAKING", "Listening on", address)
+	logging.Notice(ModuleName, "Listening on", address)
 
 	for {
 		// Listen for an incoming connection.
@@ -105,10 +105,11 @@ func handleRequest(conn net.Conn) {
 		bufferSize -= int(packetSize)
 		packetSize = 0
 
+		// Packets tend to be sent in fragments, so this loop makes sure the packets has been fully received before continuing
 		for {
 			if bufferSize > 2 {
 				packetSize = binary.BigEndian.Uint16(buffer[:2])
-				if packetSize < 3 {
+				if packetSize < 3 || packetSize >= 1024 {
 					logging.Notice(ModuleName, "Invalid packet size - terminating")
 					return
 				}
@@ -132,9 +133,6 @@ func handleRequest(conn net.Conn) {
 
 			bufferSize += readSize
 		}
-
-		logging.Notice(ModuleName, "packet size:", aurora.Cyan(packetSize).String())
-		logging.Notice(ModuleName, "buffer size:", aurora.Cyan(bufferSize).String())
 
 		switch buffer[2] {
 		case ServerListRequest:

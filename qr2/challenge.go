@@ -1,4 +1,4 @@
-package master
+package qr2
 
 import (
 	"fmt"

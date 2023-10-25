@@ -1,4 +1,4 @@
-package master
+package qr2
 
 import (
 	"encoding/binary"
@@ -11,7 +11,7 @@ import (
 
 func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	sessionId := binary.BigEndian.Uint32(buffer[1:5])
-	moduleName := "MASTER:" + strconv.FormatInt(int64(sessionId), 10)
+	moduleName := "QR2:" + strconv.FormatInt(int64(sessionId), 10)
 
 	logging.Notice(moduleName, "Received heartbeat from", aurora.Cyan(addr).String())
 	values := strings.Split(string(buffer[5:]), "\u0000")

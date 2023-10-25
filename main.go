@@ -2,16 +2,16 @@ package main
 
 import (
 	"sync"
-	"wwfc/gcsp"
 	"wwfc/gpcm"
-	"wwfc/master"
+	"wwfc/gpsp"
 	"wwfc/matchmaking"
 	"wwfc/nas"
+	"wwfc/qr2"
 )
 
 func main() {
 	wg := &sync.WaitGroup{}
-	actions := []func(){nas.StartServer, gpcm.StartServer, master.StartServer, gcsp.StartServer, matchmaking.StartServer}
+	actions := []func(){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, matchmaking.StartServer}
 	wg.Add(5)
 	for _, action := range actions {
 		go func(ac func()) {

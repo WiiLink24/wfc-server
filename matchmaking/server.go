@@ -9,7 +9,7 @@ import (
 	"strings"
 	"wwfc/common"
 	"wwfc/logging"
-	"wwfc/master"
+	"wwfc/qr2"
 )
 
 const (
@@ -40,7 +40,7 @@ const (
 
 func FindServers(gueryGame string, filter string) ([]map[string]string, error) {
 	// TODO: Handle gueryGame, filter
-	return master.GetSessionServers(), nil
+	return qr2.GetSessionServers(), nil
 }
 
 func popString(buffer []byte, index int) (string, int) {
@@ -249,5 +249,5 @@ func handleSendMessageRequest(conn net.Conn, buffer []byte) {
 	// TODO: Perform basic packet verification
 	// TODO SECURITY: Check if the selected IP is actually online, or at least make sure it's not a local IP
 
-	master.SendClientMessage(destIP, buffer[9:])
+	qr2.SendClientMessage(destIP, buffer[9:])
 }

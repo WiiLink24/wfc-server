@@ -1,18 +1,45 @@
 package gpsp
 
 import (
+	"bufio"
+	"context"
+	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
+	"io"
 	"net"
-	"os"
+	"strconv"
+	"strings"
+	"time"
 	"wwfc/common"
+	"wwfc/database"
 	"wwfc/logging"
+)
+
+var (
+	ctx    = context.Background()
+	pool   *pgxpool.Pool
+	userId int64
 )
 
 func StartServer() {
 	// Get config
 	config := common.GetConfig()
 
-	address := config.Address + ":27900"
+	// Start SQL
+	dbString := fmt.Sprintf("postgres://%s:%s@%s/%s", config.Username, config.Password, config.DatabaseAddress, config.DatabaseName)
+	dbConf, err := pgxpool.ParseConfig(dbString)
+	if err != nil {
+		panic(err)
+	}
+
+	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
+	if err != nil {
+		panic(err)
+	}
+
+	address := config.Address + ":29901"
 	l, err := net.Listen("tcp", address)
 	if err != nil {
 		panic(err)
@@ -36,16 +63,131 @@ func StartServer() {
 
 // Handles incoming requests.
 func handleRequest(conn net.Conn) {
-	// Make a buffer to hold incoming data.
-	buf := make([]byte, 1024)
-	// Read the incoming connection into the buffer.
-	reqLen, err := conn.Read(buf)
+	defer conn.Close()
+
+	moduleName := "GPSP"
+	knownProfileId := uint32(0)
+
+	err := conn.(*net.TCPConn).SetKeepAlive(true)
+	if err != nil {
+		logging.Notice(moduleName, "Unable to set keepalive:", err.Error())
+	}
+
+	err = conn.(*net.TCPConn).SetKeepAlivePeriod(time.Hour * 1000)
+	if err != nil {
+		logging.Notice(moduleName, "Unable to set keepalive:", err.Error())
+	}
+
+	logging.Notice(moduleName, "Connection established from", conn.RemoteAddr().String())
+
+	// Here we go into the listening loop
+	for {
+		buffer := make([]byte, 1024)
+		_, err := bufio.NewReader(conn).Read(buffer)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				// Client closed connection, terminate.
+				return
+			}
+		}
+
+		commands, err := common.ParseGameSpyMessage(string(buffer))
+		if err != nil {
+			panic(err)
+		}
+
+		for _, command := range commands {
+			logging.Notice(moduleName, "Command:", aurora.Yellow(command.Command).String())
+			switch command.Command {
+			case "ka":
+				conn.Write([]byte(`\ka\\final\`))
+				break
+
+			case "otherslist":
+				strProfileId, ok := command.OtherValues["profileid"]
+				if !ok {
+					logging.Notice(moduleName, "Missing profileid in otherslist")
+					return
+				}
+
+				profileId, err := strconv.ParseUint(strProfileId, 10, 32)
+				if err != nil {
+					panic(err)
+				}
+
+				if knownProfileId == 0 {
+					knownProfileId = uint32(profileId)
+					moduleName = "GPSP:" + strconv.FormatUint(profileId, 10)
+					moduleName += "/" + common.CalcFriendCodeString(uint32(profileId), "RMCJ")
+				} else if uint32(profileId) != knownProfileId {
+					logging.Notice(moduleName, "WARN: Mismatched profile ID in otherslist:", aurora.Cyan(strProfileId).String())
+				}
+
+				conn.Write([]byte(handleOthersList(moduleName, uint32(profileId), command)))
+				break
+			}
+		}
+	}
+}
+
+func handleOthersList(moduleName string, profileId uint32, command common.GameSpyCommand) string {
+	empty := `\otherslist\\final\`
+
+	_, ok := command.OtherValues["sesskey"]
+	if !ok {
+		logging.Notice(moduleName, "Missing sesskey in otherslist")
+		return empty
+	}
+
+	numopids, ok := command.OtherValues["numopids"]
+	if !ok {
+		logging.Notice(moduleName, "Missing numopids in otherslist")
+		return empty
+	}
+
+	opids, ok := command.OtherValues["opids"]
+	if !ok {
+		logging.Notice(moduleName, "Missing opids in otherslist")
+		return empty
+	}
+
+	_, ok = command.OtherValues["gamename"]
+	if !ok {
+		logging.Notice(moduleName, "Missing gamename in otherslist")
+		return empty
+	}
+
+	numOpidsValue, err := strconv.Atoi(numopids)
 	if err != nil {
 		panic(err)
 	}
 
-	// Send a response back to person contacting us.
-	conn.Write([]byte(`\ka\\final\`))
-	// Close the connection when you're done with it.
-	conn.Close()
+	opidsSplit := strings.Split(opids, "|")
+	if len(opidsSplit) != numOpidsValue {
+		logging.Notice(moduleName, "Mismatch opids length with numopids:", aurora.Cyan(len(opidsSplit)).String(), "!=", aurora.Cyan(numOpidsValue).String())
+		return empty
+	}
+
+	payload := `\otherslist\`
+	for _, strOtherId := range opidsSplit {
+		otherId, err := strconv.ParseUint(strOtherId, 10, 32)
+		if err != nil {
+			panic(err)
+		}
+
+		// TODO: Perhaps this could be condensed into one database query
+		// Also TODO: Check if the players are actually friends
+		user, ok := database.GetProfile(pool, ctx, uint32(otherId))
+		if !ok {
+			logging.Notice(moduleName, "Other ID doesn't exist:", aurora.Cyan(strOtherId).String())
+			// If the profile doesn't exist then skip adding it
+			continue
+		}
+
+		payload += `\o\` + strconv.FormatUint(uint64(user.ProfileId), 10)
+		payload += `\uniquenick\` + user.UniqueNick
+	}
+
+	payload += `\oldone\\final\`
+	return payload
 }
