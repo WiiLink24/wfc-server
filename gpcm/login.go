@@ -17,7 +17,7 @@ func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge st
 	hasher := md5.New()
 	hasher.Write([]byte(nasChallenge))
 	str := hex.EncodeToString(hasher.Sum(nil))
-	str += "                                                "
+	str += strings.Repeat(" ", 48)
 	str += authToken
 	str += clientChallenge
 	str += gpcmChallenge
@@ -32,8 +32,8 @@ func generateProof(gpcmChallenge, nasChallenge, authToken, clientChallenge strin
 	return generateResponse(clientChallenge, nasChallenge, authToken, gpcmChallenge)
 }
 
-func Login(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand, challenge string) (string, bool) {
-	if session.LoggedIn {
+func (g *GameSpySession) Login(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand, challenge string) (string, bool) {
+	if g.LoggedIn {
 		log.Fatalf("Attempt to login twice")
 	}
 
@@ -54,27 +54,27 @@ func Login(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, com
 		// TODO: Return an error
 		log.Fatalf("GPCM login error")
 	}
-	session.User = user
+	g.User = user
 
 	// Check to see if a session is already open with this profile ID
 	// TODO: Test this
 	mutex.Lock()
-	_, exists := sessions[session.User.ProfileId]
+	_, exists := sessions[g.User.ProfileId]
 	if exists {
 		mutex.Unlock()
 		// TODO: Return an error
-		log.Fatalf("Session with profile ID %u is already open", session.User.ProfileId)
+		log.Fatalf("Session with profile ID %d is already open", g.User.ProfileId)
 	}
-	sessions[session.User.ProfileId] = session
+	sessions[g.User.ProfileId] = g
 	mutex.Unlock()
 
 	loginTicket := strings.Replace(base64.StdEncoding.EncodeToString([]byte(common.RandomString(16))), "=", "_", -1)
 	// Now initiate the session
-	_ = database.CreateSession(pool, ctx, session.User.ProfileId, loginTicket)
+	_ = database.CreateSession(pool, ctx, g.User.ProfileId, loginTicket)
 
-	session.LoggedIn = true
-	session.ModuleName += ":" + strconv.FormatInt(int64(session.User.ProfileId), 10)
-	session.ModuleName += "/" + common.CalcFriendCodeString(session.User.ProfileId, "RMCJ")
+	g.LoggedIn = true
+	g.ModuleName += ":" + strconv.FormatInt(int64(g.User.ProfileId), 10)
+	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ")
 
 	return common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
@@ -82,9 +82,9 @@ func Login(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, com
 		OtherValues: map[string]string{
 			"sesskey":    "199714190",
 			"proof":      proof,
-			"userid":     strconv.FormatInt(session.User.UserId, 10),
-			"profileid":  strconv.FormatInt(int64(session.User.ProfileId), 10),
-			"uniquenick": session.User.UniqueNick,
+			"userid":     strconv.FormatInt(g.User.UserId, 10),
+			"profileid":  strconv.FormatInt(int64(g.User.ProfileId), 10),
+			"uniquenick": g.User.UniqueNick,
 			"lt":         loginTicket,
 			"id":         command.OtherValues["id"],
 		},

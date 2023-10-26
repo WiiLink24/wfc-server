@@ -11,7 +11,7 @@ import (
 	"wwfc/logging"
 )
 
-func getProfile(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) string {
+func (g *GameSpySession) getProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) string {
 	strProfileId := command.OtherValues["profileid"]
 	profileId, err := strconv.ParseInt(strProfileId, 10, 32)
 	if err != nil {
@@ -45,7 +45,7 @@ func getProfile(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context
 	})
 }
 
-func updateProfile(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func (g *GameSpySession) updateProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
 	var firstName string
 	var lastName string
 	if v, ok := command.OtherValues["firstname"]; ok {
@@ -56,39 +56,39 @@ func updateProfile(session *GameSpySession, pool *pgxpool.Pool, ctx context.Cont
 		lastName = v
 	}
 
-	database.UpdateUser(pool, ctx, firstName, lastName, session.User.UserId)
+	database.UpdateUser(pool, ctx, firstName, lastName, g.User.UserId)
 }
 
-func setStatus(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func (g *GameSpySession) setStatus(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
 	status := command.CommandValue
 
 	statstring, ok := command.OtherValues["statstring"]
 	if !ok {
-		logging.Notice(session.ModuleName, "Missing statstring")
+		logging.Notice(g.ModuleName, "Missing statstring")
 		statstring = ""
 	} else {
 		if statstring == "" {
-			logging.Notice(session.ModuleName, "statstring: (empty)")
+			logging.Notice(g.ModuleName, "statstring: (empty)")
 		} else {
-			logging.Notice(session.ModuleName, "statstring:", aurora.Cyan(statstring))
+			logging.Notice(g.ModuleName, "statstring:", aurora.Cyan(statstring))
 		}
 	}
 
 	locstring, ok := command.OtherValues["locstring"]
 	if !ok {
-		logging.Notice(session.ModuleName, "Missing locstring")
+		logging.Notice(g.ModuleName, "Missing locstring")
 		locstring = ""
 	} else {
 		if locstring == "" {
-			logging.Notice(session.ModuleName, "locstring: (empty)")
+			logging.Notice(g.ModuleName, "locstring: (empty)")
 		} else {
-			logging.Notice(session.ModuleName, "locstring:", aurora.Cyan(locstring))
+			logging.Notice(g.ModuleName, "locstring:", aurora.Cyan(locstring))
 		}
 	}
 
 	// Get the IP address for the status msg
 	var rawIP int
-	for i, s := range strings.Split(strings.Split(session.Conn.RemoteAddr().String(), ":")[0], ".") {
+	for i, s := range strings.Split(strings.Split(g.Conn.RemoteAddr().String(), ":")[0], ".") {
 		val, err := strconv.Atoi(s)
 		if err != nil {
 			panic(err)
@@ -104,17 +104,17 @@ func setStatus(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context,
 		Command:      "bm",
 		CommandValue: "100",
 		OtherValues: map[string]string{
-			"f":   strconv.FormatUint(uint64(session.User.ProfileId), 10),
+			"f":   strconv.FormatUint(uint64(g.User.ProfileId), 10),
 			"msg": "|s|" + status + "|ss|" + statstring + "|ls|" + locstring + "|ip|" + ip + "|p|0|qm|0",
 		},
 	})
 
 	mutex.Lock()
-	session.Status = friendStatus
+	g.Status = friendStatus
 	mutex.Unlock()
 }
 
-func addFriend(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func (g *GameSpySession) addFriend(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
 	strProfileId := command.OtherValues["newprofileid"]
 	profileId, err := strconv.ParseUint(strProfileId, 10, 32)
 	if err != nil {
@@ -122,10 +122,10 @@ func addFriend(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context,
 	}
 
 	fc := common.CalcFriendCodeString(uint32(profileId), "RMCJ")
-	logging.Notice(session.ModuleName, "Add friend:", aurora.Cyan(strProfileId), aurora.Cyan(fc))
+	logging.Notice(g.ModuleName, "Add friend:", aurora.Cyan(strProfileId), aurora.Cyan(fc))
 	// TODO
 }
 
-func removeFriend(session *GameSpySession, pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func (g *GameSpySession) removeFriend(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
 	// TODO
 }

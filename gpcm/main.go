@@ -70,13 +70,13 @@ func StartServer() {
 	}
 }
 
-func closeSession(session *GameSpySession) {
+func (g *GameSpySession) closeSession() {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	session.Conn.Close()
-	if session.LoggedIn {
-		delete(sessions, session.User.ProfileId)
+	g.Conn.Close()
+	if g.LoggedIn {
+		delete(sessions, g.User.ProfileId)
 	}
 }
 
@@ -90,7 +90,7 @@ func handleRequest(conn net.Conn) {
 		Status:     "",
 	}
 
-	defer closeSession(&session)
+	defer session.closeSession()
 
 	// Set session ID and challenge
 	challenge := common.RandomString(10)
@@ -140,7 +140,7 @@ func handleRequest(conn net.Conn) {
 					return
 				}
 
-				payload, _ := Login(&session, pool, ctx, command, challenge)
+				payload, _ := session.Login(pool, ctx, command, challenge)
 				conn.Write([]byte(payload))
 			}
 		}
@@ -157,19 +157,19 @@ func handleRequest(conn net.Conn) {
 				return
 
 			case "updatepro":
-				updateProfile(&session, pool, ctx, command)
+				session.updateProfile(pool, ctx, command)
 				break
 
 			case "status":
-				setStatus(&session, pool, ctx, command)
+				session.setStatus(pool, ctx, command)
 				break
 
 			case "addbuddy":
-				addFriend(&session, pool, ctx, command)
+				session.addFriend(pool, ctx, command)
 				break
 
 			case "delbuddy":
-				removeFriend(&session, pool, ctx, command)
+				session.removeFriend(pool, ctx, command)
 				break
 			}
 		}
@@ -181,7 +181,7 @@ func handleRequest(conn net.Conn) {
 				break
 
 			case "getprofile":
-				payload := getProfile(&session, pool, ctx, command)
+				payload := session.getProfile(pool, ctx, command)
 				conn.Write([]byte(payload))
 				break
 			}
