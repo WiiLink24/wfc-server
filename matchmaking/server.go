@@ -38,9 +38,9 @@ const (
 	LimitResultCountOption  = 1 << 7 // 0x80 / 128
 )
 
-func FindServers(gueryGame string, filter string) ([]map[string]string, error) {
+func FindServers(queryGame string, filter string) ([]map[string]string, error) {
 	// TODO: Handle gueryGame, filter
-	return qr2.GetSessionServers(), nil
+	return FilterServers(qr2.GetSessionServers(), queryGame, filter), nil
 }
 
 func popString(buffer []byte, index int) (string, int) {
@@ -65,7 +65,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 	fields, index := popString(buffer, index)
 	options, index := popUint32(buffer, index)
 
-	logging.Notice(ModuleName, "queryGame:", aurora.Cyan(queryGame).String(), "- gameName:", aurora.Cyan(gameName).String(), "- filter:", aurora.Cyan(filter).String(), "- fields:", aurora.Cyan(fields).String())
+	logging.Info(ModuleName, "queryGame:", aurora.Cyan(queryGame).String(), "- gameName:", aurora.Cyan(gameName).String(), "- filter:", aurora.Cyan(filter).String(), "- fields:", aurora.Cyan(fields).String())
 
 	var output []byte
 	for _, s := range strings.Split(strings.Split(conn.RemoteAddr().String(), ":")[0], ".") {
