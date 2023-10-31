@@ -73,6 +73,10 @@ func StartServer() {
 }
 
 func (g *GameSpySession) closeSession() {
+	if g.LoggedIn {
+		g.sendLogoutStatus()
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
