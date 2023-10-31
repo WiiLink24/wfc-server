@@ -22,6 +22,8 @@ type GameSpySession struct {
 	ModuleName string
 	LoggedIn   bool
 	Status     string
+	LocString  string
+	FriendList []uint32
 }
 
 var (
@@ -88,6 +90,7 @@ func handleRequest(conn net.Conn) {
 		ModuleName: "GPCM",
 		LoggedIn:   false,
 		Status:     "",
+		FriendList: []uint32{},
 	}
 
 	defer session.closeSession()
@@ -170,6 +173,14 @@ func handleRequest(conn net.Conn) {
 
 			case "delbuddy":
 				session.removeFriend(pool, ctx, command)
+				break
+
+			case "bm":
+				session.bestieMessage(pool, ctx, command)
+				break
+
+			case "authadd":
+				session.authAddFriend(pool, ctx, command)
 				break
 			}
 		}

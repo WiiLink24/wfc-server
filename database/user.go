@@ -11,7 +11,7 @@ import (
 
 const (
 	InsertUser        = `INSERT INTO users (user_id, gsbrcd, password, email, unique_nick) VALUES ($1, $2, $3, $4, $5) RETURNING profile_id`
-	UpdateUserTable   = `UPDATE users SET firstname = $1, lastname = $2 WHERE user_id = $3`
+	UpdateUserTable   = `UPDATE users SET firstname = CASE WHEN $3 THEN $2 ELSE firstname END, lastname = CASE WHEN $5 THEN $4 ELSE lastname END WHERE profile_id = $1 RETURNING user_id, gsbrcd, password, email, unique_nick, firstname, lastname`
 	GetUser           = `SELECT user_id, gsbrcd, password, email, unique_nick, firstname, lastname FROM users WHERE profile_id = $1`
 	CreateUserSession = `INSERT INTO sessions (session_key, profile_id, login_ticket) VALUES ($1, $2, $3)`
 	DoesUserExist     = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
@@ -42,13 +42,18 @@ func GetUniqueUserID() int64 {
 	return rand.Int63n(0x80000000000)
 }
 
-func UpdateUser(pool *pgxpool.Pool, ctx context.Context, firstName string, lastName string, userId int64) User {
+func UpdateProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32, data map[string]string) User {
+	firstName, firstNameExists := data["firstname"]
+	lastName, lastNameExists := data["lastname"]
+
 	user := User{}
-	_, err := pool.Exec(ctx, UpdateUserTable, firstName, lastName, userId)
+	row := pool.QueryRow(ctx, UpdateUserTable, profileId, firstName, firstNameExists, lastName, lastNameExists)
+	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Password, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName)
 	if err != nil {
 		panic(err)
 	}
 
+	user.ProfileId = profileId
 	return user
 }
 

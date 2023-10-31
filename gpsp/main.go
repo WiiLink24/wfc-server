@@ -162,7 +162,13 @@ func handleOthersList(moduleName string, profileId uint32, command common.GameSp
 		panic(err)
 	}
 
-	opidsSplit := strings.Split(opids, "|")
+	opidsSplit := []string{}
+	if strings.Contains(opids, "|") {
+		opidsSplit = strings.Split(opids, "|")
+	} else if opids != "" && opids != "0" {
+		opidsSplit = append(opidsSplit, opids)
+	}
+
 	if len(opidsSplit) != numOpidsValue {
 		logging.Error(moduleName, "Mismatch opids length with numopids:", aurora.Cyan(len(opidsSplit)), "!=", aurora.Cyan(numOpidsValue))
 		return empty
