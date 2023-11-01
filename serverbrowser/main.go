@@ -1,4 +1,4 @@
-package matchmaking
+package serverbrowser
 
 import (
 	"bufio"
