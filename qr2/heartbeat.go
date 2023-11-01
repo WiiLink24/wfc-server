@@ -6,6 +6,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"wwfc/common"
 	"wwfc/logging"
 )
 
@@ -42,21 +43,7 @@ func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		}
 	}
 
-	addrString := strings.Split(addr.String(), ":")
-
-	var rawIP int
-	for i, s := range strings.Split(addrString[0], ".") {
-		val, err := strconv.Atoi(s)
-		if err != nil {
-			panic(err)
-		}
-
-		rawIP |= val << (24 - i*8)
-	}
-
-	// TODO: Check if this handles negative numbers correctly
-	realIP := strconv.FormatInt(int64(int32(rawIP)), 10)
-	realPort := addrString[1]
+	realIP, realPort := common.IPFormatToString(addr.String())
 
 	publicIPKey, hasPublicIPKey := payload["publicip"]
 	if !hasPublicIPKey || publicIPKey != realIP {
@@ -65,7 +52,11 @@ func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		payload["publicport"] = realPort
 	}
 
-	session := setSessionData(sessionId, payload)
+	session, ok := setSessionData(sessionId, payload)
+	if !ok {
+		return
+	}
+
 	if !session.Authenticated || !hasPublicIPKey || publicIPKey != realIP {
 		logging.Notice(moduleName, "Sending challenge")
 		sendChallenge(conn, addr, session)

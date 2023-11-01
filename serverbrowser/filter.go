@@ -37,10 +37,15 @@ func filterServers(servers []map[string]string, queryGame string, filter string,
 			// If multiple servers exist with the same public IP then the client will use the one with the matching port.
 			// This is a bit of a hack to speed up server creation.
 			if _, ok := server["dwc_pid"]; !ok && server["publicip"] == publicIP {
-				server["dwc_pid"] = dwc_pid
-				server["dwc_mtype"] = "0"
-				server["dwc_mver"] = "0"
-				filtered = append(filtered, server)
+				// Create a copy of the map with some values changed
+				newServer := map[string]string{}
+				for k, v := range server {
+					newServer[k] = v
+				}
+				newServer["dwc_pid"] = dwc_pid
+				newServer["dwc_mtype"] = "0"
+				newServer["dwc_mver"] = "0"
+				filtered = append(filtered, newServer)
 			}
 		}
 

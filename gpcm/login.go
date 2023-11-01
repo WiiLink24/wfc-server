@@ -90,3 +90,23 @@ func (g *GameSpySession) Login(pool *pgxpool.Pool, ctx context.Context, command 
 		},
 	}), true
 }
+
+func IsLoggedIn(profileID uint32) bool {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	session, exists := sessions[profileID]
+	return exists && session.LoggedIn
+}
+
+func GetSessionIP(profileID uint32) string {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	session, exists := sessions[profileID]
+	if exists && session.LoggedIn {
+		return session.Conn.RemoteAddr().String()
+	}
+
+	return ""
+}

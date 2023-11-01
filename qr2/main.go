@@ -78,9 +78,15 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		logging.Notice(moduleName, "Command:", aurora.Yellow("CHALLENGE"))
 
 		mutex.Lock()
-		sessions[sessionId].Authenticated = true
-		mutex.Unlock()
-		conn.WriteTo(createResponseHeader(ClientRegisteredReply, sessionId), addr)
+		if sessions[sessionId].Challenge != "" {
+			// TODO: Verify the challenge
+			sessions[sessionId].Authenticated = true
+			mutex.Unlock()
+
+			conn.WriteTo(createResponseHeader(ClientRegisteredReply, sessionId), addr)
+		} else {
+			mutex.Unlock()
+		}
 		break
 
 	case EchoRequest:
