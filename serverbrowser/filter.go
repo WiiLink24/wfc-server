@@ -20,9 +20,11 @@ var (
 	regexMatchmaking = regexp.MustCompile(`^dwc_mver = -?(\d{1,10}) and dwc_pid != (\d{1,10}) and maxplayers = -?(\d{1,10}) and numplayers < -?(\d{1,10}) and dwc_mtype = -?(\d{1,10}) and dwc_hoststate = (\d{1,10}) and dwc_suspend = (\d{1,10}) and \((.*)\)$`)
 )
 
-func FilterServers(servers []map[string]string, queryGame string, filter string) []map[string]string {
+func filterServers(servers []map[string]string, queryGame string, filter string, publicIP string) []map[string]string {
 	if match := regexSelfLookup.FindStringSubmatch(filter); match != nil {
 		dwc_pid := match[1]
+
+		filtered := []map[string]string{}
 
 		// Search for where the profile ID matches
 		for _, server := range servers {
@@ -30,10 +32,25 @@ func FilterServers(servers []map[string]string, queryGame string, filter string)
 				logging.Info(ModuleName, "Self lookup from", aurora.Cyan(dwc_pid), "ok")
 				return []map[string]string{server}
 			}
+
+			// Alternatively, if the server hasn't set its dwc_pid field yet, we return servers matching the request's public IP.
+			// If multiple servers exist with the same public IP then the client will use the one with the matching port.
+			// This is a bit of a hack to speed up server creation.
+			if _, ok := server["dwc_pid"]; !ok && server["publicip"] == publicIP {
+				server["dwc_pid"] = dwc_pid
+				server["dwc_mtype"] = "0"
+				server["dwc_mver"] = "0"
+				filtered = append(filtered, server)
+			}
 		}
 
-		logging.Error(ModuleName, "Could not find server with dwc_pid", aurora.Cyan(dwc_pid))
-		return []map[string]string{}
+		if len(filtered) == 0 {
+			logging.Error(ModuleName, "Could not find server with dwc_pid", aurora.Cyan(dwc_pid))
+			return []map[string]string{}
+		}
+
+		logging.Info(ModuleName, "Self lookup for", aurora.Cyan(dwc_pid), "matched", aurora.BrightCyan(len(filtered)), "servers via public IP")
+		return filtered
 	}
 
 	if match := regexMatchmaking.FindStringSubmatch(filter); match != nil {

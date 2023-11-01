@@ -38,11 +38,6 @@ const (
 	LimitResultCountOption  = 1 << 7 // 0x80 / 128
 )
 
-func FindServers(queryGame string, filter string) ([]map[string]string, error) {
-	// TODO: Handle gueryGame, filter
-	return FilterServers(qr2.GetSessionServers(), queryGame, filter), nil
-}
-
 func popString(buffer []byte, index int) (string, int) {
 	str := common.GetString(buffer[index:])
 	return str, index + len(str) + 1
@@ -94,6 +89,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 		output = binary.BigEndian.AppendUint16(output, 6500)
 
 		// Write the encrypted reply
+		// TODO: Key is currently hardcoded to Mario Kart Wii
 		conn.Write(common.EncryptTypeX([]byte("9r3Rmy"), challenge, output))
 		return
 	}
@@ -115,10 +111,8 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 	}
 	output = append(output, 0x00) // Zero length string to end the list
 
-	servers, err := FindServers(queryGame, filter)
-	if err != nil {
-		panic(err)
-	}
+	publicIP, _ := common.IPFormatToString(conn.RemoteAddr().String())
+	servers := filterServers(qr2.GetSessionServers(), queryGame, filter, publicIP)
 
 	for _, server := range servers {
 		var flags byte
