@@ -17,7 +17,7 @@ import (
 
 var (
 	regexSelfLookup  = regexp.MustCompile(`^dwc_pid = (\d{1,10})$`)
-	regexMatchmaking = regexp.MustCompile(`^dwc_mver = -?(\d{1,10}) and dwc_pid != (\d{1,10}) and maxplayers = -?(\d{1,10}) and numplayers < -?(\d{1,10}) and dwc_mtype = -?(\d{1,10}) and dwc_hoststate = (\d{1,10}) and dwc_suspend = (\d{1,10}) and \((.*)\)$`)
+	regexMatchmaking = regexp.MustCompile(`^dwc_mver = (-?\d{1,10}) and dwc_pid != (\d{1,10}) and maxplayers = (-?\d{1,10}) and numplayers < (-?\d{1,10}) and dwc_mtype = (-?\d{1,10}) and dwc_hoststate = (\d{1,10}) and dwc_suspend = (\d{1,10}) and \((.*)\)$`)
 )
 
 func filterServers(servers []map[string]string, queryGame string, filter string, publicIP string) []map[string]string {
