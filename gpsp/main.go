@@ -87,8 +87,12 @@ func handleRequest(conn net.Conn) {
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				// Client closed connection, terminate.
+				logging.Notice(moduleName, "Client closed connection")
 				return
 			}
+
+			logging.Notice(moduleName, "Connection lost")
+			return
 		}
 
 		commands, err := common.ParseGameSpyMessage(string(buffer))
@@ -123,6 +127,7 @@ func handleRequest(conn net.Conn) {
 					logging.Warn(moduleName, "Mismatched profile ID in otherslist:", aurora.Cyan(strProfileId))
 				}
 
+				logging.Notice(moduleName, "Lookup otherslist for", aurora.Cyan(profileId))
 				conn.Write([]byte(handleOthersList(moduleName, uint32(profileId), command)))
 				break
 			}

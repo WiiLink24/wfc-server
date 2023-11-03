@@ -1,36 +1,47 @@
 package nas
 
 import (
-	"encoding/base64"
-	"net/url"
 	"strconv"
-	"strings"
 	"wwfc/database"
+	"wwfc/logging"
 )
 
 // TODO: Generate and store in database!!!
 const Challenge = "0qUekMb4"
 
-func login(r *Response) {
-	// Validate the user id. It must be an integer.
-	strUserId, _ := base64.StdEncoding.DecodeString(strings.Replace(r.request.PostForm.Get("userid"), "*", "=", -1))
-	userId, err := strconv.ParseInt(string(strUserId), 10, 0)
-	if err != nil {
-		panic(err)
+func login(r *Response, fields map[string]string) map[string]string {
+	moduleName := "NAS:" + r.request.RemoteAddr
+
+	param := map[string]string{
+		"retry":   "0",
+		"locator": "gamespy.com",
 	}
 
-	gsbrcd, _ := base64.StdEncoding.DecodeString(strings.Replace(r.request.PostForm.Get("gsbrcd"), "*", "=", -1))
+	strUserId, ok := fields["userid"]
+	if !ok {
+		logging.Error(moduleName, "No userid in form")
+		param["returncd"] = "103"
+		return param
+	}
+
+	userId, err := strconv.ParseInt(strUserId, 10, 64)
+	if err != nil {
+		logging.Error(moduleName, "Invalid userid string in form")
+		param["returncd"] = "103"
+		return param
+	}
+
+	gsbrcd, ok := fields["gsbrcd"]
+	if !ok {
+		logging.Error(moduleName, "No gsbrcd in form")
+		param["returncd"] = "103"
+		return param
+	}
+
 	authToken := database.GenerateAuthToken(pool, ctx, userId, string(gsbrcd))
 
-	param := url.Values{}
-	// param.Set("datetime", strings.Replace(base64.StdEncoding.EncodeToString([]byte("20230911232518")), "=", "*", -1))
-	param.Set("retry", strings.Replace(base64.StdEncoding.EncodeToString([]byte("0")), "=", "*", -1))
-	param.Set("returncd", strings.Replace(base64.StdEncoding.EncodeToString([]byte("001")), "=", "*", -1))
-	param.Set("locator", strings.Replace(base64.StdEncoding.EncodeToString([]byte("gamespy.com")), "=", "*", -1))
-	param.Set("challenge", strings.Replace(base64.StdEncoding.EncodeToString([]byte(Challenge)), "=", "*", -1))
-	param.Set("token", strings.Replace(base64.StdEncoding.EncodeToString([]byte(authToken)), "=", "*", -1))
-
-	// Encode and send off to be written!
-	r.payload = []byte(param.Encode())
-	r.payload = []byte(strings.Replace(string(r.payload), "%2A", "*", -1))
+	param["returncd"] = "001"
+	param["challenge"] = Challenge
+	param["token"] = authToken
+	return param
 }

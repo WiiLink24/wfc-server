@@ -4,9 +4,12 @@ import (
 	"encoding/base64"
 	"github.com/logrusorgru/aurora/v3"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"wwfc/logging"
+	"wwfc/sake"
 )
 
 type Route struct {
@@ -16,7 +19,7 @@ type Route struct {
 // Action contains information about how a specified action should be handled.
 type Action struct {
 	ActionName  string
-	Callback    func(*Response)
+	Callback    func(*Response, map[string]string) map[string]string
 	ServiceType string
 }
 
@@ -38,7 +41,7 @@ func (route *Route) HandleGroup(serviceType string) RoutingGroup {
 	}
 }
 
-func (r *RoutingGroup) HandleAction(action string, function func(*Response)) {
+func (r *RoutingGroup) HandleAction(action string, function func(*Response, map[string]string) map[string]string) {
 	r.Route.Actions = append(r.Route.Actions, Action{
 		ActionName:  action,
 		Callback:    function,
@@ -46,46 +49,82 @@ func (r *RoutingGroup) HandleAction(action string, function func(*Response)) {
 	})
 }
 
+var (
+	regexSakeURL = regexp.MustCompile(`^([a-z\-]+\.)?sake\.gs\.`)
+)
+
 func (route *Route) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logging.Notice("NAS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host))
+		// Check for *.sake.gs.* or sake.gs.*
+		if regexSakeURL.MatchString(r.Host) {
+			// Redirect to the sake server
+			sake.HandleRequest(w, r)
+			return
+		}
+
+		logging.Notice("NAS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
+		moduleName := "NAS:" + r.RemoteAddr
+
 		err := r.ParseForm()
 		if err != nil {
-			logging.Error("NAS", "Failed to parse form")
+			logging.Error(moduleName, "Failed to parse form")
 			return
 		}
 
 		if !strings.HasPrefix(r.URL.Path, "/") {
-			logging.Error("NAS", "Invalid URL")
+			logging.Error(moduleName, "Invalid URL")
 			return
 		}
 
 		path := r.URL.Path[1:]
-		actionName, _ := base64.StdEncoding.DecodeString(strings.Replace(r.PostForm.Get("action"), "*", "=", -1))
 
-		if string(actionName) == "" {
-			logging.Error("NAS", "No action in form")
+		fields := map[string]string{}
+		for key, values := range r.PostForm {
+			if len(values) != 1 {
+				logging.Warn(moduleName, "Ignoring multiple POST form values:", aurora.Cyan(key).String()+":", aurora.Cyan(values))
+				continue
+			}
+
+			parsed, err := base64.StdEncoding.DecodeString(strings.Replace(values[0], "*", "=", -1))
+			if err != nil {
+				logging.Error(moduleName, "Invalid POST form value:", aurora.Cyan(key).String()+":", aurora.Cyan(values[0]))
+				return
+			}
+			logging.Info(moduleName, aurora.Cyan(key).String()+":", aurora.Cyan(string(parsed)))
+			fields[key] = string(parsed)
+		}
+
+		actionName, ok := fields["action"]
+		if !ok || actionName == "" {
+			logging.Error(moduleName, "No action in form")
 			return
 		}
 
 		var action Action
 		for _, _action := range route.Actions {
-			if path == _action.ServiceType && string(actionName) == _action.ActionName {
+			if path == _action.ServiceType && actionName == _action.ActionName {
 				action = _action
 			}
 		}
 
 		// Make sure we found an action
 		if action.ActionName == "" && action.ServiceType == "" {
-			logging.Error("NAS", "No action for", aurora.Cyan(string(actionName)))
+			logging.Error(moduleName, "No action for", aurora.Cyan(actionName))
 			return
 		}
 
 		response := NewResponse(&w, r)
-		action.Callback(response)
+		reply := action.Callback(response, fields)
 
-		// Our callback function will already have formulated the needed response.
-		// We will write common headers then the data.
+		if len(reply) != 0 {
+			param := url.Values{}
+			for key, value := range reply {
+				param.Set(key, strings.Replace(base64.StdEncoding.EncodeToString([]byte(value)), "=", "*", -1))
+			}
+			response.payload = []byte(param.Encode())
+			response.payload = []byte(strings.Replace(string(response.payload), "%2A", "*", -1))
+		}
+
 		w.Header().Set("NODE", "wifiappe1")
 		w.Header().Set("Content-Type", "text/plain")
 		w.Header().Set("Content-Length", strconv.Itoa(len(response.payload)))
