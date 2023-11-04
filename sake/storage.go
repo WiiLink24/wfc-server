@@ -343,7 +343,7 @@ func searchForRecords(moduleName string, request StorageSearchForRecords) *Stora
 			return &errorResponse
 		}
 
-		ownerId, err := strconv.ParseUint(match[1], 10, 32)
+		ownerId, err := strconv.ParseInt(match[1], 10, 32)
 		if err != nil {
 			logging.Error(moduleName, "Invalid owner ID")
 			return &errorResponse
