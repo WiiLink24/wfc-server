@@ -14,9 +14,13 @@ const (
 	UpdateUserTable   = `UPDATE users SET firstname = CASE WHEN $3 THEN $2 ELSE firstname END, lastname = CASE WHEN $5 THEN $4 ELSE lastname END WHERE profile_id = $1 RETURNING user_id, gsbrcd, password, email, unique_nick, firstname, lastname`
 	GetUser           = `SELECT user_id, gsbrcd, password, email, unique_nick, firstname, lastname FROM users WHERE profile_id = $1`
 	CreateUserSession = `INSERT INTO sessions (session_key, profile_id, login_ticket) VALUES ($1, $2, $3)`
+	GetTicketSession  = `SELECT session_key, profile_id FROM sessions WHERE login_ticket = $1`
 	DoesUserExist     = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	DeleteUserSession = `DELETE FROM sessions WHERE profile_id = $1`
 	GetUserProfileID  = `SELECT profile_id FROM users WHERE user_id = $1 AND gsbrcd = $2`
+
+	GetMKWFriendInfoQuery    = `SELECT mariokartwii_friend_info FROM users WHERE profile_id = $1`
+	UpdateMKWFriendInfoQuery = `UPDATE users SET mariokartwii_friend_info = $2 WHERE profile_id = $1`
 )
 
 type User struct {
@@ -67,6 +71,17 @@ func CreateSession(pool *pgxpool.Pool, ctx context.Context, profileId uint32, lo
 	return sessionKey
 }
 
+func GetSession(pool *pgxpool.Pool, ctx context.Context, loginTicket string) (string, uint32) {
+	var sessionKey string
+	var profileId uint32
+	err := pool.QueryRow(ctx, GetTicketSession, loginTicket).Scan(&sessionKey, &profileId)
+	if err != nil {
+		panic(err)
+	}
+
+	return sessionKey, profileId
+}
+
 func deleteSession(pool *pgxpool.Pool, ctx context.Context, profileId uint32) {
 	_, err := pool.Exec(ctx, DeleteUserSession, profileId)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -84,4 +99,21 @@ func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User
 
 	user.ProfileId = profileId
 	return user, true
+}
+
+func GetMKWFriendInfo(pool *pgxpool.Pool, ctx context.Context, profileId uint32) string {
+	var info string
+	err := pool.QueryRow(ctx, GetMKWFriendInfoQuery, profileId).Scan(&info)
+	if err != nil {
+		return ""
+	}
+
+	return info
+}
+
+func UpdateMKWFriendInfo(pool *pgxpool.Pool, ctx context.Context, profileId uint32, info string) {
+	_, err := pool.Exec(ctx, UpdateMKWFriendInfoQuery, profileId, info)
+	if err != nil {
+		panic(err)
+	}
 }

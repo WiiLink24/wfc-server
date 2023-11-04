@@ -6,7 +6,10 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"net/http"
+	"regexp"
+	"sort"
 	"strconv"
+	"wwfc/database"
 	"wwfc/logging"
 )
 
@@ -57,7 +60,7 @@ type StorageRecordField struct {
 
 type StorageRecordValue struct {
 	XMLName xml.Name
-	Value   StorageValue `xml:",any"`
+	Value   *StorageValue `xml:",any"`
 }
 
 type StorageValue struct {
@@ -187,6 +190,13 @@ func binaryDataValue(value []byte) StorageValue {
 	}
 }
 
+func binaryDataValueBase64(value string) StorageValue {
+	return StorageValue{
+		XMLName: xml.Name{"", "binaryDataValue"},
+		Value:   value,
+	}
+}
+
 func intValue(value int32) StorageValue {
 	return StorageValue{
 		XMLName: xml.Name{"", "intValue"},
@@ -194,28 +204,12 @@ func intValue(value int32) StorageValue {
 	}
 }
 
-func getRecordValue(moduleName string, tableId string, field string) (StorageRecordValue, bool) {
-	// TODO: Actually implement this instead of using hardcoded values
-	value := StorageValue{}
-
-	// Temporary fixed values
-	switch field {
-	case "info":
-		value = binaryDataValue([]byte{0xDC, 0xE6, 0x00, 0x50, 0x00, 0x61, 0x00, 0x6C, 0x00, 0x61, 0x00, 0x70, 0x00, 0x65, 0x00, 0x6C, 0x00, 0x69, 0x00, 0x00, 0x00, 0x00, 0x52, 0x25, 0x88, 0x1B, 0xBA, 0xE4, 0x04, 0x6C, 0x0E, 0x69, 0x00, 0x04, 0x8E, 0xA0, 0x09, 0x3D, 0x26, 0x92, 0x6C, 0x8C, 0xA8, 0x40, 0x14, 0x49, 0x90, 0x4D, 0x00, 0x8A, 0x00, 0x8A, 0x25, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1A, 0x9B, 0x00, 0x08, 0x96, 0x2B, 0xFB, 0x47, 0x0E, 0x82, 0x52, 0x4D, 0x43, 0x50, 0x00, 0x00, 0x00, 0x00, 0x25, 0x59, 0x09, 0x88})
-		break
-
-	case "recordid":
-		// Profile ID
-		value = intValue(43)
-		break
-
-	default:
-		logging.Error(moduleName, "Missing field:", aurora.Cyan(field))
-		return StorageRecordValue{}, false
+// I don't even know if this is a thing
+func uintValue(value uint32) StorageValue {
+	return StorageValue{
+		XMLName: xml.Name{"", "uintValue"},
+		Value:   strconv.FormatUint(uint64(value), 10),
 	}
-
-	logging.Info(moduleName, "Field:", aurora.Cyan(field))
-	return StorageRecordValue{Value: value}, true
 }
 
 func getMyRecords(moduleName string, request StorageGetMyRecords) *StorageGetMyRecordsResponse {
@@ -226,26 +220,50 @@ func getMyRecords(moduleName string, request StorageGetMyRecords) *StorageGetMyR
 
 	logging.Notice(moduleName, "SOAPAction:", aurora.Yellow("GetMyRecords"))
 
+	_, profileId := database.GetSession(pool, ctx, request.LoginTicket)
+	logging.Info(moduleName, "Profile ID:", aurora.BrightCyan(profileId))
+	logging.Info(moduleName, "Game ID:", aurora.Cyan(request.GameID))
+	logging.Info(moduleName, "Table ID:", aurora.Cyan(request.TableID))
+
+	errorResponse := StorageGetMyRecordsResponse{
+		XMLName:            xml.Name{"http://gamespy.net/sake", "GetMyRecordsResponse"},
+		GetMyRecordsResult: "Error",
+	}
+
+	values := map[string]StorageValue{}
+
+	switch strconv.Itoa(request.GameID) + "/" + request.TableID {
+	default:
+		logging.Error(moduleName, "Unknown table")
+		return &errorResponse
+
+	case "1687/FriendInfo":
+		// Mario Kart Wii friend info
+		values = map[string]StorageValue{
+			"ownerid":  uintValue(uint32(profileId)),
+			"recordid": intValue(int32(profileId)),
+			"info":     binaryDataValueBase64(database.GetMKWFriendInfo(pool, ctx, profileId)),
+		}
+		break
+	}
+
 	response := StorageGetMyRecordsResponse{
 		XMLName:            xml.Name{"http://gamespy.net/sake", "GetMyRecordsResponse"},
 		GetMyRecordsResult: "Success",
 	}
 
+	fieldCount := 0
 	valueArray := &response.Values.ArrayOfRecordValue
-
 	for _, field := range request.Fields.Fields {
-		recordValue, ok := getRecordValue(moduleName, request.TableID, field)
-		if !ok {
-			// TODO: Is this actually how you return an error
-			return &StorageGetMyRecordsResponse{
-				XMLName:            xml.Name{"http://gamespy.net/sake", "GetMyRecordsResponse"},
-				GetMyRecordsResult: "Error",
-			}
+		if value, ok := values[field]; ok {
+			fieldCount++
+			valueArray.RecordValues = append(valueArray.RecordValues, StorageRecordValue{Value: &value})
+		} else {
+			valueArray.RecordValues = append(valueArray.RecordValues, StorageRecordValue{Value: nil})
 		}
-
-		valueArray.RecordValues = append(valueArray.RecordValues, recordValue)
 	}
 
+	logging.Notice(moduleName, "Wrote", aurora.Cyan(fieldCount), "field(s)")
 	return &response
 }
 
@@ -256,6 +274,34 @@ func updateRecord(moduleName string, request StorageUpdateRecord) *StorageUpdate
 	}
 
 	logging.Notice(moduleName, "SOAPAction:", aurora.Yellow("UpdateRecord"))
+
+	_, profileId := database.GetSession(pool, ctx, request.LoginTicket)
+	logging.Info(moduleName, "Profile ID:", aurora.BrightCyan(profileId))
+	logging.Info(moduleName, "Game ID:", aurora.Cyan(request.GameID))
+	logging.Info(moduleName, "Table ID:", aurora.Cyan(request.TableID))
+
+	errorResponse := StorageUpdateRecordResponse{
+		XMLName:            xml.Name{"http://gamespy.net/sake", "UpdateRecordResponse"},
+		UpdateRecordResult: "Error",
+	}
+
+	switch strconv.Itoa(request.GameID) + "/" + request.TableID {
+	default:
+		logging.Error(moduleName, "Unknown table")
+		return &errorResponse
+
+	case "1687/FriendInfo":
+		// Mario Kart Wii friend info
+		if len(request.Values.RecordFields) != 1 || request.Values.RecordFields[0].Name != "info" || request.Values.RecordFields[0].Value.Value.XMLName.Local != "binaryDataValue" {
+			logging.Error(moduleName, "Invalid record fields")
+			return &errorResponse
+		}
+
+		// TODO: Validate record data
+		database.UpdateMKWFriendInfo(pool, ctx, profileId, request.Values.RecordFields[0].Value.Value.Value)
+		logging.Notice(moduleName, "Updated Mario Kart Wii friend info")
+		break
+	}
 
 	return &StorageUpdateRecordResponse{
 		XMLName:            xml.Name{"http://gamespy.net/sake", "UpdateRecordResponse"},
@@ -271,27 +317,95 @@ func searchForRecords(moduleName string, request StorageSearchForRecords) *Stora
 
 	logging.Notice(moduleName, "SOAPAction:", aurora.Yellow("SearchForRecords"))
 
+	_, profileId := database.GetSession(pool, ctx, request.LoginTicket)
+	logging.Info(moduleName, "Profile ID:", aurora.BrightCyan(profileId))
+	logging.Info(moduleName, "Game ID:", aurora.Cyan(request.GameID))
+	logging.Info(moduleName, "Table ID:", aurora.Cyan(request.TableID))
+	logging.Info(moduleName, "Filter:", aurora.Cyan(request.Filter))
+
+	errorResponse := StorageSearchForRecordsResponse{
+		XMLName:                xml.Name{"http://gamespy.net/sake", "SearchForRecordsResponse"},
+		SearchForRecordsResult: "Error",
+	}
+
+	values := []map[string]StorageValue{}
+
+	switch strconv.Itoa(request.GameID) + "/" + request.TableID {
+	default:
+		logging.Error(moduleName, "Unknown table")
+		return &errorResponse
+
+	case "1687/FriendInfo":
+		// Mario Kart Wii friend info
+		match := regexp.MustCompile(`^ownerid = (\d{1,10})$`).FindStringSubmatch(request.Filter)
+		if len(match) != 2 {
+			logging.Error(moduleName, "Invalid filter")
+			return &errorResponse
+		}
+
+		ownerId, err := strconv.ParseUint(match[1], 10, 32)
+		if err != nil {
+			logging.Error(moduleName, "Invalid owner ID")
+			return &errorResponse
+		}
+
+		// TODO: Check if the two are friends maybe
+
+		values = []map[string]StorageValue{
+			map[string]StorageValue{
+				"ownerid":  uintValue(uint32(ownerId)),
+				"recordid": intValue(int32(ownerId)),
+				"info":     binaryDataValueBase64(database.GetMKWFriendInfo(pool, ctx, uint32(ownerId))),
+			},
+		}
+		break
+	}
+
+	// Sort the values now
+	sort.Slice(values, func(l, r int) bool {
+		lVal, lExists := values[l][request.Sort]
+		rVal, rExists := values[r][request.Sort]
+		if lExists == false || rExists == false {
+			// Prioritises the one that exists or goes left if both false
+			return rExists
+		}
+
+		if lVal.XMLName.Local != "intValue" && lVal.XMLName.Local != "uintValue" {
+			panic(aurora.Cyan(lVal.XMLName.Local).String() + " used as sort value")
+		}
+		// Assuming the two use the same type
+
+		lValInt, err := strconv.ParseInt(lVal.Value, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		rValInt, err := strconv.ParseInt(rVal.Value, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+
+		return lValInt < rValInt
+	})
+
 	response := StorageSearchForRecordsResponse{
 		XMLName:                xml.Name{"http://gamespy.net/sake", "SearchForRecordsResponse"},
 		SearchForRecordsResult: "Success",
 	}
 
+	fieldCount := 0
 	valueArray := &response.Values.ArrayOfRecordValue
-
-	for i := 0; i < request.Max; i++ {
+	var i int
+	for i = 0; i < len(values) && i < request.Max; i++ {
 		for _, field := range request.Fields.Fields {
-			recordValue, ok := getRecordValue(moduleName, request.TableID, field)
-			if !ok {
-				// TODO: Is this actually how you return an error
-				return &StorageSearchForRecordsResponse{
-					XMLName:                xml.Name{"http://gamespy.net/sake", "SearchForRecordsResponse"},
-					SearchForRecordsResult: "Error",
-				}
+			if value, ok := values[i][field]; ok {
+				fieldCount++
+				valueArray.RecordValues = append(valueArray.RecordValues, StorageRecordValue{Value: &value})
+			} else {
+				valueArray.RecordValues = append(valueArray.RecordValues, StorageRecordValue{Value: nil})
 			}
-
-			valueArray.RecordValues = append(valueArray.RecordValues, recordValue)
 		}
 	}
 
+	logging.Notice(moduleName, "Wrote", aurora.BrightCyan(fieldCount), "field(s) across", aurora.BrightCyan(i), "record(s)")
 	return &response
 }
