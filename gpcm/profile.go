@@ -1,8 +1,6 @@
 package gpcm
 
 import (
-	"context"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"wwfc/common"
@@ -10,11 +8,12 @@ import (
 	"wwfc/logging"
 )
 
-func (g *GameSpySession) getProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) string {
+func (g *GameSpySession) getProfile(command common.GameSpyCommand) {
 	strProfileId := command.OtherValues["profileid"]
 	profileId, err := strconv.ParseUint(strProfileId, 10, 32)
 	if err != nil {
-		return createGameSpyError(2560)
+		g.replyError(2560)
+		return
 	}
 
 	logging.Notice(g.ModuleName, "Looking up the profile of", aurora.Cyan(profileId).String())
@@ -32,7 +31,7 @@ func (g *GameSpySession) getProfile(pool *pgxpool.Pool, ctx context.Context, com
 		user, _ = database.GetProfile(pool, ctx, uint32(profileId))
 	}
 
-	return common.CreateGameSpyMessage(common.GameSpyCommand{
+	response := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "pi",
 		CommandValue: "",
 		OtherValues: map[string]string{
@@ -51,8 +50,10 @@ func (g *GameSpySession) getProfile(pool *pgxpool.Pool, ctx context.Context, com
 			"id":         command.OtherValues["id"],
 		},
 	})
+
+	g.Conn.Write([]byte(response))
 }
 
-func (g *GameSpySession) updateProfile(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func (g *GameSpySession) updateProfile(command common.GameSpyCommand) {
 	g.User = database.UpdateProfile(pool, ctx, g.User.ProfileId, command.OtherValues)
 }

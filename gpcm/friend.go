@@ -1,8 +1,6 @@
 package gpcm
 
 import (
-	"context"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"strings"
@@ -19,7 +17,7 @@ func (g *GameSpySession) isFriendAdded(profileId uint32) bool {
 	return false
 }
 
-func (g *GameSpySession) addFriend(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	strNewProfileId := command.OtherValues["newprofileid"]
 	newProfileId, err := strconv.ParseUint(strNewProfileId, 10, 32)
 	if err != nil {
@@ -56,11 +54,11 @@ func (g *GameSpySession) addFriend(pool *pgxpool.Pool, ctx context.Context, comm
 	sendMessageToProfileId("2", g.User.ProfileId, uint32(newProfileId), "\r\n\r\n|signed|"+common.RandomHexString(32))
 }
 
-func (g *GameSpySession) removeFriend(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func (g *GameSpySession) removeFriend(command common.GameSpyCommand) {
 	// TODO
 }
 
-func (g *GameSpySession) authAddFriend(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func (g *GameSpySession) authAddFriend(command common.GameSpyCommand) {
 	strFromProfileId := command.OtherValues["fromprofileid"]
 	fromProfileId, err := strconv.ParseUint(strFromProfileId, 10, 32)
 	if err != nil {
@@ -77,7 +75,7 @@ func (g *GameSpySession) authAddFriend(pool *pgxpool.Pool, ctx context.Context, 
 	g.exchangeFriendStatus(uint32(fromProfileId))
 }
 
-func (g *GameSpySession) setStatus(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
 	status := command.CommandValue
 
 	statstring, ok := command.OtherValues["statstring"]
@@ -119,7 +117,7 @@ func (g *GameSpySession) setStatus(pool *pgxpool.Pool, ctx context.Context, comm
 	mutex.Unlock()
 }
 
-func (g *GameSpySession) bestieMessage(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand) {
+func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	if command.CommandValue != "1" {
 		logging.Notice(g.ModuleName, "Received unknown bestie message type:", aurora.Cyan(command.CommandValue))
 		return

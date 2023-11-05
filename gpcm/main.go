@@ -21,6 +21,7 @@ type GameSpySession struct {
 	User       database.User
 	ModuleName string
 	LoggedIn   bool
+	Challenge  string
 	Status     string
 	LocString  string
 	FriendList []uint32
@@ -93,14 +94,16 @@ func handleRequest(conn net.Conn) {
 		User:       database.User{},
 		ModuleName: "GPCM",
 		LoggedIn:   false,
+		Challenge:  "",
 		Status:     "",
+		LocString:  "",
 		FriendList: []uint32{},
 	}
 
 	defer session.closeSession()
 
 	// Set session ID and challenge
-	challenge := common.RandomString(10)
+	session.Challenge = common.RandomString(10)
 
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
@@ -112,7 +115,15 @@ func handleRequest(conn net.Conn) {
 		logging.Notice(session.ModuleName, "Unable to set keepalive (2):", err.Error())
 	}
 
-	conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
+	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
+		Command:      "lc",
+		CommandValue: "1",
+		OtherValues: map[string]string{
+			"challenge": session.Challenge,
+			"id":        "1",
+		},
+	})
+	conn.Write([]byte(payload))
 
 	logging.Notice(session.ModuleName, "Connection established from", conn.RemoteAddr())
 
@@ -127,79 +138,68 @@ func handleRequest(conn net.Conn) {
 				return
 			}
 
-			logging.Notice(session.ModuleName, "Connection lost")
+			logging.Error(session.ModuleName, "Connection lost")
 			return
 		}
 
 		commands, err := common.ParseGameSpyMessage(string(buffer))
 		if err != nil {
-			logging.Notice(session.ModuleName, "Error parsing message:", err.Error())
-			logging.Notice(session.ModuleName, "Raw data:", string(buffer))
+			logging.Error(session.ModuleName, "Error parsing message:", err.Error())
+			logging.Error(session.ModuleName, "Raw data:", string(buffer))
 			return
 		}
 
-		for _, command := range commands {
-			logging.Notice(session.ModuleName, "Command:", aurora.Yellow(command.Command))
+		// Commands must be handled in a certain order, not in the order supplied by the client
 
-			if command.Command == "login" {
-				payload, _ := session.Login(pool, ctx, command, challenge)
-				conn.Write([]byte(payload))
-			}
-		}
+		commands = session.handleCommand("ka", commands, func(command common.GameSpyCommand) {
+			session.Conn.Write([]byte(`\ka\\final\`))
+		})
+		commands = session.handleCommand("login", commands, session.login)
+		commands = session.ignoreCommand("logout", commands)
 
 		if session.LoggedIn == false {
-			logging.Notice(session.ModuleName, "Attempt to run command before login!")
+			logging.Error(session.ModuleName, "Attempt to run command before login!")
 			return
 		}
 
-		// Make sure commands that update the profile run before getprofile
-		for _, command := range commands {
-			switch command.Command {
-			case "login":
-				// User should already be authenticated
-				break
-
-			case "logout":
-				// Bye
-				return
-
-			case "updatepro":
-				session.updateProfile(pool, ctx, command)
-				break
-
-			case "status":
-				session.setStatus(pool, ctx, command)
-				break
-
-			case "addbuddy":
-				session.addFriend(pool, ctx, command)
-				break
-
-			case "delbuddy":
-				session.removeFriend(pool, ctx, command)
-				break
-
-			case "bm":
-				session.bestieMessage(pool, ctx, command)
-				break
-
-			case "authadd":
-				session.authAddFriend(pool, ctx, command)
-				break
-			}
-		}
+		commands = session.handleCommand("updatepro", commands, session.updateProfile)
+		commands = session.handleCommand("status", commands, session.setStatus)
+		commands = session.handleCommand("addbuddy", commands, session.addFriend)
+		commands = session.handleCommand("delbuddy", commands, session.removeFriend)
+		commands = session.handleCommand("authadd", commands, session.authAddFriend)
+		commands = session.handleCommand("bm", commands, session.bestieMessage)
+		commands = session.handleCommand("getprofile", commands, session.getProfile)
 
 		for _, command := range commands {
-			switch command.Command {
-			case "ka":
-				conn.Write([]byte(`\ka\\final\`))
-				break
-
-			case "getprofile":
-				payload := session.getProfile(pool, ctx, command)
-				conn.Write([]byte(payload))
-				break
-			}
+			logging.Error(session.ModuleName, "Unknown command:", aurora.Cyan(command.Command))
 		}
 	}
+}
+
+func (g *GameSpySession) handleCommand(name string, commands []common.GameSpyCommand, handler func(command common.GameSpyCommand)) []common.GameSpyCommand {
+	unhandled := []common.GameSpyCommand{}
+
+	for _, command := range commands {
+		if command.Command != name {
+			unhandled = append(unhandled, command)
+			continue
+		}
+
+		logging.Notice(g.ModuleName, "Command:", aurora.Yellow(command.Command))
+		handler(command)
+	}
+
+	return unhandled
+}
+
+func (g *GameSpySession) ignoreCommand(name string, commands []common.GameSpyCommand) []common.GameSpyCommand {
+	unhandled := []common.GameSpyCommand{}
+
+	for _, command := range commands {
+		if command.Command != name {
+			unhandled = append(unhandled, command)
+		}
+	}
+
+	return unhandled
 }

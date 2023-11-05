@@ -1,11 +1,9 @@
 package gpcm
 
 import (
-	"context"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 	"strconv"
 	"strings"
@@ -32,20 +30,20 @@ func generateProof(gpcmChallenge, nasChallenge, authToken, clientChallenge strin
 	return generateResponse(clientChallenge, nasChallenge, authToken, gpcmChallenge)
 }
 
-func (g *GameSpySession) Login(pool *pgxpool.Pool, ctx context.Context, command common.GameSpyCommand, challenge string) (string, bool) {
+func (g *GameSpySession) login(command common.GameSpyCommand) {
 	if g.LoggedIn {
 		log.Fatalf("Attempt to login twice")
 	}
 
 	// TODO: Validate login token with one in database
 	authToken := command.OtherValues["authtoken"]
-	response := generateResponse(challenge, "0qUekMb4", authToken, command.OtherValues["challenge"])
+	response := generateResponse(g.Challenge, "0qUekMb4", authToken, command.OtherValues["challenge"])
 	if response != command.OtherValues["response"] {
 		// TODO: Return an error
 		log.Fatalf("response mismatch")
 	}
 
-	proof := generateProof(challenge, "0qUekMb4", command.OtherValues["authtoken"], command.OtherValues["challenge"])
+	proof := generateProof(g.Challenge, "0qUekMb4", command.OtherValues["authtoken"], command.OtherValues["challenge"])
 
 	// Perform the login with the database.
 	// TODO: Check valid result
@@ -76,7 +74,7 @@ func (g *GameSpySession) Login(pool *pgxpool.Pool, ctx context.Context, command 
 	g.ModuleName += ":" + strconv.FormatInt(int64(g.User.ProfileId), 10)
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ")
 
-	return common.CreateGameSpyMessage(common.GameSpyCommand{
+	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
 		CommandValue: "2",
 		OtherValues: map[string]string{
@@ -88,7 +86,9 @@ func (g *GameSpySession) Login(pool *pgxpool.Pool, ctx context.Context, command 
 			"lt":         loginTicket,
 			"id":         command.OtherValues["id"],
 		},
-	}), true
+	})
+
+	g.Conn.Write([]byte(payload))
 }
 
 func IsLoggedIn(profileID uint32) bool {
