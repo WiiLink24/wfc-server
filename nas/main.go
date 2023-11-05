@@ -32,7 +32,7 @@ func StartServer() {
 	}
 
 	// Finally, initialize the HTTP server
-	address := config.Address + ":80"
+	address := config.Address
 	r := NewRoute()
 	ac := r.HandleGroup("ac")
 	{
@@ -41,5 +41,5 @@ func StartServer() {
 	}
 
 	logging.Notice("NAS", "Starting HTTP server on", address)
-	log.Fatal(nhttp.ListenAndServe("0.0.0.0:80", r.Handle()))
+	log.Fatal(nhttp.ListenAndServe(address, r.Handle()))
 }
