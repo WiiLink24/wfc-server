@@ -13,7 +13,7 @@ import (
 const (
 	DoesAuthTokenExist = `SELECT EXISTS(SELECT 1 FROM logins WHERE auth_token = $1)`
 	DoesNASUserExist   = `SELECT EXISTS(SELECT 1 FROM logins WHERE user_id = $1 AND gsbrcd = $2)`
-	UpdateUserLogin    = `UPDATE logins SET auth_token = $1 WHERE user_id = $2 AND gsbrcd = $2`
+	UpdateUserLogin    = `UPDATE logins SET auth_token = $1 WHERE user_id = $2 AND gsbrcd = $3`
 	InsertUserLogin    = `INSERT INTO logins (auth_token, user_id, gsbrcd) VALUES ($1, $2, $3)`
 	GetNASUserLogin    = `SELECT user_id, gsbrcd FROM logins WHERE auth_token = $1 LIMIT 1`
 	GetUserAuthToken   = `SELECT auth_token FROM logins WHERE user_id = $1 AND gsbrcd = $2`
