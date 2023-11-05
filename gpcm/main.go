@@ -10,7 +10,6 @@ import (
 	"io"
 	"net"
 	"sync"
-	"time"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -108,11 +107,6 @@ func handleRequest(conn net.Conn) {
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
 		logging.Notice(session.ModuleName, "Unable to set keepalive (1):", err.Error())
-	}
-
-	err = conn.(*net.TCPConn).SetKeepAlivePeriod(time.Hour * 1000)
-	if err != nil {
-		logging.Notice(session.ModuleName, "Unable to set keepalive (2):", err.Error())
 	}
 
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{

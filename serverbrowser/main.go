@@ -11,7 +11,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"time"
 	"wwfc/common"
 	"wwfc/logging"
 )
@@ -86,11 +85,6 @@ func handleRequest(conn net.Conn) {
 	defer conn.Close()
 
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
-	if err != nil {
-		logging.Notice(ModuleName, "Unable to set keepalive", err.Error())
-	}
-
-	err = conn.(*net.TCPConn).SetKeepAlivePeriod(time.Hour * 1000)
 	if err != nil {
 		logging.Notice(ModuleName, "Unable to set keepalive", err.Error())
 	}

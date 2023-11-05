@@ -11,7 +11,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"time"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -69,11 +68,6 @@ func handleRequest(conn net.Conn) {
 	knownProfileId := uint32(0)
 
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
-	if err != nil {
-		logging.Notice(moduleName, "Unable to set keepalive:", err.Error())
-	}
-
-	err = conn.(*net.TCPConn).SetKeepAlivePeriod(time.Hour * 1000)
 	if err != nil {
 		logging.Notice(moduleName, "Unable to set keepalive:", err.Error())
 	}
@@ -174,7 +168,7 @@ func handleOthersList(moduleName string, profileId uint32, command common.GameSp
 		opidsSplit = append(opidsSplit, opids)
 	}
 
-	if len(opidsSplit) != numOpidsValue {
+	if len(opidsSplit) != numOpidsValue && opids != "0" {
 		logging.Error(moduleName, "Mismatch opids length with numopids:", aurora.Cyan(len(opidsSplit)), "!=", aurora.Cyan(numOpidsValue))
 		return empty
 	}
