@@ -133,7 +133,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 			continue
 		}
 
-		ip, err := strconv.ParseUint(publicip, 10, 32)
+		ip, err := strconv.ParseInt(publicip, 10, 32)
 		if err != nil {
 			logging.Error(ModuleName, "Server has invalid public IP value:", aurora.Cyan(publicip))
 		}
