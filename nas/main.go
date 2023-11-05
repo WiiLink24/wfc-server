@@ -32,7 +32,7 @@ func StartServer() {
 	}
 
 	// Finally, initialize the HTTP server
-	address := config.Address
+	address := config.Address + ":" + config.Port
 	r := NewRoute()
 	ac := r.HandleGroup("ac")
 	{

@@ -1,6 +1,7 @@
 <Config>
     <!-- The address the server will bind to -->
     <address>127.0.0.1</address>
+    <nasPort>80</nasPort>
 
     <!-- Database Credentials -->
     <username>username</username>

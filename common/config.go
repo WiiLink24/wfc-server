@@ -2,7 +2,7 @@ package common
 
 import (
 	"encoding/xml"
-	"io/ioutil"
+	"os"
 )
 
 type Config struct {
@@ -11,10 +11,11 @@ type Config struct {
 	DatabaseAddress string `xml:"databaseAddress"`
 	DatabaseName    string `xml:"databaseName"`
 	Address         string `xml:"address"`
+	Port            string `xml:"nasPort"`
 }
 
 func GetConfig() Config {
-	data, err := ioutil.ReadFile("config.xml")
+	data, err := os.ReadFile("config.xml")
 	if err != nil {
 		panic(err)
 	}
