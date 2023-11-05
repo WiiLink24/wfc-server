@@ -104,12 +104,12 @@ func handleRequest(conn net.Conn) {
 
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
-		logging.Notice(session.ModuleName, "Unable to set keepalive:", err.Error())
+		logging.Notice(session.ModuleName, "Unable to set keepalive (1):", err.Error())
 	}
 
 	err = conn.(*net.TCPConn).SetKeepAlivePeriod(time.Hour * 1000)
 	if err != nil {
-		logging.Notice(session.ModuleName, "Unable to set keepalive:", err.Error())
+		logging.Notice(session.ModuleName, "Unable to set keepalive (2):", err.Error())
 	}
 
 	conn.Write([]byte(fmt.Sprintf(`\lc\1\challenge\%s\id\1\final\`, challenge)))
@@ -141,15 +141,15 @@ func handleRequest(conn net.Conn) {
 		for _, command := range commands {
 			logging.Notice(session.ModuleName, "Command:", aurora.Yellow(command.Command))
 
-			if session.LoggedIn == false {
-				if command.Command != "login" {
-					logging.Notice(session.ModuleName, "Attempt to run command before login!")
-					return
-				}
-
+			if command.Command == "login" {
 				payload, _ := session.Login(pool, ctx, command, challenge)
 				conn.Write([]byte(payload))
 			}
+		}
+
+		if session.LoggedIn == false {
+			logging.Notice(session.ModuleName, "Attempt to run command before login!")
+			return
 		}
 
 		// Make sure commands that update the profile run before getprofile
