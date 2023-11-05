@@ -19,6 +19,8 @@ func StartServer() {
 	// Get config
 	config := common.GetConfig()
 
+	common.ReadGameList()
+
 	// Start SQL
 	dbString := fmt.Sprintf("postgres://%s:%s@%s/%s", config.Username, config.Password, config.DatabaseAddress, config.DatabaseName)
 	dbConf, err := pgxpool.ParseConfig(dbString)

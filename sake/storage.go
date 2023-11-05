@@ -9,8 +9,14 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+)
+
+const (
+	SOAPEnvNamespace = "http://schemas.xmlsoap.org/soap/envelope/"
+	SakeNamespace    = "http://gamespy.net/sake"
 )
 
 type StorageRequestEnvelope struct {
@@ -19,34 +25,31 @@ type StorageRequestEnvelope struct {
 }
 
 type StorageRequestBody struct {
-	XMLName          xml.Name
-	GetMyRecords     StorageGetMyRecords
-	UpdateRecord     StorageUpdateRecord
-	SearchForRecords StorageSearchForRecords
-}
-
-type StorageGetMyRecords struct {
-	XMLName     xml.Name
-	GameID      int           `xml:"gameid"`
-	SecretKey   string        `xml:"secretKey"`
-	LoginTicket string        `xml:"loginTicket"`
-	TableID     string        `xml:"tableid"`
-	Fields      StorageFields `xml:"fields"`
-}
-
-type StorageFields struct {
 	XMLName xml.Name
-	Fields  []string `xml:"string"`
+	Data    StorageRequestData `xml:",any"`
 }
 
-type StorageUpdateRecord struct {
+type StorageRequestData struct {
 	XMLName     xml.Name
 	GameID      int                       `xml:"gameid"`
 	SecretKey   string                    `xml:"secretKey"`
 	LoginTicket string                    `xml:"loginTicket"`
 	TableID     string                    `xml:"tableid"`
 	RecordID    string                    `xml:"recordid"`
+	Filter      string                    `xml:"filter"`
+	Sort        string                    `xml:"sort"`
+	Offset      int                       `xml:"offset"`
+	Max         int                       `xml:"max"`
+	Surrounding int                       `xml:"surrounding"`
+	OwnerIDs    string                    `xml:"ownerids"`
+	CacheFlag   int                       `xml:"cacheFlag"`
+	Fields      StorageFields             `xml:"fields"`
 	Values      StorageUpdateRecordValues `xml:"values"`
+}
+
+type StorageFields struct {
+	XMLName xml.Name
+	Fields  []string `xml:"string"`
 }
 
 type StorageUpdateRecordValues struct {
@@ -68,22 +71,6 @@ type StorageValue struct {
 	Value   string `xml:"value"`
 }
 
-type StorageSearchForRecords struct {
-	XMLName     xml.Name
-	GameID      int           `xml:"gameid"`
-	SecretKey   string        `xml:"secretKey"`
-	LoginTicket string        `xml:"loginTicket"`
-	TableID     string        `xml:"tableid"`
-	Filter      string        `xml:"filter"`
-	Sort        string        `xml:"sort"`
-	Offset      int           `xml:"offset"`
-	Max         int           `xml:"max"`
-	Surrounding int           `xml:"surrounding"`
-	OwnerIDs    string        `xml:"ownerids"`
-	CacheFlag   int           `xml:"cacheFlag"`
-	Fields      StorageFields `xml:"fields"`
-}
-
 type StorageResponseEnvelope struct {
 	XMLName xml.Name
 	Body    StorageResponseBody
@@ -91,9 +78,9 @@ type StorageResponseEnvelope struct {
 
 type StorageResponseBody struct {
 	XMLName                  xml.Name
-	GetMyRecordsResponse     *StorageGetMyRecordsResponse
-	UpdateRecordResponse     *StorageUpdateRecordResponse
-	SearchForRecordsResponse *StorageSearchForRecordsResponse
+	GetMyRecordsResponse     *StorageGetMyRecordsResponse     `xml:"http://gamespy.net/sake GetMyRecordsResponse"`
+	UpdateRecordResponse     *StorageUpdateRecordResponse     `xml:"http://gamespy.net/sake UpdateRecordResponse"`
+	SearchForRecordsResponse *StorageSearchForRecordsResponse `xml:"http://gamespy.net/sake SearchForRecordsResponse"`
 }
 
 type StorageGetMyRecordsResponse struct {
@@ -125,8 +112,8 @@ type StorageSearchForRecordsResponse struct {
 }
 
 func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
-	action := r.Header.Get("SOAPAction")
-	if action == "" {
+	headerAction := r.Header.Get("SOAPAction")
+	if headerAction == "" {
 		logging.Error(moduleName, "No SOAPAction in header")
 		return
 	}
@@ -146,28 +133,37 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 	}
 
 	response := StorageResponseEnvelope{
-		XMLName: xml.Name{"http://schemas.xmlsoap.org/soap/envelope/", "Envelope"},
+		XMLName: xml.Name{SOAPEnvNamespace, "Envelope"},
 		Body: StorageResponseBody{
-			XMLName: xml.Name{"http://schemas.xmlsoap.org/soap/envelope/", "Body"},
+			XMLName: xml.Name{SOAPEnvNamespace, "Body"},
 		},
 	}
 
-	switch action {
-	case `"http://gamespy.net/sake/GetMyRecords"`:
-		response.Body.GetMyRecordsResponse = getMyRecords(moduleName, soap.Body.GetMyRecords)
-		break
+	xmlName := soap.Body.Data.XMLName.Space + "/" + soap.Body.Data.XMLName.Local
+	if headerAction == xmlName || headerAction == `"`+xmlName+`"` {
+		logging.Notice(moduleName, "SOAPAction:", aurora.Yellow(soap.Body.Data.XMLName.Local))
 
-	case `"http://gamespy.net/sake/UpdateRecord"`:
-		response.Body.UpdateRecordResponse = updateRecord(moduleName, soap.Body.UpdateRecord)
-		break
+		if profileId, gameInfo, ok := getRequestIdentity(moduleName, soap.Body.Data); ok {
+			switch xmlName {
+			case SakeNamespace + "/GetMyRecords":
+				response.Body.GetMyRecordsResponse = getMyRecords(moduleName, profileId, gameInfo, soap.Body.Data)
+				break
 
-	case `"http://gamespy.net/sake/SearchForRecords"`:
-		response.Body.SearchForRecordsResponse = searchForRecords(moduleName, soap.Body.SearchForRecords)
-		break
+			case SakeNamespace + "/UpdateRecord":
+				response.Body.UpdateRecordResponse = updateRecord(moduleName, profileId, gameInfo, soap.Body.Data)
+				break
 
-	default:
-		logging.Error(moduleName, "Unknown SOAPAction:", aurora.Cyan(action))
-		return
+			case SakeNamespace + "/SearchForRecords":
+				response.Body.SearchForRecordsResponse = searchForRecords(moduleName, profileId, gameInfo, soap.Body.Data)
+				break
+
+			default:
+				logging.Error(moduleName, "Unknown SOAPAction:", aurora.Cyan(xmlName))
+				break
+			}
+		}
+	} else {
+		logging.Error(moduleName, "Invalid SOAPAction or XML request:", aurora.Cyan(headerAction))
 	}
 
 	out, err := xml.Marshal(response)
@@ -181,6 +177,27 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "text/xml")
 	w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
 	w.Write(payload)
+}
+
+func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, common.GameInfo, bool) {
+	gameInfo, ok := common.GetGameInfoByID(request.GameID)
+	if !ok {
+		logging.Error(moduleName, "Invalid game ID:", aurora.Cyan(request.GameID))
+		panic("Invalid game ID")
+	}
+
+	if gameInfo.SecretKey != request.SecretKey {
+		logging.Error(moduleName, "Mismatch", aurora.BrightCyan(gameInfo.Name), "secret key:", aurora.Cyan(request.SecretKey), "!=", aurora.BrightCyan(gameInfo.SecretKey))
+		panic("Invalid secret key")
+	}
+
+	// GetSession panics if it can't find the session for the login ticket
+	_, profileId := database.GetSession(pool, ctx, request.LoginTicket)
+	logging.Info(moduleName, "Profile ID:", aurora.BrightCyan(profileId))
+	logging.Info(moduleName, "Game:", aurora.Cyan(request.GameID), "-", aurora.BrightCyan(gameInfo.Name))
+	logging.Info(moduleName, "Table ID:", aurora.Cyan(request.TableID))
+
+	return profileId, gameInfo, true
 }
 
 func binaryDataValue(value []byte) StorageValue {
@@ -212,32 +229,19 @@ func uintValue(value uint32) StorageValue {
 	}
 }
 
-func getMyRecords(moduleName string, request StorageGetMyRecords) *StorageGetMyRecordsResponse {
-	if request.XMLName.Space+"/"+request.XMLName.Local != "http://gamespy.net/sake/GetMyRecords" {
-		logging.Error(moduleName, "Missing GetMyRecords in request")
-		return nil
-	}
-
-	logging.Notice(moduleName, "SOAPAction:", aurora.Yellow("GetMyRecords"))
-
-	_, profileId := database.GetSession(pool, ctx, request.LoginTicket)
-	logging.Info(moduleName, "Profile ID:", aurora.BrightCyan(profileId))
-	logging.Info(moduleName, "Game ID:", aurora.Cyan(request.GameID))
-	logging.Info(moduleName, "Table ID:", aurora.Cyan(request.TableID))
-
+func getMyRecords(moduleName string, profileId uint32, gameInfo common.GameInfo, request StorageRequestData) *StorageGetMyRecordsResponse {
 	errorResponse := StorageGetMyRecordsResponse{
-		XMLName:            xml.Name{"http://gamespy.net/sake", "GetMyRecordsResponse"},
 		GetMyRecordsResult: "Error",
 	}
 
 	values := map[string]StorageValue{}
 
-	switch strconv.Itoa(request.GameID) + "/" + request.TableID {
+	switch gameInfo.Name + "/" + request.TableID {
 	default:
 		logging.Error(moduleName, "Unknown table")
 		return &errorResponse
 
-	case "1687/FriendInfo":
+	case "mariokartwii/FriendInfo":
 		// Mario Kart Wii friend info
 		values = map[string]StorageValue{
 			"ownerid":  uintValue(uint32(profileId)),
@@ -248,7 +252,6 @@ func getMyRecords(moduleName string, request StorageGetMyRecords) *StorageGetMyR
 	}
 
 	response := StorageGetMyRecordsResponse{
-		XMLName:            xml.Name{"http://gamespy.net/sake", "GetMyRecordsResponse"},
 		GetMyRecordsResult: "Success",
 	}
 
@@ -267,30 +270,17 @@ func getMyRecords(moduleName string, request StorageGetMyRecords) *StorageGetMyR
 	return &response
 }
 
-func updateRecord(moduleName string, request StorageUpdateRecord) *StorageUpdateRecordResponse {
-	if request.XMLName.Space+"/"+request.XMLName.Local != "http://gamespy.net/sake/UpdateRecord" {
-		logging.Error(moduleName, "Missing UpdateRecord in request")
-		return nil
-	}
-
-	logging.Notice(moduleName, "SOAPAction:", aurora.Yellow("UpdateRecord"))
-
-	_, profileId := database.GetSession(pool, ctx, request.LoginTicket)
-	logging.Info(moduleName, "Profile ID:", aurora.BrightCyan(profileId))
-	logging.Info(moduleName, "Game ID:", aurora.Cyan(request.GameID))
-	logging.Info(moduleName, "Table ID:", aurora.Cyan(request.TableID))
-
+func updateRecord(moduleName string, profileId uint32, gameInfo common.GameInfo, request StorageRequestData) *StorageUpdateRecordResponse {
 	errorResponse := StorageUpdateRecordResponse{
-		XMLName:            xml.Name{"http://gamespy.net/sake", "UpdateRecordResponse"},
 		UpdateRecordResult: "Error",
 	}
 
-	switch strconv.Itoa(request.GameID) + "/" + request.TableID {
+	switch gameInfo.Name + "/" + request.TableID {
 	default:
 		logging.Error(moduleName, "Unknown table")
 		return &errorResponse
 
-	case "1687/FriendInfo":
+	case "mariokartwii/FriendInfo":
 		// Mario Kart Wii friend info
 		if len(request.Values.RecordFields) != 1 || request.Values.RecordFields[0].Name != "info" || request.Values.RecordFields[0].Value.Value.XMLName.Local != "binaryDataValue" {
 			logging.Error(moduleName, "Invalid record fields")
@@ -304,38 +294,23 @@ func updateRecord(moduleName string, request StorageUpdateRecord) *StorageUpdate
 	}
 
 	return &StorageUpdateRecordResponse{
-		XMLName:            xml.Name{"http://gamespy.net/sake", "UpdateRecordResponse"},
 		UpdateRecordResult: "Success",
 	}
 }
 
-func searchForRecords(moduleName string, request StorageSearchForRecords) *StorageSearchForRecordsResponse {
-	if request.XMLName.Space+"/"+request.XMLName.Local != "http://gamespy.net/sake/SearchForRecords" {
-		logging.Error(moduleName, "Missing SearchForRecords in request")
-		return nil
-	}
-
-	logging.Notice(moduleName, "SOAPAction:", aurora.Yellow("SearchForRecords"))
-
-	_, profileId := database.GetSession(pool, ctx, request.LoginTicket)
-	logging.Info(moduleName, "Profile ID:", aurora.BrightCyan(profileId))
-	logging.Info(moduleName, "Game ID:", aurora.Cyan(request.GameID))
-	logging.Info(moduleName, "Table ID:", aurora.Cyan(request.TableID))
-	logging.Info(moduleName, "Filter:", aurora.Cyan(request.Filter))
-
+func searchForRecords(moduleName string, profileId uint32, gameInfo common.GameInfo, request StorageRequestData) *StorageSearchForRecordsResponse {
 	errorResponse := StorageSearchForRecordsResponse{
-		XMLName:                xml.Name{"http://gamespy.net/sake", "SearchForRecordsResponse"},
 		SearchForRecordsResult: "Error",
 	}
 
 	values := []map[string]StorageValue{}
 
-	switch strconv.Itoa(request.GameID) + "/" + request.TableID {
+	switch gameInfo.Name + "/" + request.TableID {
 	default:
 		logging.Error(moduleName, "Unknown table")
 		return &errorResponse
 
-	case "1687/FriendInfo":
+	case "mariokartwii/FriendInfo":
 		// Mario Kart Wii friend info
 		match := regexp.MustCompile(`^ownerid = (\d{1,10})$`).FindStringSubmatch(request.Filter)
 		if len(match) != 2 {
@@ -388,7 +363,6 @@ func searchForRecords(moduleName string, request StorageSearchForRecords) *Stora
 	})
 
 	response := StorageSearchForRecordsResponse{
-		XMLName:                xml.Name{"http://gamespy.net/sake", "SearchForRecordsResponse"},
 		SearchForRecordsResult: "Success",
 	}
 
