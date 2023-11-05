@@ -20,34 +20,29 @@ const (
 )
 
 func GenerateAuthToken(pool *pgxpool.Pool, ctx context.Context, userId int64, gsbrcd string) string {
-	var authToken string
-	err := pool.QueryRow(ctx, GetUserAuthToken, userId, gsbrcd).Scan(&authToken)
-
-	if err == nil {
-		// Temporary(?) workaround for multiple sessions with the same user ID (i.e. multiple Dolphin instances).
-		// Just don't change the user's auth token... ever.
-		// TODO: What do we actually do here? Do we even care about proper authentication at this stage?
-		return authToken
+	var userExists bool
+	err := pool.QueryRow(ctx, DoesNASUserExist, userId, gsbrcd).Scan(&userExists)
+	if err != nil {
+		panic(err)
 	}
 
-	exists := false
-	authToken = "NDS" + common.RandomString(80)
+	authToken := "NDS" + common.RandomString(80)
 	for {
 		// We must make sure that the auth token doesn't exist before attempting to insert it into the database.
-		var exists bool
-		err := pool.QueryRow(ctx, DoesAuthTokenExist, authToken).Scan(&exists)
+		var tokenExists bool
+		err := pool.QueryRow(ctx, DoesAuthTokenExist, authToken).Scan(&tokenExists)
 		if err != nil {
 			panic(err)
 		}
 
-		if !exists {
+		if !tokenExists {
 			break
 		}
 
 		authToken = "NDS" + common.RandomString(80)
 	}
 
-	if exists {
+	if userExists {
 		// UPDATE rather than INSERT
 		_, err = pool.Exec(ctx, UpdateUserLogin, authToken, userId, gsbrcd)
 		if err != nil {
