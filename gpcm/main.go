@@ -157,7 +157,7 @@ func handleRequest(conn net.Conn) {
 		commands = session.handleCommand("login", commands, session.login)
 		commands = session.ignoreCommand("logout", commands)
 
-		if session.LoggedIn == false {
+		if len(commands) != 0 && session.LoggedIn == false {
 			logging.Error(session.ModuleName, "Attempt to run command before login!")
 			return
 		}
