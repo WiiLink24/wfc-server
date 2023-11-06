@@ -57,7 +57,7 @@ func StartServer() {
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	// Validate the packet magic
-	if bytes.Equal(buffer[:6], []byte{0xfd, 0xfc, 0x1e, 0x66, 0x6a, 0xb2}) {
+	if !bytes.Equal(buffer[:6], []byte{0xfd, 0xfc, 0x1e, 0x66, 0x6a, 0xb2}) {
 		logging.Error("NATNEG:"+addr.String(), "Invalid packet header")
 		return
 	}
