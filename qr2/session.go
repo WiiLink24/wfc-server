@@ -5,7 +5,6 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 	"wwfc/common"
 	"wwfc/gpcm"
@@ -167,18 +166,7 @@ func GetSessionServers() []map[string]string {
 }
 
 func SendClientMessage(destIP string, message []byte) {
-	var rawIP int
-	for i, s := range strings.Split(strings.Split(destIP, ":")[0], ".") {
-		val, err := strconv.Atoi(s)
-		if err != nil {
-			panic(err)
-		}
-
-		rawIP |= val << (24 - i*8)
-	}
-
-	// TODO: Check if this handles negative numbers correctly
-	destIPIntStr := strconv.FormatInt(int64(int32(rawIP)), 10)
+	destIPIntStr, destPortStr := common.IPFormatToString(destIP)
 
 	currentTime := time.Now().Unix()
 
@@ -194,7 +182,7 @@ func SendClientMessage(destIP string, message []byte) {
 			continue
 		}
 
-		if session.Data["publicip"] == destIPIntStr {
+		if session.Data["publicip"] == destIPIntStr && session.Data["publicport"] == destPortStr {
 			// Found the client, now send the message
 			payload := createResponseHeader(ClientMessageRequest, session.SessionID)
 			mutex.Unlock()
