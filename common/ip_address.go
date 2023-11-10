@@ -30,7 +30,6 @@ func IPFormatToInt(ip string) (int32, uint16) {
 		intIP |= val << (24 - i*8)
 	}
 
-	// TODO: Check if this handles negative numbers properly
 	return int32(intIP), uint16(port)
 }
 
@@ -42,7 +41,6 @@ func IPFormatNoPortToInt(ip string) int32 {
 func IPFormatToString(ip string) (string, string) {
 	intIP, intPort := IPFormatToInt(ip)
 
-	// TODO: Check if this handles negative numbers properly
 	return strconv.FormatInt(int64(intIP), 10), strconv.FormatUint(uint64(intPort), 10)
 }
 

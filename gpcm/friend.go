@@ -101,7 +101,6 @@ func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
 		rawIP |= val << (24 - i*8)
 	}
 
-	// TODO: Check if this handles negative numbers correctly
 	ip := strconv.FormatInt(int64(int32(rawIP)), 10)
 
 	statusMsg := "|s|" + status + "|ss|" + statstring + "|ls|" + locstring + "|ip|" + ip + "|p|0|qm|0"
@@ -205,7 +204,6 @@ func (g *GameSpySession) sendLogoutStatus() {
 		rawIP |= val << (24 - i*8)
 	}
 
-	// TODO: Check if this handles negative numbers correctly
 	ip := strconv.FormatInt(int64(int32(rawIP)), 10)
 
 	mutex.Lock()

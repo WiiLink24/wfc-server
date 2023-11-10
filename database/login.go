@@ -2,11 +2,14 @@ package database
 
 import (
 	"context"
-	"database/sql"
+	"crypto/sha512"
+	"encoding/hex"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"wwfc/common"
+	"wwfc/gpcm"
 	"wwfc/logging"
 )
 
@@ -63,7 +66,7 @@ func GetNASLogin(pool *pgxpool.Pool, ctx context.Context, authToken string) (int
 	var gsbrcd string
 	err := pool.QueryRow(ctx, GetNASUserLogin, authToken).Scan(&userId, &gsbrcd)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return 0, ""
 		} else {
 			panic(err)
@@ -88,11 +91,12 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, authToken string) 
 	}
 
 	uniqueNickname := common.Base32Encode(userId) + gsbrcd
+	password := sha512.Sum512(append(gpcm.Salt, []byte(gsbrcd)...))
 
 	user := User{
 		UserId:     userId,
 		GsbrCode:   gsbrcd,
-		Password:   "troll",
+		Password:   hex.EncodeToString(password[:]),
 		Email:      uniqueNickname + "@nds",
 		UniqueNick: uniqueNickname,
 	}
