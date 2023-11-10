@@ -9,7 +9,6 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"net"
-	"os"
 	"sync"
 	"wwfc/common"
 	"wwfc/database"
@@ -30,7 +29,6 @@ type GameSpySession struct {
 var (
 	ctx  = context.Background()
 	pool *pgxpool.Pool
-	Salt []byte
 	// I would use a sync.Map instead of the map mutex combo, but this performs better.
 	sessions = map[uint32]*GameSpySession{}
 	mutex    = sync.RWMutex{}
@@ -48,11 +46,6 @@ func StartServer() {
 	}
 
 	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
-	if err != nil {
-		panic(err)
-	}
-
-	Salt, err = os.ReadFile("salt.bin")
 	if err != nil {
 		panic(err)
 	}

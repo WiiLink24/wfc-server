@@ -7,9 +7,9 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/logrusorgru/aurora/v3"
+	"os"
 	"strconv"
 	"wwfc/common"
-	"wwfc/gpcm"
 	"wwfc/logging"
 )
 
@@ -21,6 +21,8 @@ const (
 	GetNASUserLogin    = `SELECT user_id, gsbrcd FROM logins WHERE auth_token = $1 LIMIT 1`
 	GetUserAuthToken   = `SELECT auth_token FROM logins WHERE user_id = $1 AND gsbrcd = $2`
 )
+
+var salt []byte
 
 func GenerateAuthToken(pool *pgxpool.Pool, ctx context.Context, userId int64, gsbrcd string) string {
 	var userExists bool
@@ -77,6 +79,15 @@ func GetNASLogin(pool *pgxpool.Pool, ctx context.Context, authToken string) (int
 }
 
 func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, authToken string) (User, bool) {
+	// Make sure salt is loaded
+	if salt == nil {
+		var err error
+		salt, err = os.ReadFile("salt.bin")
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	// Query login table with the auth token.
 	userId, gsbrcd := GetNASLogin(pool, ctx, authToken)
 	if userId == 0 {
@@ -91,7 +102,7 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, authToken string) 
 	}
 
 	uniqueNickname := common.Base32Encode(userId) + gsbrcd
-	password := sha512.Sum512(append(gpcm.Salt, []byte(gsbrcd)...))
+	password := sha512.Sum512(append(salt, []byte(gsbrcd)...))
 
 	user := User{
 		UserId:     userId,
