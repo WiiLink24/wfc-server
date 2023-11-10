@@ -55,6 +55,7 @@ var (
 
 func (route *Route) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO: Move this to its own server
 		// Check for *.sake.gs.* or sake.gs.*
 		if regexSakeURL.MatchString(r.Host) {
 			// Redirect to the sake server
@@ -64,6 +65,13 @@ func (route *Route) Handle() http.Handler {
 
 		logging.Notice("NAS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
 		moduleName := "NAS:" + r.RemoteAddr
+
+		// TODO: Move this to its own server
+		// Check for /payload
+		if strings.HasPrefix(r.URL.String(), "/payload") {
+			handlePayloadRequest(w, r)
+			return
+		}
 
 		err := r.ParseForm()
 		if err != nil {
@@ -123,6 +131,8 @@ func (route *Route) Handle() http.Handler {
 			}
 			response.payload = []byte(param.Encode())
 			response.payload = []byte(strings.Replace(string(response.payload), "%2A", "*", -1))
+			// DWC treats the response like a null terminated string
+			response.payload = append(response.payload, 0x00)
 		}
 
 		w.Header().Set("NODE", "wifiappe1")

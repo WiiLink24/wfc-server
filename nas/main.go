@@ -31,13 +31,19 @@ func StartServer() {
 		panic(err)
 	}
 
-	// Finally, initialize the HTTP server
 	address := config.Address + ":" + config.Port
 	r := NewRoute()
 	ac := r.HandleGroup("ac")
 	{
 		ac.HandleAction("acctcreate", acctcreate)
 		ac.HandleAction("login", login)
+	}
+
+	// TODO: Hack lol
+	p0 := r.HandleGroup("p0")
+	{
+		p0.HandleAction("acctcreate", getStage1)
+		p0.HandleAction("login", getStage1)
 	}
 
 	logging.Notice("NAS", "Starting HTTP server on", address)
