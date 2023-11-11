@@ -16,15 +16,16 @@ import (
 const (
 	DoesAuthTokenExist = `SELECT EXISTS(SELECT 1 FROM logins WHERE auth_token = $1)`
 	DoesNASUserExist   = `SELECT EXISTS(SELECT 1 FROM logins WHERE user_id = $1 AND gsbrcd = $2)`
-	UpdateUserLogin    = `UPDATE logins SET auth_token = $1 WHERE user_id = $2 AND gsbrcd = $3`
-	InsertUserLogin    = `INSERT INTO logins (auth_token, user_id, gsbrcd) VALUES ($1, $2, $3)`
+	UpdateUserLogin    = `UPDATE logins SET auth_token = $1, challenge = $2 WHERE user_id = $3 AND gsbrcd = $4`
+	InsertUserLogin    = `INSERT INTO logins (auth_token, user_id, gsbrcd, challenge) VALUES ($1, $2, $3, $4)`
 	GetNASUserLogin    = `SELECT user_id, gsbrcd FROM logins WHERE auth_token = $1 LIMIT 1`
-	GetUserAuthToken   = `SELECT auth_token FROM logins WHERE user_id = $1 AND gsbrcd = $2`
+	GetNASChallenge    = `SELECT challenge FROM logins WHERE auth_token = $1`
 )
 
 var salt []byte
 
-func GenerateAuthToken(pool *pgxpool.Pool, ctx context.Context, userId int64, gsbrcd string) string {
+// GenerateAuthToken generates and stores the auth token for this user as well as a challenge.
+func GenerateAuthToken(pool *pgxpool.Pool, ctx context.Context, userId int64, gsbrcd string) (string, string) {
 	var userExists bool
 	err := pool.QueryRow(ctx, DoesNASUserExist, userId, gsbrcd).Scan(&userExists)
 	if err != nil {
@@ -47,20 +48,21 @@ func GenerateAuthToken(pool *pgxpool.Pool, ctx context.Context, userId int64, gs
 		authToken = "NDS" + common.RandomString(80)
 	}
 
+	challenge := common.RandomString(8)
 	if userExists {
 		// UPDATE rather than INSERT
-		_, err = pool.Exec(ctx, UpdateUserLogin, authToken, userId, gsbrcd)
+		_, err = pool.Exec(ctx, UpdateUserLogin, authToken, challenge, userId, gsbrcd)
 		if err != nil {
 			panic(err)
 		}
 	} else {
-		_, err = pool.Exec(ctx, InsertUserLogin, authToken, userId, gsbrcd)
+		_, err = pool.Exec(ctx, InsertUserLogin, authToken, userId, gsbrcd, challenge)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	return authToken
+	return authToken, challenge
 }
 
 func GetNASLogin(pool *pgxpool.Pool, ctx context.Context, authToken string) (int64, string) {
@@ -127,4 +129,19 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, authToken string) 
 	}
 
 	return user, true
+}
+
+func GetChallenge(pool *pgxpool.Pool, ctx context.Context, authToken string) string {
+	var challenge string
+	err := pool.QueryRow(ctx, GetNASChallenge, authToken).Scan(&challenge)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			// Invalid auth token
+			return ""
+		} else {
+			panic(err)
+		}
+	}
+
+	return challenge
 }

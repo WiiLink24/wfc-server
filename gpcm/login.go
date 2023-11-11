@@ -35,15 +35,20 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		log.Fatalf("Attempt to login twice")
 	}
 
-	// TODO: Validate login token with one in database
 	authToken := command.OtherValues["authtoken"]
-	response := generateResponse(g.Challenge, "0qUekMb4", authToken, command.OtherValues["challenge"])
+	challenge := database.GetChallenge(pool, ctx, authToken)
+	if challenge == "" {
+		// TODO: Error out
+		log.Fatalf("Invalid auth token")
+	}
+
+	response := generateResponse(g.Challenge, challenge, authToken, command.OtherValues["challenge"])
 	if response != command.OtherValues["response"] {
 		// TODO: Return an error
 		log.Fatalf("response mismatch")
 	}
 
-	proof := generateProof(g.Challenge, "0qUekMb4", command.OtherValues["authtoken"], command.OtherValues["challenge"])
+	proof := generateProof(g.Challenge, challenge, command.OtherValues["authtoken"], command.OtherValues["challenge"])
 
 	// Perform the login with the database.
 	// TODO: Check valid result

@@ -6,9 +6,6 @@ import (
 	"wwfc/logging"
 )
 
-// TODO: Generate and store in database!!!
-const Challenge = "0qUekMb4"
-
 func login(r *Response, fields map[string]string) map[string]string {
 	moduleName := "NAS:" + r.request.RemoteAddr
 
@@ -38,10 +35,10 @@ func login(r *Response, fields map[string]string) map[string]string {
 		return param
 	}
 
-	authToken := database.GenerateAuthToken(pool, ctx, userId, string(gsbrcd))
+	authToken, challenge := database.GenerateAuthToken(pool, ctx, userId, gsbrcd)
 
 	param["returncd"] = "001"
-	param["challenge"] = Challenge
+	param["challenge"] = challenge
 	param["token"] = authToken
 	return param
 }
