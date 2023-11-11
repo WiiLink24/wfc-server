@@ -4,11 +4,13 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/database"
+	"wwfc/logging"
 )
 
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {
@@ -38,35 +40,37 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	authToken := command.OtherValues["authtoken"]
 	challenge := database.GetChallenge(pool, ctx, authToken)
 	if challenge == "" {
-		// TODO: Error out
-		log.Fatalf("Invalid auth token")
+		err := g.FormatError("invalid auth token", 256, command.OtherValues["id"])
+		g.Conn.Write([]byte(err))
+		return
 	}
 
 	response := generateResponse(g.Challenge, challenge, authToken, command.OtherValues["challenge"])
 	if response != command.OtherValues["response"] {
-		// TODO: Return an error
-		log.Fatalf("response mismatch")
+		err := g.FormatError("response mismatch", 256, command.OtherValues["id"])
+		g.Conn.Write([]byte(err))
+		return
 	}
 
 	proof := generateProof(g.Challenge, challenge, command.OtherValues["authtoken"], command.OtherValues["challenge"])
 
 	// Perform the login with the database.
-	// TODO: Check valid result
 	user, ok := database.LoginUserToGPCM(pool, ctx, authToken)
 	if !ok {
-		// TODO: Return an error
-		log.Fatalf("GPCM login error")
+		err := g.FormatError("GPCM login error", 256, command.OtherValues["id"])
+		g.Conn.Write([]byte(err))
+		return
 	}
 	g.User = user
 
 	// Check to see if a session is already open with this profile ID
-	// TODO: Test this
 	mutex.Lock()
 	_, exists := sessions[g.User.ProfileId]
 	if exists {
 		mutex.Unlock()
-		// TODO: Return an error
-		log.Fatalf("Session with profile ID %d is already open", g.User.ProfileId)
+		err := g.FormatError(fmt.Sprintf("Session with profile ID %d is already open", g.User.ProfileId), 256, command.OtherValues["id"])
+		g.Conn.Write([]byte(err))
+		return
 	}
 	sessions[g.User.ProfileId] = g
 	mutex.Unlock()
@@ -94,6 +98,21 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	})
 
 	g.Conn.Write([]byte(payload))
+}
+
+func (g *GameSpySession) FormatError(err string, code int, id string) string {
+	logging.Error(g.ModuleName, err)
+
+	return common.CreateGameSpyMessage(common.GameSpyCommand{
+		Command:      "error",
+		CommandValue: "",
+		OtherValues: map[string]string{
+			"err":    strconv.Itoa(code),
+			"fatal":  "",
+			"errmsg": err,
+			"id":     id,
+		},
+	})
 }
 
 func IsLoggedIn(profileID uint32) bool {
