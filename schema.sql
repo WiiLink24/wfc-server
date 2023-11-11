@@ -28,7 +28,8 @@ CREATE TABLE public.logins (
     id integer NOT NULL,
     auth_token character varying NOT NULL,
     user_id bigint NOT NULL,
-    gsbrcd character varying
+    gsbrcd character varying,
+    challenge character varying
 );
 
 
