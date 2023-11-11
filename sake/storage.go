@@ -180,8 +180,8 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 }
 
 func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, common.GameInfo, bool) {
-	gameInfo, ok := common.GetGameInfoByID(request.GameID)
-	if !ok {
+	gameInfo := common.GetGameInfoByID(request.GameID)
+	if gameInfo == nil {
 		logging.Error(moduleName, "Invalid game ID:", aurora.Cyan(request.GameID))
 		panic("Invalid game ID")
 	}
@@ -197,13 +197,13 @@ func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, 
 	logging.Info(moduleName, "Game:", aurora.Cyan(request.GameID), "-", aurora.BrightCyan(gameInfo.Name))
 	logging.Info(moduleName, "Table ID:", aurora.Cyan(request.TableID))
 
-	return profileId, gameInfo, true
+	return profileId, *gameInfo, true
 }
 
 func binaryDataValue(value []byte) StorageValue {
 	return StorageValue{
 		XMLName: xml.Name{"", "binaryDataValue"},
-		Value:   base64.StdEncoding.EncodeToString([]byte(value)),
+		Value:   base64.StdEncoding.EncodeToString(value),
 	}
 }
 
@@ -244,7 +244,7 @@ func getMyRecords(moduleName string, profileId uint32, gameInfo common.GameInfo,
 	case "mariokartwii/FriendInfo":
 		// Mario Kart Wii friend info
 		values = map[string]StorageValue{
-			"ownerid":  uintValue(uint32(profileId)),
+			"ownerid":  uintValue(profileId),
 			"recordid": intValue(int32(profileId)),
 			"info":     binaryDataValueBase64(database.GetMKWFriendInfo(pool, ctx, profileId)),
 		}
@@ -327,7 +327,7 @@ func searchForRecords(moduleName string, profileId uint32, gameInfo common.GameI
 		// TODO: Check if the two are friends maybe
 
 		values = []map[string]StorageValue{
-			map[string]StorageValue{
+			{
 				"ownerid":  uintValue(uint32(ownerId)),
 				"recordid": intValue(int32(ownerId)),
 				"info":     binaryDataValueBase64(database.GetMKWFriendInfo(pool, ctx, uint32(ownerId))),

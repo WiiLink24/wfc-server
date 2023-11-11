@@ -62,6 +62,12 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 
 	logging.Info(ModuleName, "queryGame:", aurora.Cyan(queryGame).String(), "- gameName:", aurora.Cyan(gameName).String(), "- filter:", aurora.Cyan(filter).String(), "- fields:", aurora.Cyan(fields).String())
 
+	gameInfo := common.GetGameInfoByName(gameName)
+	if gameInfo == nil {
+		// Game doesn't exist in the game list.
+		return
+	}
+
 	var output []byte
 	for _, s := range strings.Split(strings.Split(conn.RemoteAddr().String(), ":")[0], ".") {
 		val, err := strconv.Atoi(s)
@@ -90,7 +96,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 
 		// Write the encrypted reply
 		// TODO: Key is currently hardcoded to Mario Kart Wii
-		conn.Write(common.EncryptTypeX([]byte("9r3Rmy"), challenge, output))
+		conn.Write(common.EncryptTypeX([]byte(gameInfo.SecretKey), challenge, output))
 		return
 	}
 
@@ -231,7 +237,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 	output = append(output, []byte{0x00, 0xff, 0xff, 0xff, 0xff}...)
 
 	// Write the encrypted reply
-	conn.Write(common.EncryptTypeX([]byte("9r3Rmy"), challenge, output))
+	conn.Write(common.EncryptTypeX([]byte(gameInfo.SecretKey), challenge, output))
 }
 
 func handleSendMessageRequest(conn net.Conn, buffer []byte) {

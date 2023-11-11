@@ -15,53 +15,35 @@ type GameInfo struct {
 }
 
 var (
-	gameListReady      = false
-	gameList           = []GameInfo{}
+	gameList           []GameInfo
 	gameListIDLookup   = map[int]int{}
 	gameListNameLookup = map[string]int{}
 	mutex              = sync.RWMutex{}
 )
 
-func GetGameList() []GameInfo {
-	if !gameListReady {
-		ReadGameList()
-	}
-
-	return gameList
-}
-
-func GetGameInfoByID(gameId int) (GameInfo, bool) {
-	if !gameListReady {
-		ReadGameList()
-	}
-
-	if index, ok := gameListIDLookup[gameId]; ok && index < len(gameList) {
-		return gameList[index], true
-	}
-
-	return GameInfo{}, false
-}
-
-func GetGameInfoByName(name string) (GameInfo, bool) {
-	if !gameListReady {
-		ReadGameList()
-	}
-
-	if index, ok := gameListNameLookup[name]; ok && index < len(gameList) {
-		return gameList[index], true
-	}
-
-	return GameInfo{}, false
-}
-
-func ReadGameList() {
+func GetGameInfoByID(gameId int) *GameInfo {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if gameListReady {
-		return
+	if index, ok := gameListIDLookup[gameId]; ok && index < len(gameList) {
+		return &gameList[index]
 	}
 
+	return nil
+}
+
+func GetGameInfoByName(name string) *GameInfo {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if index, ok := gameListNameLookup[name]; ok && index < len(gameList) {
+		return &gameList[index]
+	}
+
+	return nil
+}
+
+func ReadGameList() {
 	file, err := os.Open("game_list.tsv")
 	if err != nil {
 		panic(err)
@@ -101,6 +83,4 @@ func ReadGameList() {
 		}
 		gameListNameLookup[entry[1]] = index
 	}
-
-	gameListReady = true
 }
