@@ -9,6 +9,7 @@ import (
 	"wwfc/common"
 	"wwfc/gpcm"
 	"wwfc/logging"
+	"fmt"
 )
 
 const (
@@ -196,7 +197,16 @@ func SendClientMessage(destIP string, message []byte) {
 				panic(err)
 			}
 
-			logging.Info("QR2", "Sending message")
+			logMsg := ""
+			for i := 0; i < len(message); i++ {
+				if (i % 12) == 0 {
+					logMsg += "\n"
+				}
+
+				logMsg += fmt.Sprintf("%02x ", message[i])
+			}
+
+			logging.Info("QR2", "Sending message:", logMsg)
 			masterConn.WriteTo(payload, destIPAddr)
 			return
 		}
