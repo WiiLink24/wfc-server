@@ -1,5 +1,6 @@
 # Local configuration file
 config.xml
+salt.bin
 
 # Payload data
 payload

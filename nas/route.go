@@ -69,7 +69,7 @@ func (route *Route) Handle() http.Handler {
 		// TODO: Move this to its own server
 		// Check for /payload
 		if strings.HasPrefix(r.URL.String(), "/payload") {
-			handlePayloadRequest(w, r)
+			handlePayloadRequest(moduleName, w, r)
 			return
 		}
 
