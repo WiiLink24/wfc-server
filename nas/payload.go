@@ -1,6 +1,7 @@
 package nas
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -22,13 +23,13 @@ func getStage1(r *Response, fields map[string]string) map[string]string {
 		panic(err)
 	}
 
-	r.payload = dat
+	r.payload = append([]byte{0x01, 0x2C}, dat...)
 	return map[string]string{}
 }
 
 func handlePayloadRequest(w http.ResponseWriter, r *http.Request) {
 	// Example request:
-	// GET /payload?g=RMCPD00&s=30f75b5ec08c159cb66493d5ae889090012a87d8a113696704ade9b610f6f33c
+	// GET /payload?g=RMCPD00&s=4e44b095817f8cfb62e6cffd57e9cfd411004a492784039ea4b2b7ca64717c91&h=9fdb6f60
 
 	u, err := url.Parse(r.URL.String())
 	if err != nil {
@@ -56,14 +57,48 @@ func handlePayloadRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		salt_data, err := hex.DecodeString(salt[0])
+		_, err := hex.DecodeString(salt[0])
 		if err != nil {
 			log.Printf(aurora.Red("invalid salt hex string").String())
 			return
 		}
 
-		dat = append(append(dat[:0x110], salt_data...), dat[0x130:]...)
+		saltHashTest, ok := query["h"]
+		if !ok {
+			log.Printf(aurora.Red("Request is missing salt hash").String())
+			return
+		}
+
+		if len(saltHashTest[0]) != 8 {
+			log.Printf(aurora.Red("Invalid salt hash length").String())
+			return
+		}
+
+		saltHashTestData, err := hex.DecodeString(saltHashTest[0])
+		if err != nil {
+			log.Printf(aurora.Red("Invalid salt hash hex string").String())
+			return
+		}
+
+		// Generate the salt hash
+		saltHashData := "payload?g=" + query["g"][0] + "&s=" + query["s"][0]
+
+		hashCtx := sha256.New()
+		_, err = hashCtx.Write([]byte(saltHashData))
+		if err != nil {
+			panic(err)
+		}
+
+		saltHash := hashCtx.Sum(nil)
+		if !bytes.Equal(saltHashTestData, saltHash[:4]) {
+			log.Printf(aurora.Red("Invalid salt hash").String())
+			return
+		}
+
+		dat = append(append(dat[:0x110], saltHash...), dat[0x130:]...)
 	}
+
+	// TODO: Cache the request for a zero salt
 
 	rsaData, err := os.ReadFile("payload/stage1-private-temp.pem")
 	if err != nil {
