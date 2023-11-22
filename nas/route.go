@@ -10,6 +10,7 @@ import (
 	"strings"
 	"wwfc/logging"
 	"wwfc/sake"
+  "wwfc/common"
 )
 
 type Route struct {
@@ -75,10 +76,9 @@ func (route *Route) Handle() http.Handler {
 
     // Check for /online
 		if strings.HasPrefix(r.URL.String(), "/online") {
-      logging.Notice("test")
     	w.Header().Set("Content-Type", "text/plain")
-      w.Header().Set("Content-Length", strconv.Itoa(len("Success")))
-    	w.Write([]byte("Success"))
+      w.Header().Set("Content-Length", strconv.Itoa(len(strconv.Itoa(common.OnlineUsers))))
+    	w.Write([]byte(strconv.Itoa(common.OnlineUsers))) 
 			return
 		}
 
