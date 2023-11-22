@@ -73,6 +73,12 @@ func (route *Route) Handle() http.Handler {
 			return
 		}
 
+    // Check for /online
+		if strings.HasPrefix(r.URL.String(), "/online") {
+      returnOnlineStats(w)
+			return
+		}
+
 		err := r.ParseForm()
 		if err != nil {
 			logging.Error(moduleName, "Failed to parse form")
