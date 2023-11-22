@@ -16,14 +16,15 @@ import (
 )
 
 type GameSpySession struct {
-	Conn       net.Conn
-	User       database.User
-	ModuleName string
-	LoggedIn   bool
-	Challenge  string
-	Status     string
-	LocString  string
-	FriendList []uint32
+	Conn           net.Conn
+	User           database.User
+	ModuleName     string
+	LoggedIn       bool
+	Challenge      string
+	Status         string
+	LocString      string
+	FriendList     []uint32
+	AuthFriendList []uint32
 }
 
 var (
@@ -89,14 +90,15 @@ func (g *GameSpySession) closeSession() {
 // Handles incoming requests.
 func handleRequest(conn net.Conn) {
 	session := GameSpySession{
-		Conn:       conn,
-		User:       database.User{},
-		ModuleName: "GPCM",
-		LoggedIn:   false,
-		Challenge:  "",
-		Status:     "",
-		LocString:  "",
-		FriendList: []uint32{},
+		Conn:           conn,
+		User:           database.User{},
+		ModuleName:     "GPCM",
+		LoggedIn:       false,
+		Challenge:      "",
+		Status:         "",
+		LocString:      "",
+		FriendList:     []uint32{},
+		AuthFriendList: []uint32{},
 	}
 
 	defer session.closeSession()

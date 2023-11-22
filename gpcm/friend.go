@@ -17,6 +17,15 @@ func (g *GameSpySession) isFriendAdded(profileId uint32) bool {
 	return false
 }
 
+func (g *GameSpySession) isFriendAuthorized(profileId uint32) bool {
+	for _, storedPid := range g.AuthFriendList {
+		if storedPid == profileId {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	strNewProfileId := command.OtherValues["newprofileid"]
 	newProfileId, err := strconv.ParseUint(strNewProfileId, 10, 32)
@@ -41,7 +50,8 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	fc := common.CalcFriendCodeString(uint32(newProfileId), "RMCJ")
 	logging.Notice(g.ModuleName, "Add friend:", aurora.Cyan(strNewProfileId), aurora.Cyan(fc))
 
-	if g.isFriendAdded(uint32(newProfileId)) {
+	if g.isFriendAuthorized(uint32(newProfileId)) {
+		logging.Warn(g.ModuleName, "Attempt to add a friend who is already authorized")
 		g.replyError(1539)
 		return
 	}
@@ -51,6 +61,24 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 
 	// TODO: Add a limit
 	g.FriendList = append(g.FriendList, uint32(newProfileId))
+
+	// Check if destination has added the sender
+	newSession, ok := sessions[uint32(newProfileId)]
+	if !ok || newSession == nil || !newSession.LoggedIn {
+		logging.Info(g.ModuleName, "Destination is not online")
+		return
+	}
+
+	if !newSession.isFriendAdded(g.User.ProfileId) {
+		// Not an error, just ignore for now
+		logging.Info(g.ModuleName, "Destination has not added sender")
+		return
+	}
+
+	// Friends are now mutual!
+	// TODO: Add a limit
+	g.AuthFriendList = append(g.AuthFriendList, uint32(newProfileId))
+
 	sendMessageToProfileId("2", g.User.ProfileId, uint32(newProfileId), "\r\n\r\n|signed|"+common.RandomHexString(32))
 }
 
@@ -142,6 +170,8 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	if toSession, ok := sessions[uint32(toProfileId)]; ok && toSession.LoggedIn {
 		if !toSession.isFriendAdded(g.User.ProfileId) {
 			logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not friends with sender")
+			g.replyError(2305)
+			return
 		}
 
 		// TODO SECURITY: Sanitize message (there's a stack overflow exploit in DWC here)
