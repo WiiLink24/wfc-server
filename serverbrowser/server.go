@@ -95,7 +95,6 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 		output = binary.BigEndian.AppendUint16(output, 6500)
 
 		// Write the encrypted reply
-		// TODO: Key is currently hardcoded to Mario Kart Wii
 		conn.Write(common.EncryptTypeX([]byte(gameInfo.SecretKey), challenge, output))
 		return
 	}
@@ -247,7 +246,5 @@ func handleSendMessageRequest(conn net.Conn, buffer []byte) {
 	logging.Notice(ModuleName, "Send message from", aurora.BrightCyan(conn.RemoteAddr()), "to", aurora.BrightCyan(destIP).String())
 
 	// TODO: Perform basic packet verification
-	// TODO SECURITY: Check if the selected IP is actually online, or at least make sure it's not a local IP
-
 	qr2.SendClientMessage(destIP, buffer[9:])
 }
