@@ -30,20 +30,20 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	strNewProfileId := command.OtherValues["newprofileid"]
 	newProfileId, err := strconv.ParseUint(strNewProfileId, 10, 32)
 	if err != nil {
-		g.replyError(1536)
+		g.replyError(ErrAddFriend)
 		return
 	}
 
 	// Required for a friend auth
 	if g.User.LastName == "" {
 		logging.Error(g.ModuleName, "Add friend without last name")
-		g.replyError(1537)
+		g.replyError(ErrAddFriendBadFrom)
 		return
 	}
 
 	if newProfileId == uint64(g.User.ProfileId) {
 		logging.Error(g.ModuleName, "Attempt to add self as friend")
-		g.replyError(1538)
+		g.replyError(ErrAddFriendBadNew)
 		return
 	}
 
@@ -51,8 +51,10 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	logging.Notice(g.ModuleName, "Add friend:", aurora.Cyan(strNewProfileId), aurora.Cyan(fc))
 
 	if g.isFriendAuthorized(uint32(newProfileId)) {
-		logging.Warn(g.ModuleName, "Attempt to add a friend who is already authorized")
-		g.replyError(1539)
+		logging.Info(g.ModuleName, "Attempt to add a friend who is already authorized")
+		// This seems to always happen, do we need to return an error?
+		// DWC vocally ignores the error anyway, so let's not bother
+		// g.replyError(ErrAddFriendAlreadyFriends)
 		return
 	}
 
@@ -91,7 +93,7 @@ func (g *GameSpySession) authAddFriend(command common.GameSpyCommand) {
 	fromProfileId, err := strconv.ParseUint(strFromProfileId, 10, 32)
 	if err != nil {
 		logging.Error(g.ModuleName, "Invalid profile ID string:", aurora.Cyan(strFromProfileId))
-		g.replyError(1793)
+		g.replyError(ErrAuthAddBadFrom)
 		return
 	}
 
@@ -154,13 +156,13 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	toProfileId, err := strconv.ParseUint(strToProfileId, 10, 32)
 	if err != nil {
 		logging.Error(g.ModuleName, "Invalid profile ID string:", aurora.Cyan(strToProfileId))
-		g.replyError(2304)
+		g.replyError(ErrMessage)
 		return
 	}
 
 	if !g.isFriendAdded(uint32(toProfileId)) {
-		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "not even on own friend list")
-		g.replyError(2305)
+		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not even on sender's friend list")
+		g.replyError(ErrMessageNotFriends)
 		return
 	}
 
@@ -170,7 +172,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	if toSession, ok := sessions[uint32(toProfileId)]; ok && toSession.LoggedIn {
 		if !toSession.isFriendAdded(g.User.ProfileId) {
 			logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not friends with sender")
-			g.replyError(2305)
+			g.replyError(ErrMessageNotFriends)
 			return
 		}
 
@@ -180,7 +182,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	}
 
 	logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not online")
-	g.replyError(2307)
+	g.replyError(ErrMessageFriendOffline)
 }
 
 func sendMessageToSession(msgType string, from uint32, session *GameSpySession, msg string) {

@@ -12,7 +12,8 @@ func (g *GameSpySession) getProfile(command common.GameSpyCommand) {
 	strProfileId := command.OtherValues["profileid"]
 	profileId, err := strconv.ParseUint(strProfileId, 10, 32)
 	if err != nil {
-		g.replyError(2560)
+		// There was an error getting profile info.
+		g.replyError(ErrGetProfile)
 		return
 	}
 
@@ -28,7 +29,12 @@ func (g *GameSpySession) getProfile(command common.GameSpyCommand) {
 		mutex.Unlock()
 	} else {
 		mutex.Unlock()
-		user, _ = database.GetProfile(pool, ctx, uint32(profileId))
+		user, ok = database.GetProfile(pool, ctx, uint32(profileId))
+		if !ok {
+			// The profile info was requested on is invalid.
+			g.replyError(ErrGetProfileBadProfile)
+			return
+		}
 	}
 
 	response := common.CreateGameSpyMessage(common.GameSpyCommand{

@@ -4,13 +4,11 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"log"
 	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/database"
-	"wwfc/logging"
 )
 
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {
@@ -40,15 +38,15 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	authToken := command.OtherValues["authtoken"]
 	challenge := database.GetChallenge(pool, ctx, authToken)
 	if challenge == "" {
-		err := g.FormatError("invalid auth token", 256, command.OtherValues["id"])
-		g.Conn.Write([]byte(err))
+		// There was an error validating the pre-authentication.
+		g.replyError(ErrLoginBadPreAuth)
 		return
 	}
 
 	response := generateResponse(g.Challenge, challenge, authToken, command.OtherValues["challenge"])
 	if response != command.OtherValues["response"] {
-		err := g.FormatError("response mismatch", 256, command.OtherValues["id"])
-		g.Conn.Write([]byte(err))
+		// There was an error validating the pre-authentication.
+		g.replyError(ErrLoginBadPreAuth)
 		return
 	}
 
@@ -57,19 +55,23 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	// Perform the login with the database.
 	user, ok := database.LoginUserToGPCM(pool, ctx, authToken)
 	if !ok {
-		err := g.FormatError("GPCM login error", 256, command.OtherValues["id"])
-		g.Conn.Write([]byte(err))
+		// There was an error logging in to the GP backend.
+		g.replyError(ErrLogin)
 		return
 	}
 	g.User = user
+
+	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10) + "*"
+	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ") + "*"
 
 	// Check to see if a session is already open with this profile ID
 	mutex.Lock()
 	_, exists := sessions[g.User.ProfileId]
 	if exists {
 		mutex.Unlock()
-		err := g.FormatError(fmt.Sprintf("Session with profile ID %d is already open", g.User.ProfileId), 256, command.OtherValues["id"])
-		g.Conn.Write([]byte(err))
+		// Original GPCM would've force kicked the other logged in client,
+		// but we just kick this client
+		g.replyError(ErrForcedDisconnect)
 		return
 	}
 	sessions[g.User.ProfileId] = g
@@ -80,7 +82,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	_ = database.CreateSession(pool, ctx, g.User.ProfileId, loginTicket)
 
 	g.LoggedIn = true
-	g.ModuleName += ":" + strconv.FormatInt(int64(g.User.ProfileId), 10)
+	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10)
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ")
 
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
@@ -98,21 +100,6 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	})
 
 	g.Conn.Write([]byte(payload))
-}
-
-func (g *GameSpySession) FormatError(err string, code int, id string) string {
-	logging.Error(g.ModuleName, err)
-
-	return common.CreateGameSpyMessage(common.GameSpyCommand{
-		Command:      "error",
-		CommandValue: "",
-		OtherValues: map[string]string{
-			"err":    strconv.Itoa(code),
-			"fatal":  "",
-			"errmsg": err,
-			"id":     id,
-		},
-	})
 }
 
 func IsLoggedIn(profileID uint32) bool {

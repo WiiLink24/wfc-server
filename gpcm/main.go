@@ -125,6 +125,7 @@ func handleRequest(conn net.Conn) {
 
 	// Here we go into the listening loop
 	for {
+		// TODO: Handle split packets
 		buffer := make([]byte, 1024)
 		_, err := bufio.NewReader(conn).Read(buffer)
 		if err != nil {
@@ -142,6 +143,7 @@ func handleRequest(conn net.Conn) {
 		if err != nil {
 			logging.Error(session.ModuleName, "Error parsing message:", err.Error())
 			logging.Error(session.ModuleName, "Raw data:", string(buffer))
+			session.replyError(ErrParse)
 			return
 		}
 
@@ -155,6 +157,7 @@ func handleRequest(conn net.Conn) {
 
 		if len(commands) != 0 && session.LoggedIn == false {
 			logging.Error(session.ModuleName, "Attempt to run command before login!")
+			session.replyError(ErrNotLoggedIn)
 			return
 		}
 
