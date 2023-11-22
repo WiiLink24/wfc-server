@@ -239,7 +239,7 @@ func (g *GameSpySession) sendLogoutStatus() {
 	ip := strconv.FormatInt(int64(int32(rawIP)), 10)
 
 	mutex.Lock()
-	for _, storedPid := range g.FriendList {
+	for _, storedPid := range g.AuthFriendList {
 		sendMessageToProfileId("100", g.User.ProfileId, storedPid, "|s|0|ss|Offline|ls||ip|"+ip+"|p|0|qm|0")
 	}
 	mutex.Unlock()

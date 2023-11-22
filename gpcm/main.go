@@ -122,7 +122,7 @@ func handleRequest(conn net.Conn) {
 	conn.Write([]byte(payload))
 
 	logging.Notice(session.ModuleName, "Connection established from", conn.RemoteAddr())
-  common.OnlineStatUpdate(1)
+	common.OnlineStatUpdate(1)
 
 	// Here we go into the listening loop
 	for {
@@ -133,12 +133,12 @@ func handleRequest(conn net.Conn) {
 			if errors.Is(err, io.EOF) {
 				// Client closed connection, terminate.
 				logging.Notice(session.ModuleName, "Client closed connection")
-        common.OnlineStatUpdate(-1)
+				common.OnlineStatUpdate(-1)
 				return
 			}
 
 			logging.Error(session.ModuleName, "Connection lost")
-      common.OnlineStatUpdate(-1)
+			common.OnlineStatUpdate(-1)
 			return
 		}
 
