@@ -7,16 +7,16 @@ import (
 )
 
 type GPError struct {
-	errorCode   int
-	errorString string
-	fatal       bool
+	ErrorCode   int
+	ErrorString string
+	Fatal       bool
 }
 
 func MakeGPError(errorCode int, errorString string, fatal bool) GPError {
 	return GPError{
-		errorCode:   errorCode,
-		errorString: errorString,
-		fatal:       fatal,
+		ErrorCode:   errorCode,
+		ErrorString: errorString,
+		Fatal:       fatal,
 	}
 }
 
@@ -144,12 +144,12 @@ func (err GPError) GetMessage() string {
 		Command:      "error",
 		CommandValue: "",
 		OtherValues: map[string]string{
-			"err":    strconv.Itoa(err.errorCode),
-			"errmsg": err.errorString,
+			"err":    strconv.Itoa(err.ErrorCode),
+			"errmsg": err.ErrorString,
 		},
 	}
 
-	if err.fatal {
+	if err.Fatal {
 		command.OtherValues["fatal"] = ""
 	}
 
@@ -157,6 +157,6 @@ func (err GPError) GetMessage() string {
 }
 
 func (g *GameSpySession) replyError(err GPError) {
-	logging.Error(g.ModuleName, "Reply error:", err.errorString)
+	logging.Error(g.ModuleName, "Reply error:", err.ErrorString)
 	g.Conn.Write([]byte(err.GetMessage()))
 }

@@ -4,11 +4,11 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"log"
 	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/database"
+	"wwfc/logging"
 )
 
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {
@@ -32,21 +32,30 @@ func generateProof(gpcmChallenge, nasChallenge, authToken, clientChallenge strin
 
 func (g *GameSpySession) login(command common.GameSpyCommand) {
 	if g.LoggedIn {
-		log.Fatalf("Attempt to login twice")
+		logging.Error(g.ModuleName, "Attempt to login twice")
+		g.replyError(ErrLogin)
+		return
+	}
+
+	if command.OtherValues["payload_ver"] != "1" {
+		g.replyError(GPError{
+			ErrorCode:   ErrLogin.ErrorCode,
+			ErrorString: "The payload version is invalid.",
+			Fatal:       true,
+		})
+		return
 	}
 
 	authToken := command.OtherValues["authtoken"]
 	challenge := database.GetChallenge(pool, ctx, authToken)
 	if challenge == "" {
-		// There was an error validating the pre-authentication.
-		g.replyError(ErrLoginBadPreAuth)
+		g.replyError(ErrLogin)
 		return
 	}
 
 	response := generateResponse(g.Challenge, challenge, authToken, command.OtherValues["challenge"])
 	if response != command.OtherValues["response"] {
-		// There was an error validating the pre-authentication.
-		g.replyError(ErrLoginBadPreAuth)
+		g.replyError(ErrLogin)
 		return
 	}
 
