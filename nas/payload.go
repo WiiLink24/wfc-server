@@ -17,14 +17,17 @@ import (
 	"wwfc/logging"
 )
 
-func getStage1(r *Response, fields map[string]string) map[string]string {
+func downloadStage1(moduleName string, w http.ResponseWriter, r *http.Request, stage1Ver int) {
 	dat, err := os.ReadFile("payload/stage1.bin")
 	if err != nil {
 		panic(err)
 	}
 
-	r.payload = append([]byte{0x01, 0x2C}, dat...)
-	return map[string]string{}
+	payload := append([]byte{0x01, 0x2C}, dat...)
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
+	w.Write(payload)
 }
 
 func handlePayloadRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
