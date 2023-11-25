@@ -166,23 +166,59 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		return
 	}
 
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	if toSession, ok := sessions[uint32(toProfileId)]; ok && toSession.LoggedIn {
-		if !toSession.isFriendAdded(g.User.ProfileId) {
-			logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not friends with sender")
-			g.replyError(ErrMessageNotFriends)
-			return
-		}
-
-		// TODO SECURITY: Sanitize message (there's a stack overflow exploit in DWC here)
-		sendMessageToSession("1", g.User.ProfileId, toSession, command.OtherValues["msg"])
+	msg, ok := command.OtherValues["msg"]
+	if !ok || msg == "" {
+		logging.Error(g.ModuleName, "Missing message value")
+		g.replyError(ErrMessage)
 		return
 	}
 
-	logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not online")
-	g.replyError(ErrMessageFriendOffline)
+	// Parse message for security and room tracking purposes
+	if len(msg) < 10 || msg[0:4] != "GPCM" || msg[6:10] != "vMAT" {
+		logging.Error(g.ModuleName, "Invalid message prefix")
+		g.replyError(ErrMessage)
+		return
+	}
+
+	if msg[4] < '1' || msg[4] > '9' || msg[5] < '0' || msg[5] >= '9' {
+		logging.Error(g.ModuleName, "Invalid message version number")
+		g.replyError(ErrMessage)
+		return
+	}
+
+	cmd := msg[10]
+	msgData, err := common.Base64DwcEncoding.DecodeString(msg[11:])
+	if err != nil {
+		logging.Error(g.ModuleName, "Invalid message base64 data")
+		g.replyError(ErrMessage)
+		return
+	}
+
+	msgMatchData, ok := common.DecodeMatchCommand(cmd, msgData)
+	common.LogMatchCommand(g.ModuleName, strconv.FormatInt(int64(toProfileId), 10), cmd, msgMatchData)
+	if !ok {
+		logging.Error(g.ModuleName, "Invalid match command data")
+		g.replyError(ErrMessage)
+		return
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	var toSession *GameSpySession
+	if toSession, ok = sessions[uint32(toProfileId)]; !ok || !toSession.LoggedIn {
+		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not online")
+		g.replyError(ErrMessageFriendOffline)
+		return
+	}
+
+	if !toSession.isFriendAdded(g.User.ProfileId) {
+		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not friends with sender")
+		g.replyError(ErrMessageNotFriends)
+		return
+	}
+
+	sendMessageToSession("1", g.User.ProfileId, toSession, msg)
 }
 
 func sendMessageToSession(msgType string, from uint32, session *GameSpySession, msg string) {
