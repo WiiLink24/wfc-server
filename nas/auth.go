@@ -36,30 +36,41 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 		fields[key] = string(parsed)
 	}
 
-	action, ok := fields["action"]
-	if !ok || action == "" {
-		logging.Error(moduleName, "No action in form")
-		replyHTTPError(w, 400, "400 Bad Request")
-		return
-	}
-
 	reply := map[string]string{}
 
-	switch action {
-	case "login":
-		reply = login(moduleName, fields)
-		break
-
-	case "acctcreate":
-		reply = acctcreate(moduleName, fields)
-		break
-
-	default:
-		reply = map[string]string{
-			"retry":    "0",
-			"returncd": "109",
+	if r.URL.String() == "/ac" {
+		action, ok := fields["action"]
+		if !ok || action == "" {
+			logging.Error(moduleName, "No action in form")
+			replyHTTPError(w, 400, "400 Bad Request")
+			return
 		}
-		break
+
+		switch action {
+		case "login":
+			reply = login(moduleName, fields)
+			break
+
+		case "acctcreate":
+			reply = acctcreate(moduleName, fields)
+			break
+
+		default:
+			reply = map[string]string{
+				"retry":    "0",
+				"returncd": "109",
+			}
+			break
+		}
+	} else if r.URL.String() == "/pr" {
+		words, ok := fields["words"]
+		if words == "" || !ok {
+			logging.Error(moduleName, "No words in form")
+			replyHTTPError(w, 400, "400 Bad Request")
+			return
+		}
+
+		reply = handleProfanity(moduleName, fields)
 	}
 
 	param := url.Values{}
@@ -117,4 +128,17 @@ func login(moduleName string, fields map[string]string) map[string]string {
 	param["challenge"] = challenge
 	param["token"] = authToken
 	return param
+}
+
+func handleProfanity(moduleName string, fields map[string]string) map[string]string {
+	prwords := ""
+	wordCount := strings.Count(fields["words"], "\t") + 1
+	for i := 0; i < wordCount; i++ {
+		prwords += "0"
+	}
+
+	return map[string]string{
+		"returncd": "000",
+		"prwords":  prwords,
+	}
 }
