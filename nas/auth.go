@@ -15,6 +15,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 	err := r.ParseForm()
 	if err != nil {
 		logging.Error(moduleName, "Failed to parse form")
+		replyHTTPError(w, 400, "400 Bad Request")
 		return
 	}
 
@@ -28,6 +29,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 		parsed, err := common.Base64DwcEncoding.DecodeString(values[0])
 		if err != nil {
 			logging.Error(moduleName, "Invalid POST form value:", aurora.Cyan(key).String()+":", aurora.Cyan(values[0]))
+			replyHTTPError(w, 400, "400 Bad Request")
 			return
 		}
 		logging.Info(moduleName, aurora.Cyan(key).String()+":", aurora.Cyan(string(parsed)))
@@ -37,6 +39,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 	action, ok := fields["action"]
 	if !ok || action == "" {
 		logging.Error(moduleName, "No action in form")
+		replyHTTPError(w, 400, "400 Bad Request")
 		return
 	}
 
@@ -49,6 +52,13 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 
 	case "acctcreate":
 		reply = acctcreate(moduleName, fields)
+		break
+
+	default:
+		reply = map[string]string{
+			"retry":    "0",
+			"returncd": "109",
+		}
 		break
 	}
 

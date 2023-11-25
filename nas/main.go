@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/logrusorgru/aurora/v3"
-	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -40,7 +39,7 @@ func StartServer() {
 	address := config.Address + ":" + config.Port
 
 	logging.Notice("NAS", "Starting HTTP server on", address)
-	log.Fatal(nhttp.ListenAndServe(address, http.HandlerFunc(handleRequest)))
+	panic(nhttp.ListenAndServe(address, http.HandlerFunc(handleRequest)))
 }
 
 var regexSakeHost = regexp.MustCompile(`^([a-z\-]+\.)?sake\.gs\.`)
@@ -86,4 +85,21 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		downloadStage1(moduleName, w, r, val)
 		return
 	}
+
+	replyHTTPError(w, 404, "404 Not Found")
+}
+
+func replyHTTPError(w http.ResponseWriter, errorCode int, errorString string) {
+	response := "<html>\n"
+	response += "<head><title>" + errorString + "</title></head>\n"
+	response += "<body>\n"
+	response += "<center><h1>" + errorString + "</h1></center>\n"
+	response += "<hr><center>WiiLink</center>\n"
+	response += "</body>\n"
+	response += "</html>\n"
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
+	w.WriteHeader(errorCode)
+	w.Write([]byte(response))
 }
