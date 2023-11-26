@@ -256,6 +256,11 @@ func DecodeMatchCommand(command byte, buffer []byte) (MatchCommandData, bool) {
 		}}, true
 
 	case MatchResvWait:
+		if len(buffer) != 0x00 {
+			break
+		}
+		return MatchCommandData{}, true
+
 	case MatchResvCancel:
 		if len(buffer) != 0x00 {
 			break

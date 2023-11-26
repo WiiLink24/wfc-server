@@ -245,6 +245,5 @@ func handleSendMessageRequest(conn net.Conn, buffer []byte) {
 
 	logging.Notice(ModuleName, "Send message from", aurora.BrightCyan(conn.RemoteAddr()), "to", aurora.BrightCyan(destIP).String())
 
-	// TODO: Perform basic packet verification
 	qr2.SendClientMessage(destIP, buffer[9:])
 }

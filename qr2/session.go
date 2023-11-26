@@ -1,6 +1,7 @@
 package qr2
 
 import (
+	"bytes"
 	"encoding/binary"
 	"github.com/logrusorgru/aurora/v3"
 	"net"
@@ -9,7 +10,6 @@ import (
 	"wwfc/common"
 	"wwfc/gpcm"
 	"wwfc/logging"
-	"fmt"
 )
 
 const (
@@ -26,6 +26,7 @@ type Session struct {
 	LastKeepAlive int64
 	Endianness    byte // Some fields depend on the client's endianness
 	Data          map[string]string
+	PacketCount   uint32
 }
 
 // Remove a session.
@@ -121,6 +122,7 @@ func setSessionData(sessionId uint32, payload map[string]string) (Session, bool)
 			LastKeepAlive: time.Now().Unix(),
 			Endianness:    ClientNoEndian,
 			Data:          payload,
+			PacketCount:   0,
 		}
 		sessions[sessionId] = &data
 
@@ -167,10 +169,104 @@ func GetSessionServers() []map[string]string {
 }
 
 func SendClientMessage(destIP string, message []byte) {
+	moduleName := "QR2/MSG"
+
+	var matchData common.MatchCommandData
+	senderProfileID := uint32(0)
+
+	// Decode and validate the message
+	isNatnegPacket := false
+	if bytes.Equal(message[:2], []byte{0xfd, 0xfc}) {
+		// Sending natneg cookie
+		isNatnegPacket = true
+		if len(message) != 0xA {
+			logging.Error(moduleName, "Received invalid length NATNEG packet")
+			return
+		}
+
+		senderSessionID := binary.LittleEndian.Uint32(message[0x6:0xA])
+		moduleName = "QR2/MSG:s" + strconv.FormatUint(uint64(senderSessionID), 10)
+
+	} else if bytes.Equal(message[:4], []byte{0xbb, 0x49, 0xcc, 0x4d}) {
+		// DWC match command
+		if len(message) < 0x14 {
+			logging.Error(moduleName, "Received invalid length match command packet")
+			return
+		}
+
+		senderProfileID = binary.LittleEndian.Uint32(message[0x10:0x14])
+		moduleName = "QR2/MSG:p" + strconv.FormatUint(uint64(senderProfileID), 10)
+
+		if (int(message[9]) + 0x14) != len(message) {
+			logging.Error(moduleName, "Received invalid match command packet header")
+			return
+		}
+
+		var ok bool
+		matchData, ok = common.DecodeMatchCommand(message[8], message[0x14:])
+		if !ok {
+			logging.Error(moduleName, "Received invalid match command:", aurora.Cyan(message[8]))
+			return
+		}
+
+		if message[8] == common.MatchReservation {
+			if matchData.Reservation.MatchType == 3 {
+				// TODO: Check that this is correct
+				logging.Error(moduleName, "RESERVATION: Attempt to join a private room over ServerBrowser")
+				return
+			}
+
+			if common.IsReservedIP(int32(matchData.Reservation.PublicIP)) {
+				logging.Warn(moduleName, "RESERVATION: Public IP is reserved")
+				// Temporarily disabled for localhost testing
+				// TODO: Add a config option or something
+			}
+
+			if matchData.Reservation.PublicPort < 1024 {
+				logging.Error(moduleName, "RESERVATION: Public port is reserved")
+				return
+			}
+
+			if matchData.Reservation.LocalPort < 1024 {
+				logging.Error(moduleName, "RESERVATION: Local port is reserved")
+				return
+			}
+		}
+
+		if message[8] == common.MatchResvOK {
+			if common.IsReservedIP(int32(matchData.ResvOK.PublicIP)) {
+				logging.Warn(moduleName, "RESV_OK: Public IP is reserved")
+				// TODO: See above
+			}
+
+			if matchData.ResvOK.PublicPort < 1024 {
+				logging.Error(moduleName, "RESV_OK: Public port is reserved")
+				return
+			}
+
+			if matchData.ResvOK.LocalPort < 1024 {
+				logging.Error(moduleName, "RESV_OK: Local port is reserved")
+				return
+			}
+
+			if matchData.ResvOK.ProfileID != senderProfileID {
+				logging.Error(moduleName, "RESV_OK: Profile ID mismatch in header")
+				return
+			}
+		}
+
+		if message[8] == common.MatchTellAddr {
+			// TODO: Check if the public IPs are actually the same
+			if matchData.TellAddr.LocalPort < 1024 {
+				logging.Error(moduleName, "TELL_ADDR: Local port is reserved")
+				return
+			}
+		}
+	}
+
 	destIPIntStr, destPortStr := common.IPFormatToString(destIP)
 
 	currentTime := time.Now().Unix()
-
 	mutex.Lock()
 	// Find the session with the IP
 	for _, session := range sessions {
@@ -184,12 +280,29 @@ func SendClientMessage(destIP string, message []byte) {
 		}
 
 		if session.Data["publicip"] == destIPIntStr && session.Data["publicport"] == destPortStr {
-			// Found the client, now send the message
-			payload := createResponseHeader(ClientMessageRequest, session.SessionID)
+			destPid, ok := session.Data["dwc_pid"]
+			if !ok || destPid == "" {
+				break
+			}
+
+			destSessionID := session.SessionID
+			packetCount := session.PacketCount + 1
+			session.PacketCount = packetCount
+
 			mutex.Unlock()
 
+			if isNatnegPacket {
+				cookie := binary.BigEndian.Uint32(message[0x2:0x6])
+				logging.Notice(moduleName, "Send NN cookie", aurora.Cyan(cookie), "to", aurora.BrightCyan(destPid))
+			} else {
+				common.LogMatchCommand(moduleName, destPid, message[8], matchData)
+			}
+
+			// Found the client, now send the message
+			payload := createResponseHeader(ClientMessageRequest, destSessionID)
+
 			payload = append(payload, []byte{0, 0, 0, 0}...)
-			binary.BigEndian.PutUint32(payload[len(payload)-4:], uint32(time.Now().Unix()))
+			binary.BigEndian.PutUint32(payload[len(payload)-4:], packetCount)
 			payload = append(payload, message...)
 
 			destIPAddr, err := net.ResolveUDPAddr("udp", destIP)
@@ -197,21 +310,12 @@ func SendClientMessage(destIP string, message []byte) {
 				panic(err)
 			}
 
-			logMsg := ""
-			for i := 0; i < len(message); i++ {
-				if (i % 12) == 0 {
-					logMsg += "\n"
-				}
-
-				logMsg += fmt.Sprintf("%02x ", message[i])
-			}
-
-			logging.Info("QR2", "Sending message:", logMsg)
+			// TODO: Send again if no CLIENT_MESSAGE_ACK is received after
 			masterConn.WriteTo(payload, destIPAddr)
 			return
 		}
 	}
 	mutex.Unlock()
 
-	logging.Error("QR2", "Could not find destination server")
+	logging.Error(moduleName, "Could not find destination server")
 }

@@ -35,6 +35,7 @@ func IPFormatToInt(ip string) (int32, uint16) {
 
 func IPFormatNoPortToInt(ip string) int32 {
 	intIP, _ := IPFormatToInt(ip)
+
 	return intIP
 }
 
@@ -89,12 +90,10 @@ var (
 )
 
 // TODO: Test this
-func IsReservedIP(ip string) bool {
-	intIP, _ := IPFormatToInt(ip)
-
+func IsReservedIP(ip int32) bool {
 	for _, reserved := range reservedIPList {
 		rMask := 32 - reserved.mask
-		if intIP>>rMask == reserved.ip>>rMask {
+		if ip>>rMask == reserved.ip>>rMask {
 			return true
 		}
 	}
