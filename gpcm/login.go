@@ -121,7 +121,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		return
 	}
 
-	signature, exists := command.OtherValues["wwfc_auth_sig"]
+	signature, exists := command.OtherValues["wwfc_sig"]
 	if exists {
 		// TODO: This is still in testing so it's only checked if it exists
 		if !verifySignature(authToken, signature) {
