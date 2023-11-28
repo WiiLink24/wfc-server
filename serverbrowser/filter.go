@@ -4,6 +4,7 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 	"regexp"
 	"strconv"
+	"strings"
 	"wwfc/logging"
 )
 
@@ -28,6 +29,10 @@ func filterServers(servers []map[string]string, queryGame string, filter string,
 
 		// Search for where the profile ID matches
 		for _, server := range servers {
+			if server["gamename"] != queryGame {
+				continue
+			}
+
 			if server["dwc_pid"] == dwc_pid {
 				logging.Info(ModuleName, "Self lookup from", aurora.Cyan(dwc_pid), "ok")
 				return []map[string]string{server}
@@ -70,13 +75,16 @@ func filterServers(servers []map[string]string, queryGame string, filter string,
 		dwc_mtype := match[5]
 		dwc_hoststate := match[6]
 		dwc_suspend := match[7]
-		// gameFilter := match[8]
+		gameFilter := match[8]
 
 		filtered := []map[string]string{}
 
 		// Find servers that match the requested parameters
-		// TODO: Handle game specific filters (i.e. Regionals or MKW VR search)
 		for _, server := range servers {
+			if server["gamename"] != queryGame {
+				continue
+			}
+
 			if server["dwc_mver"] == dwc_mver && server["dwc_pid"] != dwc_pid && server["maxplayers"] == maxplayers && server["dwc_mtype"] == dwc_mtype && server["dwc_hoststate"] == dwc_hoststate && server["dwc_suspend"] == dwc_suspend {
 				server_numplayers, err := strconv.ParseInt(server["numplayers"], 10, 32)
 				if err != nil {
@@ -84,11 +92,15 @@ func filterServers(servers []map[string]string, queryGame string, filter string,
 					continue
 				}
 
-				if server_numplayers < numplayers {
-					filtered = append(filtered, server)
+				if server_numplayers >= numplayers {
+					continue
 				}
+
+				filtered = append(filtered, server)
 			}
 		}
+
+		filtered = handleGameFilter(filtered, queryGame, gameFilter, publicIP)
 
 		logging.Info(ModuleName, "Matched", aurora.BrightCyan(len(filtered)), "servers")
 		return filtered
@@ -96,4 +108,37 @@ func filterServers(servers []map[string]string, queryGame string, filter string,
 
 	logging.Error(ModuleName, "Unable to match filter for", aurora.Cyan(filter))
 	return []map[string]string{}
+}
+
+var (
+	regexMKWRegion = regexp.MustCompile(`(?:^|\s|\()rk ?= ?'([a-zA-Z_][a-zA-Z0-9_]*)'`)
+)
+
+func handleGameFilter(servers []map[string]string, queryGame string, filter string, publicIP string) []map[string]string {
+	filtered := []map[string]string{}
+
+	switch queryGame {
+	case "mariokartwii":
+		match := regexMKWRegion.FindStringSubmatch(filter)
+		if match == nil {
+			logging.Error(ModuleName, "Invalid Mario Kart Wii filter:", aurora.Cyan(filter))
+			return []map[string]string{}
+		}
+		rk := match[1]
+
+		// Check and remove regional searches due to the limited player count
+		// China (ID 6) gets a pass because it was never released
+		if len(rk) == 4 && (strings.HasPrefix(rk, "vs_") || strings.HasPrefix(rk, "bt_")) && rk[3] >= '0' && rk[3] < '6' {
+			rk = rk[:2]
+		}
+
+		for _, server := range servers {
+			if server["rk"] == rk {
+				filtered = append(filtered, server)
+			}
+		}
+		break
+	}
+
+	return filtered
 }

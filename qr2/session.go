@@ -282,7 +282,7 @@ func SendClientMessage(destIP string, message []byte) {
 		if session.Data["publicip"] == destIPIntStr && session.Data["publicport"] == destPortStr {
 			destPid, ok := session.Data["dwc_pid"]
 			if !ok || destPid == "" {
-				break
+				destPid = "<UNKNOWN>"
 			}
 
 			destSessionID := session.SessionID
