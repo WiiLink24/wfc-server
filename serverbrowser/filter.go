@@ -8,17 +8,19 @@ import (
 	"wwfc/logging"
 )
 
-// TODO: Even if we don't use it in the end, we could still implement parsing the filter string.
-// DWC makes requests in the following two formats:
-// Matching: dwc_mver = %d and dwc_pid != %u and maxplayers = %d and numplayers < %d and dwc_mtype = %d and dwc_hoststate = %u and dwc_suspend = %u and (%s)
+// TODO: Even if we don't use it in the end, we could still implement parsing the filter string properly.
+// DWC makes requests in the following formats:
+// Matching ver 03: dwc_mver = %d and dwc_pid != %u and maxplayers = %d and numplayers < %d and dwc_mtype = %d and dwc_hoststate = %u and dwc_suspend = %u and (%s)
+// Matching ver 90: dwc_mver = %d and dwc_pid != %u and maxplayers = %d and numplayers < %d and dwc_mtype = %d and dwc_mresv != dwc_pid and (%s)
 // ...OR
 // Self Lookup: dwc_pid = %u
 
 // Example: dwc_mver = 90 and dwc_pid != 43 and maxplayers = 11 and numplayers < 11 and dwc_mtype = 0 and dwc_hoststate = 0 and dwc_suspend = 0 and (rk = 'vs' and ev >= 4250 and ev <= 5750 and p = 0)
 
 var (
-	regexSelfLookup  = regexp.MustCompile(`^dwc_pid = (\d{1,10})$`)
-	regexMatchmaking = regexp.MustCompile(`^dwc_mver = (-?\d{1,10}) and dwc_pid != (\d{1,10}) and maxplayers = (-?\d{1,10}) and numplayers < (-?\d{1,10}) and dwc_mtype = (-?\d{1,10}) and dwc_hoststate = (\d{1,10}) and dwc_suspend = (\d{1,10}) and \((.*)\)$`)
+	regexSelfLookup    = regexp.MustCompile(`^dwc_pid = (\d{1,10})$`)
+	regexMatchmaking3  = regexp.MustCompile(`^dwc_mver = (-?\d{1,10}) and dwc_pid != (\d{1,10}) and maxplayers = (-?\d{1,10}) and numplayers < (-?\d{1,10}) and dwc_mtype = (-?\d{1,10}) and dwc_mresv != dwc_pid and \((.*)\)$`)
+	regexMatchmaking90 = regexp.MustCompile(`^dwc_mver = (-?\d{1,10}) and dwc_pid != (\d{1,10}) and maxplayers = (-?\d{1,10}) and numplayers < (-?\d{1,10}) and dwc_mtype = (-?\d{1,10}) and dwc_hoststate = (\d{1,10}) and dwc_suspend = (\d{1,10}) and \((.*)\)$`)
 )
 
 func filterServers(servers []map[string]string, queryGame string, filter string, publicIP string) []map[string]string {
@@ -63,7 +65,48 @@ func filterServers(servers []map[string]string, queryGame string, filter string,
 		return filtered
 	}
 
-	if match := regexMatchmaking.FindStringSubmatch(filter); match != nil {
+	if match := regexMatchmaking3.FindStringSubmatch(filter); match != nil {
+		dwc_mver := match[1]
+		dwc_pid := match[2]
+		maxplayers := match[3]
+		numplayers, err := strconv.ParseInt(match[4], 10, 32)
+		if err != nil {
+			logging.Error(ModuleName, "Invalid numplayers:", aurora.Cyan(match[4]), "from", aurora.Cyan(match))
+			return []map[string]string{}
+		}
+		dwc_mtype := match[5]
+		gameFilter := match[6]
+
+		filtered := []map[string]string{}
+
+		// Find servers that match the requested parameters
+		for _, server := range servers {
+			if server["gamename"] != queryGame {
+				continue
+			}
+
+			if server["dwc_mver"] == dwc_mver && server["dwc_pid"] != dwc_pid && server["maxplayers"] == maxplayers && server["dwc_mtype"] == dwc_mtype && server["dwc_mresv"] != server["dwc_pid"] {
+				server_numplayers, err := strconv.ParseInt(server["numplayers"], 10, 32)
+				if err != nil {
+					logging.Error(ModuleName, "Invalid numplayers:", aurora.Cyan(match[4]))
+					continue
+				}
+
+				if server_numplayers >= numplayers {
+					continue
+				}
+
+				filtered = append(filtered, server)
+			}
+		}
+
+		filtered = handleGameFilter(filtered, queryGame, gameFilter, publicIP)
+
+		logging.Info(ModuleName, "Matched", aurora.BrightCyan(len(filtered)), "servers")
+		return filtered
+	}
+
+	if match := regexMatchmaking90.FindStringSubmatch(filter); match != nil {
 		dwc_mver := match[1]
 		dwc_pid := match[2]
 		maxplayers := match[3]
@@ -115,8 +158,6 @@ var (
 )
 
 func handleGameFilter(servers []map[string]string, queryGame string, filter string, publicIP string) []map[string]string {
-	filtered := []map[string]string{}
-
 	switch queryGame {
 	case "mariokartwii":
 		match := regexMKWRegion.FindStringSubmatch(filter)
@@ -132,13 +173,15 @@ func handleGameFilter(servers []map[string]string, queryGame string, filter stri
 			rk = rk[:2]
 		}
 
+		filtered := []map[string]string{}
+
 		for _, server := range servers {
 			if server["rk"] == rk {
 				filtered = append(filtered, server)
 			}
 		}
-		break
+		return filtered
 	}
 
-	return filtered
+	return servers
 }
