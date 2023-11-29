@@ -13,7 +13,7 @@ type GameSpyCommand struct {
 }
 
 var (
-	InvalidGameSpyCommand = errors.New("invalid command received")
+	InvalidGameSpyCommand = errors.New("Invalid command received")
 )
 
 func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {

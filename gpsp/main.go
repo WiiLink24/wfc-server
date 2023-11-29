@@ -91,7 +91,8 @@ func handleRequest(conn net.Conn) {
 
 		commands, err := common.ParseGameSpyMessage(string(buffer))
 		if err != nil {
-			panic(err)
+			logging.Error(moduleName, err)
+			return
 		}
 
 		for _, command := range commands {
@@ -110,7 +111,8 @@ func handleRequest(conn net.Conn) {
 
 				profileId, err := strconv.ParseUint(strProfileId, 10, 32)
 				if err != nil {
-					panic(err)
+					logging.Error(moduleName, err)
+					return
 				}
 
 				if knownProfileId == 0 {
@@ -158,7 +160,8 @@ func handleOthersList(moduleName string, profileId uint32, command common.GameSp
 
 	numOpidsValue, err := strconv.Atoi(numopids)
 	if err != nil {
-		panic(err)
+		logging.Error(moduleName, err)
+		return empty
 	}
 
 	opidsSplit := []string{}
@@ -177,7 +180,8 @@ func handleOthersList(moduleName string, profileId uint32, command common.GameSp
 	for _, strOtherId := range opidsSplit {
 		otherId, err := strconv.ParseUint(strOtherId, 10, 32)
 		if err != nil {
-			panic(err)
+			logging.Error(moduleName, err)
+			continue
 		}
 
 		// TODO: Perhaps this could be condensed into one database query
