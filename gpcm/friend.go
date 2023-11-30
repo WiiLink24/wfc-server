@@ -174,20 +174,30 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	}
 
 	// Parse message for security and room tracking purposes
-	if len(msg) < 10 || msg[0:4] != "GPCM" || msg[6:10] != "vMAT" {
+	if !strings.HasPrefix(msg, "GPCM") {
 		logging.Error(g.ModuleName, "Invalid message prefix")
 		g.replyError(ErrMessage)
 		return
 	}
 
-	if msg[4] < '1' || msg[4] > '9' || msg[5] < '0' || msg[5] >= '9' {
-		logging.Error(g.ModuleName, "Invalid message version number")
+	currentIndex := strings.Index(msg, "vMAT") + 4
+	isMessageHeaderValid := false
+	switch currentIndex {
+	case 9: // 1 - 9
+		isMessageHeaderValid = msg[4] >= '1' && msg[4] <= '9' && len(msg) >= 11
+	case 10: // 10 - 99
+		isMessageHeaderValid = msg[4] >= '1' && msg[4] <= '9' && msg[5] >= '0' && msg[5] <= '9' && len(msg) >= 12
+	}
+	if !isMessageHeaderValid {
+		logging.Error(g.ModuleName, "Invalid message header")
 		g.replyError(ErrMessage)
 		return
 	}
 
-	cmd := msg[10]
-	msgData, err := common.Base64DwcEncoding.DecodeString(msg[11:])
+	cmd := msg[currentIndex]
+	currentIndex++
+
+	msgData, err := common.Base64DwcEncoding.DecodeString(msg[currentIndex:])
 	if err != nil {
 		logging.Error(g.ModuleName, "Invalid message base64 data")
 		g.replyError(ErrMessage)
