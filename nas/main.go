@@ -57,7 +57,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	logging.Notice("NAS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
 	moduleName := "NAS:" + r.RemoteAddr
 
-	if r.URL.String() == "/ac" || r.URL.String() == "/pr" {
+	if r.URL.String() == "/ac" || r.URL.String() == "/pr" || r.URL.String() == "/download" {
 		handleAuthRequest(moduleName, w, r)
 		return
 	}

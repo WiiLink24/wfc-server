@@ -39,6 +39,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 	}
 
 	reply := map[string]string{}
+	response := []byte{}
 
 	if r.URL.String() == "/ac" {
 		action, ok := fields["action"]
@@ -78,14 +79,40 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 		}
 
 		reply = handleProfanity(moduleName, fields)
+	} else if r.URL.String() == "/download" {
+		action, ok := fields["action"]
+		if !ok || action == "" {
+			logging.Error(moduleName, "No action in form")
+			replyHTTPError(w, 400, "400 Bad Request")
+			return
+		}
+
+		switch action {
+		case "count":
+			response = []byte(dlsCount(moduleName, fields))
+			break
+
+		default:
+			logging.Error(moduleName, "Unknown action:", aurora.Cyan(action))
+			reply = map[string]string{
+				"retry":    "0",
+				"returncd": "109",
+			}
+			break
+		}
+
+		w.Header().Set("X-DLS-Host", "http://127.0.0.1/")
 	}
 
-	param := url.Values{}
-	for key, value := range reply {
-		param.Set(key, common.Base64DwcEncoding.EncodeToString([]byte(value)))
+	if len(response) == 0 {
+		param := url.Values{}
+		for key, value := range reply {
+			param.Set(key, common.Base64DwcEncoding.EncodeToString([]byte(value)))
+		}
+		response = []byte(param.Encode())
+		response = []byte(strings.Replace(string(response), "%2A", "*", -1))
 	}
-	response := []byte(param.Encode())
-	response = []byte(strings.Replace(string(response), "%2A", "*", -1))
+
 	// DWC treats the response like a null terminated string
 	response = append(response, 0x00)
 
@@ -107,7 +134,7 @@ func login(moduleName string, fields map[string]string) map[string]string {
 	param := map[string]string{
 		"retry":    "0",
 		"datetime": getDateTime(),
-		"locator":  "gs.wiilink24.com",
+		"locator":  "gamespy.com",
 	}
 
 	strUserId, ok := fields["userid"]
@@ -145,26 +172,27 @@ func svcloc(moduleName string, fields map[string]string) map[string]string {
 		"datetime":   getDateTime(),
 		"returncd":   "007",
 		"statusdata": "Y",
-		"svchost":    "n/a",
 	}
 
-	strUserId, ok := fields["userid"]
-	if !ok {
-		logging.Error(moduleName, "No userid in form")
-		param["returncd"] = "103"
-		return param
+	authToken := "NDS/SVCLOC/TOKEN"
+
+	switch fields["svc"] {
+	default:
+		param["servicetoken"] = authToken
+		param["svchost"] = "n/a"
+		break
+
+	case "9000":
+		param["token"] = authToken
+		param["svchost"] = "dls1.nintendowifi.net"
+		break
+
+	case "9001":
+		param["servicetoken"] = authToken
+		param["svchost"] = "dls1.nintendowifi.net"
+		break
 	}
 
-	userId, err := strconv.ParseInt(strUserId, 10, 64)
-	if err != nil {
-		logging.Error(moduleName, "Invalid userid string in form")
-		param["returncd"] = "103"
-		return param
-	}
-
-	authToken, _ := database.GenerateAuthToken(pool, ctx, userId, "")
-
-	param["servicetoken"] = authToken
 	return param
 }
 
@@ -179,6 +207,10 @@ func handleProfanity(moduleName string, fields map[string]string) map[string]str
 		"returncd": "000",
 		"prwords":  prwords,
 	}
+}
+
+func dlsCount(moduleName string, fields map[string]string) string {
+	return "0"
 }
 
 func getDateTime() string {
