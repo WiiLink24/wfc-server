@@ -1,11 +1,13 @@
 package nas
 
 import (
+	"fmt"
 	"github.com/logrusorgru/aurora/v3"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -95,6 +97,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 func acctcreate(moduleName string, fields map[string]string) map[string]string {
 	return map[string]string{
 		"retry":    "0",
+		"datetime": getDateTime(),
 		"returncd": "002",
 		"userid":   strconv.FormatInt(database.GetUniqueUserID(), 10),
 	}
@@ -102,8 +105,9 @@ func acctcreate(moduleName string, fields map[string]string) map[string]string {
 
 func login(moduleName string, fields map[string]string) map[string]string {
 	param := map[string]string{
-		"retry":   "0",
-		"locator": "gs.wiilink24.com",
+		"retry":    "0",
+		"datetime": getDateTime(),
+		"locator":  "gs.wiilink24.com",
 	}
 
 	strUserId, ok := fields["userid"]
@@ -138,6 +142,7 @@ func login(moduleName string, fields map[string]string) map[string]string {
 func svcloc(moduleName string, fields map[string]string) map[string]string {
 	param := map[string]string{
 		"retry":      "0",
+		"datetime":   getDateTime(),
 		"returncd":   "007",
 		"statusdata": "Y",
 		"svchost":    "n/a",
@@ -174,4 +179,9 @@ func handleProfanity(moduleName string, fields map[string]string) map[string]str
 		"returncd": "000",
 		"prwords":  prwords,
 	}
+}
+
+func getDateTime() string {
+	t := time.Now()
+	return fmt.Sprintf("%04d%02d%02d%02d%02d%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
 }
