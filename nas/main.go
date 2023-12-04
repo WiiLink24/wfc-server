@@ -43,7 +43,7 @@ func StartServer() {
 }
 
 var regexSakeHost = regexp.MustCompile(`^([a-z\-]+\.)?sake\.gs\.`)
-var regexStage1URL = regexp.MustCompile(`^/p([0-9])$`)
+var regexStage1URL = regexp.MustCompile(`^/w([0-9])$`)
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	// TODO: Move this to its own server
