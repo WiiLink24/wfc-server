@@ -82,7 +82,7 @@ func filterServers(servers []map[string]string, queryGame string, expression str
 			continue
 		}
 
-		ret, err := filter.Eval(tree, server)
+		ret, err := filter.Eval(tree, server, queryGame)
 		if err != nil {
 			logging.Error(ModuleName, "Error evaluating filter:", err.Error())
 			return []map[string]string{}
