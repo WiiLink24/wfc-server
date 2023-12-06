@@ -34,3 +34,22 @@ func GetString(buf []byte) string {
 	nullTerminator := bytes.IndexByte(buf, 0)
 	return string(buf[:nullTerminator])
 }
+
+// Checks if the given string is composed exclusively of uppercase alphanumeric characters.
+func IsUppercaseAlphanumeric(str string) bool {
+	strLength := len(str)
+
+	if strLength == 0 {
+		return false
+	}
+
+	for i := 0; i < strLength; i++ {
+		c := str[i]
+
+		if (c < '0' || c > '9') && (c < 'A' || c > 'Z') {
+			return false
+		}
+	}
+
+	return true
+}
