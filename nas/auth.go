@@ -5,12 +5,18 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+)
+
+var (
+	dlcDir = "./dlc"
 )
 
 func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
@@ -83,6 +89,13 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 		action, ok := fields["action"]
 		if !ok || action == "" {
 			logging.Error(moduleName, "No action in form")
+			replyHTTPError(w, 400, "400 Bad Request")
+			return
+		}
+
+		rhgamecd, ok := fields["rhgamecd"]
+		if !ok || !isValidRhgamecd(rhgamecd) {
+			logging.Error(moduleName, "Missing or invalid rhgamecd")
 			replyHTTPError(w, 400, "400 Bad Request")
 			return
 		}
@@ -210,7 +223,22 @@ func handleProfanity(moduleName string, fields map[string]string) map[string]str
 }
 
 func dlsCount(moduleName string, fields map[string]string) string {
-	return "0"
+	dlcFolder := filepath.Join(dlcDir, fields["rhgamecd"])
+
+	dir, ok := os.ReadDir(dlcFolder)
+	if ok != nil {
+		return "0"
+	}
+
+	return strconv.Itoa(len(dir))
+}
+
+func isValidRhgamecd(rhgamecd string) bool {
+	if len(rhgamecd) != 4 {
+		return false
+	}
+
+	return common.IsUppercaseAlphanumeric(rhgamecd)
 }
 
 func getDateTime() string {
