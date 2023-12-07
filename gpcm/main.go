@@ -21,6 +21,8 @@ type GameSpySession struct {
 	ModuleName     string
 	LoggedIn       bool
 	Challenge      string
+	LoginTicket    string
+	SessionKey     int32
 	Status         string
 	LocString      string
 	FriendList     []uint32

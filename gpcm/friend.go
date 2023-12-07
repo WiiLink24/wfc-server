@@ -120,20 +120,7 @@ func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
 		locstring = ""
 	}
 
-	// Get the IP address for the status msg
-	var rawIP int
-	for i, s := range strings.Split(strings.Split(g.Conn.RemoteAddr().String(), ":")[0], ".") {
-		val, err := strconv.Atoi(s)
-		if err != nil {
-			panic(err)
-		}
-
-		rawIP |= val << (24 - i*8)
-	}
-
-	ip := strconv.FormatInt(int64(int32(rawIP)), 10)
-
-	statusMsg := "|s|" + status + "|ss|" + statstring + "|ls|" + locstring + "|ip|" + ip + "|p|0|qm|0"
+	statusMsg := "|s|" + status + "|ss|" + statstring + "|ls|" + locstring + "|ip|0|p|0|qm|0"
 	logging.Notice(g.ModuleName, "New status:", aurora.BrightMagenta(statusMsg))
 
 	mutex.Lock()
@@ -271,22 +258,9 @@ func (g *GameSpySession) exchangeFriendStatus(profileId uint32) {
 }
 
 func (g *GameSpySession) sendLogoutStatus() {
-	// Get the IP address for the status msg
-	var rawIP int
-	for i, s := range strings.Split(strings.Split(g.Conn.RemoteAddr().String(), ":")[0], ".") {
-		val, err := strconv.Atoi(s)
-		if err != nil {
-			panic(err)
-		}
-
-		rawIP |= val << (24 - i*8)
-	}
-
-	ip := strconv.FormatInt(int64(int32(rawIP)), 10)
-
 	mutex.Lock()
 	for _, storedPid := range g.AuthFriendList {
-		sendMessageToProfileId("100", g.User.ProfileId, storedPid, "|s|0|ss|Offline|ls||ip|"+ip+"|p|0|qm|0")
+		sendMessageToProfileId("100", g.User.ProfileId, storedPid, "|s|0|ss|Offline|ls||ip|0|p|0|qm|0")
 	}
 	mutex.Unlock()
 }

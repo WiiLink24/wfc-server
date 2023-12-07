@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"wwfc/common"
@@ -173,9 +174,10 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	sessions[g.User.ProfileId] = g
 	mutex.Unlock()
 
-	loginTicket := strings.Replace(base64.StdEncoding.EncodeToString([]byte(common.RandomString(16))), "=", "_", -1)
+	g.LoginTicket = strings.Replace(base64.StdEncoding.EncodeToString([]byte(common.RandomString(16))), "=", "_", -1)
 	// Now initiate the session
-	_ = database.CreateSession(pool, ctx, g.User.ProfileId, loginTicket)
+	_ = database.CreateSession(pool, ctx, g.User.ProfileId, g.LoginTicket)
+	g.SessionKey = rand.Int31n(290000000) + 10000000
 
 	g.LoggedIn = true
 	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10)
@@ -185,12 +187,12 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		Command:      "lc",
 		CommandValue: "2",
 		OtherValues: map[string]string{
-			"sesskey":    "199714190",
+			"sesskey":    strconv.FormatInt(int64(g.SessionKey), 10),
 			"proof":      proof,
 			"userid":     strconv.FormatInt(g.User.UserId, 10),
 			"profileid":  strconv.FormatInt(int64(g.User.ProfileId), 10),
 			"uniquenick": g.User.UniqueNick,
-			"lt":         loginTicket,
+			"lt":         g.LoginTicket,
 			"id":         command.OtherValues["id"],
 		},
 	})
