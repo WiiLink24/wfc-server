@@ -19,12 +19,26 @@ func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	payload := map[string]string{}
 	for i := 0; i < len(values); i += 2 {
-		if values[i] == "" {
-			break
+		if len(values[i]) == 0 || values[i][0] == '+' {
+			continue
 		}
 
 		payload[values[i]] = values[i+1]
 		logging.Info(moduleName, aurora.Cyan(values[i]).String()+":", aurora.Cyan(values[i+1]))
+	}
+
+	realIP, realPort := common.IPFormatToString(addr.String())
+
+	if ip, ok := payload["publicip"]; !ok || ip == "0" {
+		// Set the public IP key to the real IP
+		payload["publicip"] = realIP
+		payload["publicport"] = realPort
+	}
+
+	// Client is mistaken about its public IP
+	if payload["publicip"] != realIP || payload["publicport"] != realPort {
+		logging.Error(moduleName, "Public IP mismatch")
+		return
 	}
 
 	if statechanged, ok := payload["statechanged"]; ok {
@@ -43,21 +57,12 @@ func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		}
 	}
 
-	realIP, realPort := common.IPFormatToString(addr.String())
-
-	publicIPKey, hasPublicIPKey := payload["publicip"]
-	if !hasPublicIPKey || publicIPKey != realIP {
-		// Set the public IP key to the real IP, and then send the challenge (done later)
-		payload["publicip"] = realIP
-		payload["publicport"] = realPort
-	}
-
-	session, ok := setSessionData(sessionId, payload)
+	session, ok := setSessionData(sessionId, payload, addr)
 	if !ok {
 		return
 	}
 
-	if !session.Authenticated || !hasPublicIPKey || publicIPKey != realIP {
+	if !session.Authenticated {
 		logging.Notice(moduleName, "Sending challenge")
 		sendChallenge(conn, addr, session)
 		return

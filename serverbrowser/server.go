@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/logrusorgru/aurora/v3"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"wwfc/common"
@@ -51,6 +52,8 @@ func popUint32(buffer []byte, index int) (uint32, int) {
 	return binary.BigEndian.Uint32(buffer[index:]), index + 4
 }
 
+var regexSelfLookup = regexp.MustCompile(`^dwc_pid ?= ?(\d{1,10})$`)
+
 func handleServerListRequest(conn net.Conn, buffer []byte) {
 	index := 9
 	queryGame, index := popString(buffer, index)
@@ -81,6 +84,11 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 	var fieldList []string
 	for _, field := range strings.Split(fields, "\\") {
 		if len(field) == 0 || field == " " {
+			continue
+		}
+
+		// Skip private fields
+		if field == "publicip" || field == "publicport" || strings.HasPrefix(field, "localip") || field == "localport" {
 			continue
 		}
 
@@ -116,8 +124,15 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 	}
 	output = append(output, 0x00) // Zero length string to end the list
 
-	publicIP, _ := common.IPFormatToString(conn.RemoteAddr().String())
-	servers := filterServers(qr2.GetSessionServers(), queryGame, filter, publicIP)
+	callerPublicIP, _ := common.IPFormatToString(conn.RemoteAddr().String())
+
+	var servers []map[string]string
+	if match := regexSelfLookup.FindStringSubmatch(filter); match != nil {
+		// Self lookup is handled differently
+		servers = filterSelfLookup(qr2.GetSessionServers(), queryGame, match[1], callerPublicIP)
+	} else {
+		servers = filterServers(qr2.GetSessionServers(), queryGame, filter, callerPublicIP)
+	}
 
 	for _, server := range servers {
 		var flags byte
@@ -138,82 +153,107 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 			continue
 		}
 
-		ip, err := strconv.ParseInt(publicip, 10, 32)
-		if err != nil {
-			logging.Error(ModuleName, "Server has invalid public IP value:", aurora.Cyan(publicip))
-		}
-
-		flagsBuffer = binary.BigEndian.AppendUint32(flagsBuffer, uint32(ip))
-
-		var port string
-		port, exists = server["publicport"]
-		if !exists {
-			// Fall back to local port if public port doesn't exist
-			if port, exists = server["localport"]; !exists {
-				logging.Error(ModuleName, "Server exists without port (publicip =", aurora.Cyan(publicip).String()+")")
-				continue
+		if publicip == callerPublicIP {
+			// Use the real public IP if it matches the caller's
+			ip, err := strconv.ParseInt(publicip, 10, 32)
+			if err != nil {
+				logging.Error(ModuleName, "Server has invalid public IP value:", aurora.Cyan(publicip))
 			}
-		}
 
-		portValue, err := strconv.ParseUint(port, 10, 16)
-		if err != nil {
-			logging.Error(ModuleName, "Server has invalid port value:", aurora.Cyan(port))
-			continue
-		}
+			flagsBuffer = binary.BigEndian.AppendUint32(flagsBuffer, uint32(ip))
 
-		flags |= NonstandardPortFlag
-		flagsBuffer = binary.BigEndian.AppendUint16(flagsBuffer, uint16(portValue))
+			var port string
+			port, exists = server["publicport"]
+			if !exists {
+				// Fall back to local port if public port doesn't exist
+				if port, exists = server["localport"]; !exists {
+					logging.Error(ModuleName, "Server exists without port (publicip =", aurora.Cyan(publicip).String()+")")
+					continue
+				}
+			}
 
-		// Use the first local IP if it exists, this is used to skip natneg if multiple players are on the same network
-		if localip0, exists := server["localip0"]; exists {
-			flags |= PrivateIPFlag
-
-			// localip is written like "192.168.255.255" for example, so it needs to be parsed
-			ipSplit := strings.Split(localip0, ".")
-			if len(ipSplit) != 4 {
-				logging.Error(ModuleName, "Server has invalid local IP:", aurora.Cyan(localip0))
+			portValue, err := strconv.ParseUint(port, 10, 16)
+			if err != nil {
+				logging.Error(ModuleName, "Server has invalid port value:", aurora.Cyan(port))
 				continue
 			}
 
-			err = nil
-			for _, s := range ipSplit {
-				val, err := strconv.ParseUint(s, 10, 8)
-				if err != nil {
-					break
+			if portValue < 1024 {
+				logging.Error(ModuleName, "Server uses reserved port:", aurora.Cyan(portValue))
+				continue
+			}
+
+			flags |= NonstandardPortFlag
+			flagsBuffer = binary.BigEndian.AppendUint16(flagsBuffer, uint16(portValue))
+
+			// Use the first local IP if it exists
+			if localip0, exists := server["localip0"]; exists {
+				flags |= PrivateIPFlag
+
+				// localip is written like "192.168.255.255" for example, so it needs to be parsed
+				ipSplit := strings.Split(localip0, ".")
+				if len(ipSplit) != 4 {
+					logging.Error(ModuleName, "Server has invalid local IP:", aurora.Cyan(localip0))
+					continue
 				}
 
-				flagsBuffer = append(flagsBuffer, byte(val))
+				err = nil
+				for _, s := range ipSplit {
+					val, err := strconv.ParseUint(s, 10, 8)
+					if err != nil {
+						break
+					}
+
+					flagsBuffer = append(flagsBuffer, byte(val))
+				}
+
+				if err != nil {
+					logging.Error(ModuleName, "Server has invalid local IP value:", aurora.Cyan(localip0))
+					continue
+				}
 			}
 
-			if err != nil {
-				logging.Error(ModuleName, "Server has invalid local IP value:", aurora.Cyan(localip0))
+			if localport, exists := server["localport"]; exists {
+				portValue, err = strconv.ParseUint(localport, 10, 16)
+				if err != nil {
+					logging.Error(ModuleName, "Server has invalid local port value:", aurora.Cyan(localport))
+					continue
+				}
+
+				flags |= NonstandardPrivatePortFlag
+				flagsBuffer = binary.BigEndian.AppendUint16(flagsBuffer, uint16(portValue))
+			}
+
+			// Just a dummy IP? This is taken from dwc_network_server_emulator
+			// TODO: Check if this is actually needed
+			flags |= ICMPIPFlag
+			flagsBuffer = append(flagsBuffer, []byte{0, 0, 0, 0}...)
+		} else {
+			// Regular server, hide the public IP until match reservation is made
+			var searchIDStr string
+			if searchIDStr, exists = server["+searchid"]; !exists {
+				logging.Error(ModuleName, "Server exists without search ID")
 				continue
 			}
-		}
 
-		if localport, exists := server["localport"]; exists {
-			portValue, err = strconv.ParseUint(localport, 10, 16)
+			searchID, err := strconv.ParseInt(searchIDStr, 10, 64)
 			if err != nil {
-				logging.Error(ModuleName, "Server has invalid local port value:", aurora.Cyan(localport))
-				continue
+				logging.Error(ModuleName, "Server has invalid search ID value:", aurora.Cyan(searchIDStr))
 			}
 
-			flags |= NonstandardPrivatePortFlag
-			flagsBuffer = binary.BigEndian.AppendUint16(flagsBuffer, uint16(portValue))
+			// Append low value as public IP
+			flagsBuffer = binary.BigEndian.AppendUint32(flagsBuffer, uint32(searchID&0xffffffff))
+			// Append high value as public port
+			flags |= NonstandardPortFlag
+			flagsBuffer = binary.BigEndian.AppendUint16(flagsBuffer, uint16((searchID>>32)&0xffff))
 		}
 
-		// Just a dummy IP? This is taken from dwc_network_server_emulator
-		// TODO: Check if this is actually needed
-		flags |= ICMPIPFlag
-		flagsBuffer = append(flagsBuffer, []byte{0, 0, 0, 0}...)
-
-		// Finally, write the server buffer to the output
+		// Append the server buffer to the output
 		output = append(output, flags)
 		output = append(output, flagsBuffer...)
 
 		if (flags & HasKeysFlag) == 0 {
 			// Server does not have keys, so skip them
-			logging.Info(ModuleName, "Wrote server without keys")
 			continue
 		}
 
@@ -225,11 +265,9 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 				output = append(output, []byte(str)...)
 			}
 
-			// Add null terminator so the string will be empty if the field doesn't exist
+			// Add null terminator
 			output = append(output, 0x00)
 		}
-
-		logging.Info(ModuleName, "Wrote server with keys")
 	}
 
 	// Server with 0 flags and IP of 0xffffffff terminates the list
@@ -240,10 +278,11 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 }
 
 func handleSendMessageRequest(conn net.Conn, buffer []byte) {
-	// Read destination IP from buffer
-	destIP := fmt.Sprintf("%d.%d.%d.%d:%d", buffer[3], buffer[4], buffer[5], buffer[6], binary.BigEndian.Uint16(buffer[7:9]))
+	// Read search ID from buffer
+	searchID := uint64(binary.BigEndian.Uint32(buffer[3:7]))
+	searchID |= uint64(binary.BigEndian.Uint16(buffer[7:9])) << 32
 
-	logging.Notice(ModuleName, "Send message from", aurora.BrightCyan(conn.RemoteAddr()), "to", aurora.BrightCyan(destIP).String())
+	logging.Notice(ModuleName, "Send message from", aurora.BrightCyan(conn.RemoteAddr()), "to", aurora.Cyan(fmt.Sprintf("%012x", searchID)))
 
-	qr2.SendClientMessage(destIP, buffer[9:])
+	qr2.SendClientMessage(conn.RemoteAddr().String(), searchID, buffer[9:])
 }

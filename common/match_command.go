@@ -354,6 +354,92 @@ func DecodeMatchCommand(command byte, buffer []byte) (MatchCommandData, bool) {
 	return MatchCommandData{}, false
 }
 
+func EncodeMatchCommand(command byte, data MatchCommandData) ([]byte, bool) {
+	switch command {
+	case MatchReservation:
+		message := binary.LittleEndian.AppendUint32([]byte{}, uint32(data.Reservation.MatchType))
+		message = binary.BigEndian.AppendUint32(message, data.Reservation.PublicIP)
+		message = binary.LittleEndian.AppendUint32(message, uint32(data.Reservation.PublicPort))
+		message = binary.BigEndian.AppendUint32(message, data.Reservation.LocalIP)
+		message = binary.LittleEndian.AppendUint32(message, uint32(data.Reservation.LocalPort))
+		message = binary.LittleEndian.AppendUint32(message, data.Reservation.Unknown)
+
+		isFriendInt := uint32(0)
+		if data.Reservation.IsFriend {
+			isFriendInt = 1
+		}
+		message = binary.LittleEndian.AppendUint32(message, isFriendInt)
+
+		message = binary.LittleEndian.AppendUint32(message, data.Reservation.LocalPlayerCount)
+		message = binary.LittleEndian.AppendUint32(message, data.Reservation.ResvCheckValue)
+		return message, true
+
+	case MatchResvOK:
+		message := binary.LittleEndian.AppendUint32([]byte{}, data.ResvOK.MaxPlayers)
+		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.SenderAID)
+		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ProfileID)
+		message = binary.BigEndian.AppendUint32(message, data.ResvOK.PublicIP)
+		message = binary.LittleEndian.AppendUint32(message, uint32(data.ResvOK.PublicPort))
+		message = binary.BigEndian.AppendUint32(message, data.ResvOK.LocalIP)
+		message = binary.LittleEndian.AppendUint32(message, uint32(data.ResvOK.LocalPort))
+		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.Unknown)
+		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.LocalPlayerCount)
+		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.GroupID)
+		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ReceiverNewAID)
+		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ClientCount)
+		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ResvCheckValue)
+		return message, true
+
+	case MatchResvDeny:
+		message := binary.LittleEndian.AppendUint32([]byte{}, data.ResvDeny.Reason)
+		return message, true
+
+	case MatchResvWait:
+		return []byte{}, true
+
+	case MatchResvCancel:
+		return []byte{}, true
+
+	case MatchTellAddr:
+		message := binary.BigEndian.AppendUint32([]byte{}, data.TellAddr.LocalIP)
+		message = binary.LittleEndian.AppendUint32(message, uint32(data.TellAddr.LocalPort))
+		return message, true
+
+	case MatchServerCloseClient:
+		message := []byte{}
+		for i := 0; i < len(data.ServerCloseClient.ProfileIDs); i++ {
+			message = binary.LittleEndian.AppendUint32(message, data.ServerCloseClient.ProfileIDs[i])
+		}
+		return message, true
+
+	case MatchSuspendMatch:
+		message := binary.LittleEndian.AppendUint32([]byte{}, data.SuspendMatch.HostProfileID)
+
+		isHostInt := uint32(0)
+		if data.SuspendMatch.IsHost {
+			isHostInt = 1
+		}
+		message = binary.LittleEndian.AppendUint32(message, isHostInt)
+
+		if data.SuspendMatch.SuspendValue != nil {
+			suspendValueInt := uint32(0)
+			if *data.SuspendMatch.SuspendValue {
+				suspendValueInt = 1
+			}
+			message = binary.LittleEndian.AppendUint32(message, suspendValueInt)
+
+			if data.SuspendMatch.ClientAID != nil {
+				message = binary.LittleEndian.AppendUint32(message, *data.SuspendMatch.ClientAID)
+			} else if data.SuspendMatch.ClientAIDUsageMask != nil {
+				message = binary.LittleEndian.AppendUint32(message, *data.SuspendMatch.ClientAIDUsageMask)
+			}
+		}
+		return message, true
+	}
+
+	return []byte{}, false
+}
+
 func LogMatchCommand(moduleName string, dest string, command byte, data MatchCommandData) {
 	logging.Notice(moduleName, "Match", aurora.Yellow(GetMatchCommandString(command)), "to", aurora.BrightCyan(dest))
 

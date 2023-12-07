@@ -5,17 +5,9 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 	"net"
 	"strconv"
-	"sync"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
-)
-
-var (
-	// I would use a sync.Map instead of the map mutex combo, but this performs better.
-	sessions   = map[uint32]*Session{}
-	mutex      = sync.RWMutex{}
-	masterConn net.PacketConn
 )
 
 const (
@@ -31,6 +23,8 @@ const (
 	AvailableRequest        = 0x09
 	ClientRegisteredReply   = 0x0A
 )
+
+var masterConn net.PacketConn
 
 func StartServer() {
 	// Get config
