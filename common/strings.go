@@ -2,6 +2,7 @@ package common
 
 import (
 	"bytes"
+	"errors"
 	"math/rand"
 )
 
@@ -25,9 +26,14 @@ func RandomHexString(n int) string {
 	return string(b)
 }
 
-func GetString(buf []byte) string {
+func GetString(buf []byte) (string, error) {
 	nullTerminator := bytes.IndexByte(buf, 0)
-	return string(buf[:nullTerminator])
+
+	if nullTerminator == -1 {
+		return "", errors.New("buf is not null-terminated")
+	}
+
+	return string(buf[:nullTerminator]), nil
 }
 
 // IsUppercaseAlphanumeric checks if the given string is composed exclusively of uppercase alphanumeric characters.

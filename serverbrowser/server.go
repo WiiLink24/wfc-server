@@ -2,6 +2,7 @@ package serverbrowser
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/logrusorgru/aurora/v3"
 	"net"
@@ -39,29 +40,79 @@ const (
 	LimitResultCountOption  = 1 << 7 // 0x80 / 128
 )
 
-func popString(buffer []byte, index int) (string, int) {
-	str := common.GetString(buffer[index:])
-	return str, index + len(str) + 1
+var (
+	IndexOutOfBoundsError = errors.New("index is out of bounds")
+)
+
+func popString(buffer []byte, index int) (string, int, error) {
+	if index < 0 || index >= len(buffer) {
+		return "", 0, IndexOutOfBoundsError
+	}
+
+	str, err := common.GetString(buffer[index:])
+
+	if err != nil {
+		return "", 0, err
+	}
+
+	return str, index + len(str) + 1, nil
 }
 
-func popBytes(buffer []byte, index int, size int) ([]byte, int) {
-	return buffer[index : index+size], index + size
+func popBytes(buffer []byte, index int, size int) ([]byte, int, error) {
+	bufferLen := len(buffer)
+
+	if index < 0 || index >= bufferLen {
+		return nil, 0, IndexOutOfBoundsError
+	}
+	if size < 0 || index+size > bufferLen {
+		return nil, 0, IndexOutOfBoundsError
+	}
+
+	return buffer[index : index+size], index + size, nil
 }
 
-func popUint32(buffer []byte, index int) (uint32, int) {
-	return binary.BigEndian.Uint32(buffer[index:]), index + 4
+func popUint32(buffer []byte, index int) (uint32, int, error) {
+	if index < 0 || index+4 > len(buffer) {
+		return 0, 0, IndexOutOfBoundsError
+	}
+
+	return binary.BigEndian.Uint32(buffer[index:]), index + 4, nil
 }
 
 var regexSelfLookup = regexp.MustCompile(`^dwc_pid ?= ?(\d{1,10})$`)
 
 func handleServerListRequest(conn net.Conn, buffer []byte) {
 	index := 9
-	queryGame, index := popString(buffer, index)
-	gameName, index := popString(buffer, index)
-	challenge, index := popBytes(buffer, index, 8)
-	filter, index := popString(buffer, index)
-	fields, index := popString(buffer, index)
-	options, index := popUint32(buffer, index)
+	queryGame, index, err := popString(buffer, index)
+	if err != nil {
+		logging.Error(ModuleName, "Invalid queryGame")
+		return
+	}
+	gameName, index, err := popString(buffer, index)
+	if err != nil {
+		logging.Error(ModuleName, "Invalid gameName")
+		return
+	}
+	challenge, index, err := popBytes(buffer, index, 8)
+	if err != nil {
+		logging.Error(ModuleName, "Invalid challenge")
+		return
+	}
+	filter, index, err := popString(buffer, index)
+	if err != nil {
+		logging.Error(ModuleName, "Invalid filter")
+		return
+	}
+	fields, index, err := popString(buffer, index)
+	if err != nil {
+		logging.Error(ModuleName, "Invalid fields")
+		return
+	}
+	options, index, err := popUint32(buffer, index)
+	if err != nil {
+		logging.Error(ModuleName, "Invalid options")
+		return
+	}
 
 	logging.Info(ModuleName, "queryGame:", aurora.Cyan(queryGame).String(), "- gameName:", aurora.Cyan(gameName).String(), "- filter:", aurora.Cyan(filter).String(), "- fields:", aurora.Cyan(fields).String())
 
