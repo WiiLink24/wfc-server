@@ -7,6 +7,7 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 	"net"
 	"sync"
+	"time"
 	"wwfc/common"
 	"wwfc/logging"
 )
@@ -120,7 +121,6 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	mutex.Lock()
 	session, exists := sessions[cookie]
 	if !exists {
-		// TODO: Figure out removing the session if this request is nonsense or something
 		logging.Notice(moduleName, "Creating session")
 		session = &NATNEGSession{
 			Cookie:  cookie,
@@ -128,6 +128,15 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 			Clients: map[byte]*NATNEGClient{},
 		}
 		sessions[cookie] = session
+
+		// Session has TTL of 30 seconds
+		time.AfterFunc(30*time.Second, func() {
+			mutex.Lock()
+			delete(sessions, cookie)
+			mutex.Unlock()
+
+			logging.Info(moduleName, "Deleted session")
+		})
 	}
 	mutex.Unlock()
 
