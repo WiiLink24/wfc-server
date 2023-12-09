@@ -25,8 +25,13 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		receiver = sessionByPublicIP[destSearchID]
 	}
 
-	if receiver == nil {
+	if receiver == nil || !receiver.Authenticated {
 		logging.Error(moduleName, "Destination", aurora.Cyan(destSearchID), "does not exist")
+		return
+	}
+
+	if destPid, ok := receiver.Data["dwc_pid"]; !ok || destPid == "" {
+		logging.Error(moduleName, "Destination", aurora.Cyan(destSearchID), "has no profile ID")
 		return
 	}
 
@@ -65,8 +70,13 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		}
 
 		sender = sessionByPublicIP[(uint64(qr2Port)<<32)|uint64(qr2IP)]
-		if sender == nil {
+		if sender == nil || !sender.Authenticated {
 			logging.Error(moduleName, "Session does not exist with QR2 IP and port")
+			return
+		}
+
+		if !sender.setProfileID(moduleName, strconv.FormatUint(uint64(senderProfileID), 10)) {
+			// Error already logged
 			return
 		}
 
