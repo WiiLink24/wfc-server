@@ -45,7 +45,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 	}
 
 	reply := map[string]string{}
-	response := []byte{}
+	var response []byte
 
 	if r.URL.String() == "/ac" {
 		action, ok := fields["action"]
@@ -57,7 +57,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 
 		switch action {
 		case "acctcreate":
-			reply = acctcreate(moduleName, fields)
+			reply = acctcreate()
 			break
 
 		case "login":
@@ -65,7 +65,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			break
 
 		case "svcloc":
-			reply = svcloc(moduleName, fields)
+			reply = svcloc(fields)
 			break
 
 		default:
@@ -84,7 +84,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		reply = handleProfanity(moduleName, fields)
+		reply = handleProfanity(fields)
 	} else if r.URL.String() == "/download" {
 		action, ok := fields["action"]
 		if !ok || action == "" {
@@ -102,7 +102,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 
 		switch action {
 		case "count":
-			response = []byte(dlsCount(moduleName, fields))
+			response = []byte(dlsCount(fields))
 			break
 
 		default:
@@ -134,7 +134,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 	w.Write(response)
 }
 
-func acctcreate(moduleName string, fields map[string]string) map[string]string {
+func acctcreate() map[string]string {
 	return map[string]string{
 		"retry":    "0",
 		"datetime": getDateTime(),
@@ -179,7 +179,7 @@ func login(moduleName string, fields map[string]string) map[string]string {
 	return param
 }
 
-func svcloc(moduleName string, fields map[string]string) map[string]string {
+func svcloc(fields map[string]string) map[string]string {
 	param := map[string]string{
 		"retry":      "0",
 		"datetime":   getDateTime(),
@@ -209,7 +209,7 @@ func svcloc(moduleName string, fields map[string]string) map[string]string {
 	return param
 }
 
-func handleProfanity(moduleName string, fields map[string]string) map[string]string {
+func handleProfanity(fields map[string]string) map[string]string {
 	prwords := ""
 	wordCount := strings.Count(fields["words"], "\t") + 1
 	for i := 0; i < wordCount; i++ {
@@ -222,7 +222,7 @@ func handleProfanity(moduleName string, fields map[string]string) map[string]str
 	}
 }
 
-func dlsCount(moduleName string, fields map[string]string) string {
+func dlsCount(fields map[string]string) string {
 	dlcFolder := filepath.Join(dlcDir, fields["rhgamecd"])
 
 	dir, ok := os.ReadDir(dlcFolder)

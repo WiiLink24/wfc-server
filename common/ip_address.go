@@ -50,7 +50,7 @@ func IPFormatBytes(ip string) []byte {
 		ip = strings.Split(ip, ":")[0]
 	}
 
-	bytes := []byte{}
+	var bytes []byte
 	for _, s := range strings.Split(ip, ".") {
 		val, err := strconv.Atoi(s)
 		if err != nil {

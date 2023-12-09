@@ -171,7 +171,7 @@ func (this OperatorPrecedence) All() []string {
 	return out
 }
 
-var operators OperatorPrecedence = OperatorPrecedence{
+var operators = OperatorPrecedence{
 	{"^"},
 	{"*", "/", "%"},
 	{"+", "-"},
@@ -180,7 +180,7 @@ var operators OperatorPrecedence = OperatorPrecedence{
 	{"||", "or"},
 }
 
-var operatorList []string = operators.All()
+var operatorList = operators.All()
 
 type LRFuncToken struct {
 	EmptyToken

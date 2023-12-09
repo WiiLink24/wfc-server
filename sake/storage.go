@@ -133,9 +133,9 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 	}
 
 	response := StorageResponseEnvelope{
-		XMLName: xml.Name{SOAPEnvNamespace, "Envelope"},
+		XMLName: xml.Name{Space: SOAPEnvNamespace, Local: "Envelope"},
 		Body: StorageResponseBody{
-			XMLName: xml.Name{SOAPEnvNamespace, "Body"},
+			XMLName: xml.Name{Space: SOAPEnvNamespace, Local: "Body"},
 		},
 	}
 
@@ -154,7 +154,7 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 				break
 
 			case SakeNamespace + "/SearchForRecords":
-				response.Body.SearchForRecordsResponse = searchForRecords(moduleName, profileId, gameInfo, soap.Body.Data)
+				response.Body.SearchForRecordsResponse = searchForRecords(moduleName, gameInfo, soap.Body.Data)
 				break
 
 			default:
@@ -202,21 +202,21 @@ func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, 
 
 func binaryDataValue(value []byte) StorageValue {
 	return StorageValue{
-		XMLName: xml.Name{"", "binaryDataValue"},
+		XMLName: xml.Name{Local: "binaryDataValue"},
 		Value:   base64.StdEncoding.EncodeToString(value),
 	}
 }
 
 func binaryDataValueBase64(value string) StorageValue {
 	return StorageValue{
-		XMLName: xml.Name{"", "binaryDataValue"},
+		XMLName: xml.Name{Local: "binaryDataValue"},
 		Value:   value,
 	}
 }
 
 func intValue(value int32) StorageValue {
 	return StorageValue{
-		XMLName: xml.Name{"", "intValue"},
+		XMLName: xml.Name{Local: "intValue"},
 		Value:   strconv.FormatInt(int64(value), 10),
 	}
 }
@@ -224,7 +224,7 @@ func intValue(value int32) StorageValue {
 // I don't even know if this is a thing
 func uintValue(value uint32) StorageValue {
 	return StorageValue{
-		XMLName: xml.Name{"", "uintValue"},
+		XMLName: xml.Name{Local: "uintValue"},
 		Value:   strconv.FormatUint(uint64(value), 10),
 	}
 }
@@ -298,12 +298,12 @@ func updateRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 	}
 }
 
-func searchForRecords(moduleName string, profileId uint32, gameInfo common.GameInfo, request StorageRequestData) *StorageSearchForRecordsResponse {
+func searchForRecords(moduleName string, gameInfo common.GameInfo, request StorageRequestData) *StorageSearchForRecordsResponse {
 	errorResponse := StorageSearchForRecordsResponse{
 		SearchForRecordsResult: "Error",
 	}
 
-	values := []map[string]StorageValue{}
+	var values []map[string]StorageValue
 
 	switch gameInfo.Name + "/" + request.TableID {
 	default:

@@ -94,7 +94,7 @@ func handleRequest(conn net.Conn) {
 	// Here we go into the listening loop
 	bufferSize := 0
 	packetSize := uint16(0)
-	buffer := []byte{}
+	var buffer []byte
 	for {
 		// Remove stale data and remake the buffer
 		buffer = append(buffer[packetSize:], make([]byte, 1024-packetSize)...)

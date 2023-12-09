@@ -342,7 +342,7 @@ func (client *NATNEGClient) sendConnectRequest(conn net.PacketConn, destination 
 	conn.WriteTo(connectHeader, destIPAddr)
 }
 
-func (session *NATNEGSession) handleReport(conn net.PacketConn, addr net.Addr, buffer []byte, moduleName string, version byte) {
+func (session *NATNEGSession) handleReport(conn net.PacketConn, addr net.Addr, buffer []byte, _ string, version byte) {
 	response := createPacketHeader(version, NNReportReply, session.Cookie)
 	response = append(response, buffer[:9]...)
 	response[14] = 0

@@ -104,7 +104,7 @@ func setSessionData(sessionId uint32, payload map[string]string, addr net.Addr) 
 			}
 
 			// Reformat dwc_pid string
-			newPID = strconv.FormatUint(uint64(profileID), 10)
+			newPID = strconv.FormatUint(profileID, 10)
 			payload["dwc_pid"] = newPID
 
 			// Lookup the profile ID in GPCM and verify it's logged in.
@@ -123,7 +123,7 @@ func setSessionData(sessionId uint32, payload map[string]string, addr net.Addr) 
 			}
 
 			// Constraint: only one session can exist with a profile ID
-			outdated := []uint32{}
+			var outdated []uint32
 			for sessionID, otherSession := range sessions {
 				if otherPID, ok := otherSession.Data["dwc_pid"]; !ok || otherPID != newPID {
 					continue
@@ -183,8 +183,8 @@ func setSessionData(sessionId uint32, payload map[string]string, addr net.Addr) 
 
 // Get a copy of the list of servers
 func GetSessionServers() []map[string]string {
-	servers := []map[string]string{}
-	unreachable := []uint32{}
+	var servers []map[string]string
+	var unreachable []uint32
 	currentTime := time.Now().Unix()
 
 	mutex.Lock()

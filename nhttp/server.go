@@ -234,14 +234,14 @@ func (srv *Server) Serve(l net.Listener) error {
 				return ErrServerClosed
 			default:
 			}
-			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+			if _, ok := err.(net.Error); ok {
 				if tempDelay == 0 {
 					tempDelay = 5 * time.Millisecond
 				} else {
 					tempDelay *= 2
 				}
-				if max := 1 * time.Second; tempDelay > max {
-					tempDelay = max
+				if _max := 1 * time.Second; tempDelay > _max {
+					tempDelay = _max
 				}
 				log.Printf("nhttp: Accept error: %v; retrying in %v\n", err, tempDelay)
 				time.Sleep(tempDelay)

@@ -181,7 +181,7 @@ func handleRequest(conn net.Conn) {
 }
 
 func (g *GameSpySession) handleCommand(name string, commands []common.GameSpyCommand, handler func(command common.GameSpyCommand)) []common.GameSpyCommand {
-	unhandled := []common.GameSpyCommand{}
+	var unhandled []common.GameSpyCommand
 
 	for _, command := range commands {
 		if command.Command != name {
@@ -197,7 +197,7 @@ func (g *GameSpySession) handleCommand(name string, commands []common.GameSpyCom
 }
 
 func (g *GameSpySession) ignoreCommand(name string, commands []common.GameSpyCommand) []common.GameSpyCommand {
-	unhandled := []common.GameSpyCommand{}
+	var unhandled []common.GameSpyCommand
 
 	for _, command := range commands {
 		if command.Command != name {

@@ -17,7 +17,8 @@ import (
 	"wwfc/logging"
 )
 
-func downloadStage1(moduleName string, w http.ResponseWriter, r *http.Request, stage1Ver int) {
+func downloadStage1(w http.ResponseWriter, stage1Ver int) {
+	// TODO: Actually use the stage 1 version
 	dat, err := os.ReadFile("payload/stage1.bin")
 	if err != nil {
 		panic(err)

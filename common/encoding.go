@@ -2,7 +2,6 @@ package common
 
 import (
 	"encoding/base64"
-	"fmt"
 )
 
 var Base64DwcEncoding = base64.NewEncoding("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-").WithPadding('*')
@@ -14,8 +13,6 @@ func Base32Encode(value int64) string {
 	for value > 0 {
 		encoded += string(alpha[value&0x1f])
 		value >>= 5
-
-		fmt.Sprintf("%0.9s", encoded)
 	}
 
 	encoded = reverse(encoded)

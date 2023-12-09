@@ -3,14 +3,11 @@ package common
 import (
 	"bytes"
 	"math/rand"
-	"time"
 )
 
 var letterRunes = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func RandomString(n int) string {
-	rand.Seed(time.Now().UnixNano())
-
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
@@ -21,8 +18,6 @@ func RandomString(n int) string {
 var hexRunes = []rune("0123456789abcdefabcdef")
 
 func RandomHexString(n int) string {
-	rand.Seed(time.Now().UnixNano())
-
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = letterRunes[rand.Intn(len(hexRunes))]
@@ -35,7 +30,7 @@ func GetString(buf []byte) string {
 	return string(buf[:nullTerminator])
 }
 
-// Checks if the given string is composed exclusively of uppercase alphanumeric characters.
+// IsUppercaseAlphanumeric checks if the given string is composed exclusively of uppercase alphanumeric characters.
 func IsUppercaseAlphanumeric(str string) bool {
 	strLength := len(str)
 

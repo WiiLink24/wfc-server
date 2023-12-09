@@ -32,7 +32,7 @@ func EncryptTypeX(key []byte, challenge []byte, data []byte) []byte {
 func initEncrypt(encxkey, key, validate, data []byte) []byte {
 	// TODO: Bounds
 	headerLen := (data[0] ^ 0xec) + 2
-	dataStart := (data[headerLen-1] ^ 0xea)
+	dataStart := data[headerLen-1] ^ 0xea
 
 	enctypexFuncX(encxkey, key, validate, data[headerLen:headerLen+dataStart])
 	return data[headerLen+dataStart:]

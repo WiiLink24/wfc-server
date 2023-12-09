@@ -82,7 +82,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 
-		downloadStage1(moduleName, w, r, val)
+		downloadStage1(w, val)
 		return
 	}
 

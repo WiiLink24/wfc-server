@@ -294,7 +294,7 @@ func DecodeMatchCommand(command byte, buffer []byte) (MatchCommandData, bool) {
 		}
 
 		pidCount := len(buffer) >> 2
-		pids := []uint32{}
+		var pids []uint32
 		for i := 0; i < pidCount; i++ {
 			pids = append(pids, binary.LittleEndian.Uint32(buffer[i*4:i*4+4]))
 		}
@@ -406,7 +406,7 @@ func EncodeMatchCommand(command byte, data MatchCommandData) ([]byte, bool) {
 		return message, true
 
 	case MatchServerCloseClient:
-		message := []byte{}
+		var message []byte
 		for i := 0; i < len(data.ServerCloseClient.ProfileIDs); i++ {
 			message = binary.LittleEndian.AppendUint32(message, data.ServerCloseClient.ProfileIDs[i])
 		}

@@ -421,6 +421,7 @@ func readRequest(b *bufio.Reader) (req *_http.Request, err error) {
 	// RPC to work.
 	justAuthority := req.Method == "CONNECT" && !strings.HasPrefix(rawurl, "/")
 	if justAuthority {
+		//goland:noinspection ALL
 		rawurl = "http://" + rawurl
 	}
 

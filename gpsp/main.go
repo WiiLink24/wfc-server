@@ -131,7 +131,7 @@ func handleRequest(conn net.Conn) {
 	}
 }
 
-func handleOthersList(moduleName string, profileId uint32, command common.GameSpyCommand) string {
+func handleOthersList(moduleName string, _ uint32, command common.GameSpyCommand) string {
 	empty := `\otherslist\\final\`
 
 	_, ok := command.OtherValues["sesskey"]
@@ -164,7 +164,7 @@ func handleOthersList(moduleName string, profileId uint32, command common.GameSp
 		return empty
 	}
 
-	opidsSplit := []string{}
+	var opidsSplit []string
 	if strings.Contains(opids, "|") {
 		opidsSplit = strings.Split(opids, "|")
 	} else if opids != "" && opids != "0" {
