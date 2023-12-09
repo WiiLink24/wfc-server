@@ -100,7 +100,7 @@ func StartServer() {
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	// Validate the packet magic
-	if !bytes.Equal(buffer[:6], []byte{0xfd, 0xfc, 0x1e, 0x66, 0x6a, 0xb2}) {
+	if len(buffer) < 12 || !bytes.Equal(buffer[:6], []byte{0xfd, 0xfc, 0x1e, 0x66, 0x6a, 0xb2}) {
 		logging.Error("NATNEG:"+addr.String(), "Invalid packet header")
 		return
 	}
@@ -232,12 +232,21 @@ func getPortTypeName(portType byte) string {
 }
 
 func (session *NATNEGSession) handleInit(conn net.PacketConn, addr net.Addr, buffer []byte, moduleName string, version byte) {
+	if len(buffer) < 10 {
+		logging.Error(moduleName, "Invalid packet size")
+		return
+	}
+
 	portType := buffer[0]
 	clientIndex := buffer[1]
 	useGamePort := buffer[2]
 	localIPBytes := buffer[3:7]
 	localPort := binary.BigEndian.Uint16(buffer[7:9])
-	gameName := common.GetString(buffer[9:])
+	gameName, err := common.GetString(buffer[9:])
+	if err != nil {
+		logging.Error(moduleName, "Invalid gameName")
+		return
+	}
 
 	expectedSize := 9 + len(gameName) + 1
 	if len(buffer) != expectedSize {
