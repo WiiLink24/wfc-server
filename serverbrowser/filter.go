@@ -26,7 +26,7 @@ func filterServers(servers []map[string]string, queryGame string, expression str
 				continue
 			}
 
-			if server["dwcPid"] == dwcPid {
+			if server["dwc_pid"] == dwcPid {
 				if server["publicip"] != publicIP {
 					logging.Error(ModuleName, "Self lookup", aurora.Cyan(dwcPid), "from wrong IP")
 					return []map[string]string{}
@@ -40,13 +40,13 @@ func filterServers(servers []map[string]string, queryGame string, expression str
 			// Alternatively, if the server hasn't set its dwcPid field yet, we return servers matching the request's public IP.
 			// If multiple servers exist with the same public IP then the client will use the one with the matching port.
 			// This is a bit of a hack to speed up server creation.
-			if _, ok := server["dwcPid"]; !ok && server["publicip"] == publicIP {
+			if _, ok := server["dwc_pid"]; !ok && server["publicip"] == publicIP {
 				// Create a copy of the map with some values changed
 				newServer := map[string]string{}
 				for k, v := range server {
 					newServer[k] = v
 				}
-				newServer["dwcPid"] = dwcPid
+				newServer["dwc_pid"] = dwcPid
 				newServer["dwc_mtype"] = "0"
 				newServer["dwc_mver"] = "0"
 				filtered = append(filtered, newServer)
@@ -104,7 +104,7 @@ func filterSelfLookup(servers []map[string]string, queryGame string, dwcPid stri
 			continue
 		}
 
-		if server["dwcPid"] == dwcPid {
+		if server["dwc_pid"] == dwcPid {
 			if server["publicip"] != publicIP {
 				logging.Error(ModuleName, "Self lookup", aurora.Cyan(dwcPid), "from wrong IP")
 				return []map[string]string{}
@@ -114,16 +114,16 @@ func filterSelfLookup(servers []map[string]string, queryGame string, dwcPid stri
 			return []map[string]string{server}
 		}
 
-		// Alternatively, if the server hasn't set its dwcPid field yet, we return servers matching the request's public IP.
+		// Alternatively, if the server hasn't set its dwc_pid field yet, we return servers matching the request's public IP.
 		// If multiple servers exist with the same public IP then the client will use the one with the matching port.
 		// This is a bit of a hack to speed up server creation.
-		if _, ok := server["dwcPid"]; !ok && server["publicip"] == publicIP {
+		if _, ok := server["dwc_pid"]; !ok && server["publicip"] == publicIP {
 			// Create a copy of the map with some values changed
 			newServer := map[string]string{}
 			for k, v := range server {
 				newServer[k] = v
 			}
-			newServer["dwcPid"] = dwcPid
+			newServer["dwc_pid"] = dwcPid
 			newServer["dwc_mtype"] = "0"
 			newServer["dwc_mver"] = "0"
 			filtered = append(filtered, newServer)
@@ -131,7 +131,7 @@ func filterSelfLookup(servers []map[string]string, queryGame string, dwcPid stri
 	}
 
 	if len(filtered) == 0 {
-		logging.Error(ModuleName, "Could not find server with dwcPid", aurora.Cyan(dwcPid))
+		logging.Error(ModuleName, "Could not find server with dwc_pid", aurora.Cyan(dwcPid))
 		return []map[string]string{}
 	}
 
