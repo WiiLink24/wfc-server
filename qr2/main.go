@@ -54,16 +54,19 @@ func StartServer() {
 }
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
-	if buffer[0] == AvailableRequest {
-		logging.Notice("QR2", "Command:", aurora.Yellow("AVAILABLE"))
-		conn.WriteTo(createResponseHeader(AvailableRequest, 0), addr)
-		return
-	}
-
+	packetType := buffer[0]
 	sessionId := binary.BigEndian.Uint32(buffer[1:5])
+	session, ok := sessions[sessionId]
 	moduleName := "QR2:" + strconv.FormatInt(int64(sessionId), 10)
 
-	switch buffer[0] {
+	if packetType != HeartbeatRequest && packetType != AvailableRequest {
+		if !ok {
+			logging.Error(moduleName, "Invalid session")
+			return
+		}
+	}
+
+	switch packetType {
 	case QueryRequest:
 		logging.Notice(moduleName, "Command:", aurora.Yellow("QUERY"))
 		break
@@ -72,9 +75,9 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		logging.Notice(moduleName, "Command:", aurora.Yellow("CHALLENGE"))
 
 		mutex.Lock()
-		if sessions[sessionId].Challenge != "" {
+		if session.Challenge != "" {
 			// TODO: Verify the challenge
-			sessions[sessionId].Authenticated = true
+			session.Authenticated = true
 			mutex.Unlock()
 
 			conn.WriteTo(createResponseHeader(ClientRegisteredReply, sessionId), addr)
@@ -110,13 +113,14 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	case KeepAliveRequest:
 		logging.Notice(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
-		sessionId := binary.BigEndian.Uint32(buffer[1:5])
 		mutex.Lock()
-		sessions[sessionId].LastKeepAlive = time.Now().Unix()
+		session.LastKeepAlive = time.Now().Unix()
 		mutex.Unlock()
 		return
 
 	case AvailableRequest:
+		logging.Notice("QR2", "Command:", aurora.Yellow("AVAILABLE"))
+		conn.WriteTo(createResponseHeader(AvailableRequest, 0), addr)
 		return
 
 	case ClientRegisteredReply:
