@@ -48,7 +48,7 @@ func handlePayloadRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 	}
 
 	// Read payload ID (g) from URL
-	game := query["g"][0]
+	game := query.Get("g")
 	if len(game) != 7 && len(game) != 9 {
 		logging.Error(moduleName, "Invalid or missing game ID:", aurora.Cyan(game))
 		return
