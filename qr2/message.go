@@ -3,11 +3,24 @@ package qr2
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"wwfc/common"
 	"wwfc/logging"
 )
+
+func printHex(data []byte) string {
+	logMsg := ""
+	for i := 0; i < len(data); i++ {
+		if (i % 32) == 0 {
+			logMsg += "\n"
+		}
+		logMsg += fmt.Sprintf("%02x ", data[i])
+	}
+
+	return logMsg
+}
 
 func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	moduleName := "QR2/MSG"
@@ -47,7 +60,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 
 		natnegID := binary.LittleEndian.Uint32(message[0x6:0xA])
 		moduleName = "QR2/MSG:s" + strconv.FormatUint(uint64(natnegID), 10)
-	} else if bytes.Equal(message[:4], []byte{0xbb, 0x49, 0xcc, 0x4d}) {
+	} else if bytes.Equal(message[:4], []byte{0xbb, 0x49, 0xcc, 0x4d}) || bytes.Equal(message[:4], []byte("SBCM")) {
 		// DWC match command
 		if len(message) < 0x14 {
 			logging.Error(moduleName, "Received invalid length match command packet")
@@ -59,6 +72,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 			logging.Error(moduleName, "Received invalid match version")
 			return
 		}
+		logging.Info(moduleName, "Version:", version)
 
 		senderProfileID := binary.LittleEndian.Uint32(message[0x10:0x14])
 		moduleName = "QR2/MSG:p" + strconv.FormatUint(uint64(senderProfileID), 10)
@@ -89,7 +103,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		var ok bool
 		matchData, ok = common.DecodeMatchCommand(message[8], message[0x14:], version)
 		if !ok {
-			logging.Error(moduleName, "Received invalid match command:", aurora.Cyan(message[8]))
+			logging.Error(moduleName, "Received invalid match command:", aurora.Cyan(printHex(message)))
 			return
 		}
 
@@ -110,7 +124,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 				return
 			}
 
-			if version != 3 {
+			if version == 90 {
 				if matchData.Reservation.LocalPort < 1024 {
 					logging.Error(moduleName, "RESERVATION: Local port is reserved")
 					return
@@ -131,12 +145,12 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 				return
 			}
 
-			if qr2Port != matchData.Reservation.PublicPort {
+			if qr2Port != matchData.ResvOK.PublicPort {
 				logging.Error(moduleName, "RESERVATION: Public port mismatch in header and command")
 				return
 			}
 
-			if version != 3 {
+			if version == 90 {
 				if matchData.ResvOK.LocalPort < 1024 {
 					logging.Error(moduleName, "RESV_OK: Local port is reserved")
 					return
@@ -183,13 +197,15 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		var matchMessage []byte
 		matchMessage, ok = common.EncodeMatchCommand(message[8], matchData, version)
 		if !ok {
-			logging.Error(moduleName, "Failed to reencode match command:", aurora.Cyan(message[8]))
+			logging.Error(moduleName, "Failed to reencode match command:", aurora.Cyan(printHex(message)))
 			return
 		}
 
 		if len(matchMessage) != 0 {
 			message = append(message, matchMessage...)
 		}
+	} else {
+		logging.Error(moduleName, "Invalid message:", aurora.Cyan(printHex(message)))
 	}
 
 	mutex.Lock()

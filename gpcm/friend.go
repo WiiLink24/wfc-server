@@ -2,6 +2,7 @@ package gpcm
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"strings"
@@ -200,7 +201,18 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		}
 		break
 
-	// TODO: Version 11 (Super Smash Bros. Brawl)
+	case 11:
+		for _, stringValue := range strings.Split(msg[msgDataIndex:], "/") {
+			byteValue, err := hex.DecodeString(stringValue)
+			if err != nil || len(byteValue) != 4 {
+				logging.Error(g.ModuleName, "Invalid message value; message:", msg)
+				g.replyError(ErrMessage)
+				return
+			}
+
+			msgData = append(msgData, byteValue...)
+		}
+		break
 
 	case 90:
 		msgData, err = common.Base64DwcEncoding.DecodeString(msg[msgDataIndex:])
