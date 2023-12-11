@@ -28,6 +28,9 @@ type GameSpySession struct {
 	LocString      string
 	FriendList     []uint32
 	AuthFriendList []uint32
+
+	QR2IP          uint64
+	ReservationPID uint32
 }
 
 var (

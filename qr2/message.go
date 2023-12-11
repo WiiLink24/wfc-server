@@ -226,7 +226,26 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		cookie := binary.BigEndian.Uint32(message[0x2:0x6])
 		logging.Notice(moduleName, "Send NN cookie", aurora.Cyan(cookie), "to", aurora.BrightCyan(destPid))
 	} else {
-		common.LogMatchCommand(moduleName, destPid, message[8], matchData)
+		cmd := message[8]
+		common.LogMatchCommand(moduleName, destPid, cmd, matchData)
+
+		if cmd == common.MatchReservation {
+			sender.ReservationID = receiver.SearchID
+		} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
+			if receiver.ReservationID != sender.SearchID {
+				logging.Error(moduleName, "Destination has no reservation with the sender")
+				return
+			}
+
+			if cmd == common.MatchResvOK {
+				mutex.Lock()
+				if !processResvOK(moduleName, *matchData.ResvOK, sender, receiver) {
+					mutex.Unlock()
+					return
+				}
+				mutex.Unlock()
+			}
+		}
 	}
 
 	payload := createResponseHeader(ClientMessageRequest, destSessionID)

@@ -28,6 +28,9 @@ type Session struct {
 	Endianness    byte // Some fields depend on the client's endianness
 	Data          map[string]string
 	PacketCount   uint32
+	ReservationID uint64
+	GroupPointer  *Group
+	GroupAID      uint8
 }
 
 var (
@@ -43,8 +46,21 @@ func removeSession(sessionId uint32) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if sessions[sessionId] == nil {
+	session := sessions[sessionId]
+	if session == nil {
 		return
+	}
+
+	if session.GroupPointer != nil {
+		delete(session.GroupPointer.Players, session.GroupAID)
+
+		if len(session.GroupPointer.Players) == 0 {
+			logging.Notice("QR2", "Deleting group", aurora.Cyan(session.GroupPointer.GroupID))
+			delete(groups, session.GroupPointer)
+		} else if session.GroupPointer.ServerAID == session.GroupAID {
+			logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupID))
+			// TODO: Search for new host via dwc_hoststate
+		}
 	}
 
 	// Delete search ID lookup
@@ -85,6 +101,7 @@ func setSessionData(sessionId uint32, payload map[string]string, addr net.Addr) 
 			Endianness:    ClientNoEndian,
 			Data:          payload,
 			PacketCount:   0,
+			ReservationID: 0,
 		}
 	}
 
@@ -97,7 +114,7 @@ func setSessionData(sessionId uint32, payload map[string]string, addr net.Addr) 
 
 		// Set search ID
 		for {
-			searchID := uint64(rand.Int63n(0x400 << 32))
+			searchID := uint64(rand.Int63n((0x400<<32)-1) + 1)
 			if _, exists := sessionBySearchID[searchID]; !exists {
 				session.SearchID = searchID
 				session.Data["+searchid"] = strconv.FormatUint(searchID, 10)

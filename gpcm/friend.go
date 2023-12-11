@@ -8,6 +8,7 @@ import (
 	"strings"
 	"wwfc/common"
 	"wwfc/logging"
+	"wwfc/qr2"
 )
 
 func (g *GameSpySession) isFriendAdded(profileId uint32) bool {
@@ -182,6 +183,12 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		return
 	}
 
+	if len(msg) < msgDataIndex+1 {
+		logging.Error(g.ModuleName, "Invalid message length; message:", msg)
+		g.replyError(ErrMessage)
+		return
+	}
+
 	cmd := msg[msgDataIndex]
 	msgDataIndex++
 
@@ -232,6 +239,18 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		return
 	}
 
+	if cmd == common.MatchReservation {
+		if common.IPFormatNoPortToInt(g.Conn.RemoteAddr().String()) == int32(msgMatchData.Reservation.PublicIP) {
+			g.QR2IP = uint64(msgMatchData.Reservation.PublicIP) | (uint64(msgMatchData.Reservation.PublicPort) << 32)
+		}
+	} else if cmd == common.MatchResvOK {
+		if common.IPFormatNoPortToInt(g.Conn.RemoteAddr().String()) == int32(msgMatchData.ResvOK.PublicIP) {
+			g.QR2IP = uint64(msgMatchData.ResvOK.PublicIP) | (uint64(msgMatchData.ResvOK.PublicPort) << 32)
+		}
+	}
+
+	// TODO: Replace public IP with QR2 search ID
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -246,6 +265,29 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not friends with sender")
 		g.replyError(ErrMessageNotFriends)
 		return
+	}
+
+	if cmd == common.MatchReservation {
+		g.ReservationPID = uint32(toProfileId)
+	} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
+		if toSession.ReservationPID != g.User.ProfileId {
+			logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "has no reservation with the sender")
+			g.replyError(ErrMessage)
+			return
+		}
+
+		if cmd == common.MatchResvOK {
+			if g.QR2IP == 0 || toSession.QR2IP == 0 {
+				logging.Error(g.ModuleName, "Missing QR2 IP")
+				g.replyError(ErrMessage)
+				return
+			}
+
+			if !qr2.ProcessGPResvOK(*msgMatchData.ResvOK, g.QR2IP, g.User.ProfileId, toSession.QR2IP, uint32(toProfileId)) {
+				g.replyError(ErrMessage)
+				return
+			}
+		}
 	}
 
 	sendMessageToSession("1", g.User.ProfileId, toSession, msg)
