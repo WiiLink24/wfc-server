@@ -12,6 +12,7 @@ import (
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+	"wwfc/qr2"
 )
 
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {
@@ -183,6 +184,10 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10)
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ")
 
+	// Notify QR2 of the login
+	// TODO: Get ingamesn and cfc from NAS
+	qr2.Login(g.User.ProfileId, "", "", g.Conn.RemoteAddr().String())
+
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
 		CommandValue: "2",
@@ -206,16 +211,4 @@ func IsLoggedIn(profileID uint32) bool {
 
 	session, exists := sessions[profileID]
 	return exists && session.LoggedIn
-}
-
-func GetSessionIP(profileID uint32) string {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	session, exists := sessions[profileID]
-	if exists && session.LoggedIn {
-		return session.Conn.RemoteAddr().String()
-	}
-
-	return ""
 }

@@ -13,6 +13,7 @@ import (
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+	"wwfc/qr2"
 )
 
 type GameSpySession struct {
@@ -77,6 +78,7 @@ func StartServer() {
 
 func (g *GameSpySession) closeSession() {
 	if g.LoggedIn {
+		qr2.Logout(g.User.ProfileId)
 		g.sendLogoutStatus()
 	}
 

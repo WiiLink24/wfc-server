@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 	"wwfc/common"
-	"wwfc/gpcm"
 	"wwfc/logging"
 )
 
@@ -116,10 +115,12 @@ func setSessionData(sessionId uint32, payload map[string]string, addr net.Addr) 
 		return *session, true
 	}
 
-	if pid, ok := session.Data["dwc_pid"]; ok && pid != "" {
-		payload["dwc_pid"] = pid
+	// Save certain fields
+	for k, v := range session.Data {
+		if k[0] == '+' || k == "dwc_pid" {
+			payload[k] = v
+		}
 	}
-	payload["+searchid"] = session.Data["+searchid"]
 
 	session.Data = payload
 	session.LastKeepAlive = time.Now().Unix()
@@ -146,16 +147,16 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 		return false
 	}
 
-	// Lookup the profile ID in GPCM and verify it's logged in.
-	// Maybe we don't need this? It relies on GPCM being hosted in the same application, and
-	// makes GPCM a dependency of QR2. Perhaps we could use the database.
-	gpcmIP := gpcm.GetSessionIP(uint32(profileID))
-	if gpcmIP == "" {
+	// Check if the public IP matches the one used for the GPCM session
+	var gpPublicIP string
+	if loginInfo, ok := logins[uint32(profileID)]; ok {
+		gpPublicIP = loginInfo.GPPublicIP
+	} else {
 		logging.Error(moduleName, "Provided dwc_pid is not logged in:", aurora.Cyan(newPID))
 		return false
 	}
 
-	if strings.Split(gpcmIP, ":")[0] != strings.Split(session.Addr.String(), ":")[0] {
+	if strings.Split(gpPublicIP, ":")[0] != strings.Split(session.Addr.String(), ":")[0] {
 		logging.Error(moduleName, "Caller public IP does not match GPCM session")
 		return false
 	}
