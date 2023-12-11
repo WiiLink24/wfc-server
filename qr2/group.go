@@ -10,28 +10,44 @@ import (
 
 type Group struct {
 	GroupID   uint32
-	ServerAID uint8
-	Players   map[uint8]*Session
+	GroupName string
+	GameName  string
+	Server    *Session
+	Players   map[*Session]bool
 }
 
-var groups = map[*Group]bool{}
+var groups = map[string]*Group{}
 
 func processResvOK(moduleName string, cmd common.MatchCommandDataResvOK, sender, destination *Session) bool {
-	group := sender.GroupPointer
-	if group == nil {
-		logging.Notice(moduleName, "Creating new group", aurora.Cyan(cmd.GroupID), "/", aurora.Cyan(cmd.ProfileID))
-		group = &Group{
-			GroupID:   cmd.GroupID,
-			ServerAID: uint8(cmd.SenderAID),
-			Players:   map[uint8]*Session{uint8(cmd.SenderAID): sender},
-		}
-		sender.GroupPointer = group
-		groups[group] = true
+	if len(groups) >= 100000 {
+		logging.Error(moduleName, "Hit arbitrary global maximum group count (somehow)")
+		return false
 	}
 
-	if uint8(cmd.SenderAID) != sender.GroupAID {
-		logging.Error(moduleName, "ResvOK: Invalid sender AID")
-		return false
+	group := sender.GroupPointer
+	if group == nil {
+		group = &Group{
+			GroupID:   cmd.GroupID,
+			GroupName: "",
+			GameName:  sender.Data["gamename"],
+			Server:    sender,
+			Players:   map[*Session]bool{sender: true},
+		}
+
+		for {
+			groupName := common.RandomString(6)
+			if groups[groupName] != nil {
+				continue
+			}
+
+			group.GroupName = groupName
+			break
+		}
+
+		sender.GroupPointer = group
+		groups[group.GroupName] = group
+
+		logging.Notice(moduleName, "Created new group", aurora.Cyan(group.GroupName))
 	}
 
 	// TODO: Check if the sender is the actual server (host) once host migration works
@@ -39,10 +55,9 @@ func processResvOK(moduleName string, cmd common.MatchCommandDataResvOK, sender,
 	// Keep group ID updated
 	sender.GroupPointer.GroupID = cmd.GroupID
 
-	logging.Info(moduleName, "New AID", aurora.Cyan(uint8(cmd.ReceiverNewAID)), "in group", aurora.Cyan(group.GroupID))
-	group.Players[uint8(cmd.ReceiverNewAID)] = destination
+	logging.Info(moduleName, "New player", aurora.BrightCyan(destination.Data["dwc_pid"]), "in group", aurora.Cyan(group.GroupName))
+	group.Players[destination] = true
 	destination.GroupPointer = group
-	destination.GroupAID = uint8(cmd.ReceiverNewAID)
 
 	return true
 }
@@ -78,4 +93,47 @@ func ProcessGPResvOK(cmd common.MatchCommandDataResvOK, senderIP uint64, senderP
 	}
 
 	return processResvOK(moduleName, cmd, from, to)
+}
+
+type GroupInfo struct {
+	GroupName string              `json:"id"`
+	GameName  string              `json:"gamename"`
+	ServerPID string              `json:"host"`
+	Players   []map[string]string `json:"players"`
+}
+
+// GetGroups returns an unsorted copy of all online rooms
+func GetGroups(gameName string) []GroupInfo {
+	var groupsCopy []GroupInfo
+
+	mutex.Lock()
+	for _, group := range groups {
+		if gameName != "" && gameName != group.GameName {
+			continue
+		}
+
+		groupInfo := GroupInfo{
+			GroupName: group.GroupName,
+			GameName:  group.GameName,
+			ServerPID: "",
+			Players:   []map[string]string{},
+		}
+
+		if group.Server != nil {
+			groupInfo.ServerPID = group.Server.Data["dwc_pid"]
+		}
+
+		for session, _ := range group.Players {
+			mapData := map[string]string{}
+			for k, v := range session.Data {
+				mapData[k] = v
+			}
+			groupInfo.Players = append(groupInfo.Players, mapData)
+		}
+
+		groupsCopy = append(groupsCopy, groupInfo)
+	}
+	mutex.Unlock()
+
+	return groupsCopy
 }

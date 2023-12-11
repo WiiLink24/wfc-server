@@ -72,7 +72,6 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 			logging.Error(moduleName, "Received invalid match version")
 			return
 		}
-		logging.Info(moduleName, "Version:", version)
 
 		senderProfileID := binary.LittleEndian.Uint32(message[0x10:0x14])
 		moduleName = "QR2/MSG:p" + strconv.FormatUint(uint64(senderProfileID), 10)

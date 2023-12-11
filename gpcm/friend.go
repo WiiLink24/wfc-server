@@ -109,6 +109,8 @@ func (g *GameSpySession) authAddFriend(command common.GameSpyCommand) {
 }
 
 func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
+	// TODO: Some games don't make it obvious to QR2 when they leave a group, so try checking via a status update
+
 	status := command.CommandValue
 
 	statstring, ok := command.OtherValues["statstring"]

@@ -30,7 +30,6 @@ type Session struct {
 	PacketCount   uint32
 	ReservationID uint64
 	GroupPointer  *Group
-	GroupAID      uint8
 }
 
 var (
@@ -52,13 +51,14 @@ func removeSession(sessionId uint32) {
 	}
 
 	if session.GroupPointer != nil {
-		delete(session.GroupPointer.Players, session.GroupAID)
+		delete(session.GroupPointer.Players, session)
 
 		if len(session.GroupPointer.Players) == 0 {
-			logging.Notice("QR2", "Deleting group", aurora.Cyan(session.GroupPointer.GroupID))
-			delete(groups, session.GroupPointer)
-		} else if session.GroupPointer.ServerAID == session.GroupAID {
-			logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupID))
+			logging.Notice("QR2", "Deleting group", aurora.Cyan(session.GroupPointer.GroupName))
+			delete(groups, session.GroupPointer.GroupName)
+		} else if session.GroupPointer.Server == session {
+			logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupName))
+			session.GroupPointer.Server = nil
 			// TODO: Search for new host via dwc_hoststate
 		}
 	}
