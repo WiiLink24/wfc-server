@@ -1,6 +1,7 @@
 package gpcm
 
 import (
+	"encoding/binary"
 	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"strings"
@@ -161,40 +162,60 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	}
 
 	// Parse message for security and room tracking purposes
-	if !strings.HasPrefix(msg, "GPCM") {
-		logging.Error(g.ModuleName, "Invalid message prefix")
+	var version int
+	var msgDataIndex int
+
+	if strings.HasPrefix(msg, "GPCM3vMAT") {
+		version = 3
+		msgDataIndex = 9
+	} else if strings.HasPrefix(msg, "GPCM11vMAT") {
+		// Only used for Brawl
+		version = 11
+		msgDataIndex = 10
+	} else if strings.HasPrefix(msg, "GPCM90vMAT") {
+		version = 90
+		msgDataIndex = 10
+	} else {
+		logging.Error(g.ModuleName, "Invalid message prefix; message:", msg)
 		g.replyError(ErrMessage)
 		return
 	}
 
-	currentIndex := strings.Index(msg, "vMAT") + 4
-	isMessageHeaderValid := false
-	switch currentIndex {
-	case 9: // 1 - 9
-		isMessageHeaderValid = msg[4] >= '1' && msg[4] <= '9' && len(msg) >= 11
-	case 10: // 10 - 99
-		isMessageHeaderValid = msg[4] >= '1' && msg[4] <= '9' && msg[5] >= '0' && msg[5] <= '9' && len(msg) >= 12
-	}
-	if !isMessageHeaderValid {
-		logging.Error(g.ModuleName, "Invalid message header")
-		g.replyError(ErrMessage)
-		return
+	cmd := msg[msgDataIndex]
+	msgDataIndex++
+
+	var msgData []byte
+
+	switch version {
+	case 3:
+		for _, stringValue := range strings.Split(msg[msgDataIndex:], "/") {
+			intValue, err := strconv.ParseUint(stringValue, 10, 32)
+			if err != nil {
+				logging.Error(g.ModuleName, "Invalid message value; message:", msg)
+				g.replyError(ErrMessage)
+				return
+			}
+
+			msgData = binary.LittleEndian.AppendUint32(msgData, uint32(intValue))
+		}
+		break
+
+	// TODO: Version 11 (Super Smash Bros. Brawl)
+
+	case 90:
+		msgData, err = common.Base64DwcEncoding.DecodeString(msg[msgDataIndex:])
+		if err != nil {
+			logging.Error(g.ModuleName, "Invalid message base64 data; message:", msg)
+			g.replyError(ErrMessage)
+			return
+		}
+		break
 	}
 
-	cmd := msg[currentIndex]
-	currentIndex++
-
-	msgData, err := common.Base64DwcEncoding.DecodeString(msg[currentIndex:])
-	if err != nil {
-		logging.Error(g.ModuleName, "Invalid message base64 data")
-		g.replyError(ErrMessage)
-		return
-	}
-
-	msgMatchData, ok := common.DecodeMatchCommand(cmd, msgData)
+	msgMatchData, ok := common.DecodeMatchCommand(cmd, msgData, version)
 	common.LogMatchCommand(g.ModuleName, strconv.FormatInt(int64(toProfileId), 10), cmd, msgMatchData)
 	if !ok {
-		logging.Error(g.ModuleName, "Invalid match command data")
+		logging.Error(g.ModuleName, "Invalid match command data; message:", msg)
 		g.replyError(ErrMessage)
 		return
 	}

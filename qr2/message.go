@@ -54,6 +54,12 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 			return
 		}
 
+		version := int(binary.LittleEndian.Uint32(message[0x04:0x08]))
+		if version != 3 && version != 11 && version != 90 {
+			logging.Error(moduleName, "Received invalid match version")
+			return
+		}
+
 		senderProfileID := binary.LittleEndian.Uint32(message[0x10:0x14])
 		moduleName = "QR2/MSG:p" + strconv.FormatUint(uint64(senderProfileID), 10)
 
@@ -81,7 +87,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		}
 
 		var ok bool
-		matchData, ok = common.DecodeMatchCommand(message[8], message[0x14:])
+		matchData, ok = common.DecodeMatchCommand(message[8], message[0x14:], version)
 		if !ok {
 			logging.Error(moduleName, "Received invalid match command:", aurora.Cyan(message[8]))
 			return
@@ -99,14 +105,16 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 				return
 			}
 
-			if matchData.Reservation.PublicPort < 1024 {
-				logging.Error(moduleName, "RESERVATION: Public port is reserved")
+			if qr2Port != matchData.Reservation.PublicPort {
+				logging.Error(moduleName, "RESERVATION: Public port mismatch in header and command")
 				return
 			}
 
-			if matchData.Reservation.LocalPort < 1024 {
-				logging.Error(moduleName, "RESERVATION: Local port is reserved")
-				return
+			if version != 3 {
+				if matchData.Reservation.LocalPort < 1024 {
+					logging.Error(moduleName, "RESERVATION: Local port is reserved")
+					return
+				}
 			}
 
 			if useSearchID {
@@ -123,19 +131,21 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 				return
 			}
 
-			if matchData.ResvOK.PublicPort < 1024 {
-				logging.Error(moduleName, "RESV_OK: Public port is reserved")
+			if qr2Port != matchData.Reservation.PublicPort {
+				logging.Error(moduleName, "RESERVATION: Public port mismatch in header and command")
 				return
 			}
 
-			if matchData.ResvOK.LocalPort < 1024 {
-				logging.Error(moduleName, "RESV_OK: Local port is reserved")
-				return
-			}
+			if version != 3 {
+				if matchData.ResvOK.LocalPort < 1024 {
+					logging.Error(moduleName, "RESV_OK: Local port is reserved")
+					return
+				}
 
-			if matchData.ResvOK.ProfileID != senderProfileID {
-				logging.Error(moduleName, "RESV_OK: Profile ID mismatch in header")
-				return
+				if matchData.ResvOK.ProfileID != senderProfileID {
+					logging.Error(moduleName, "RESV_OK: Profile ID mismatch in header")
+					return
+				}
 			}
 
 			if useSearchID {
@@ -171,7 +181,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		}
 
 		var matchMessage []byte
-		matchMessage, ok = common.EncodeMatchCommand(message[8], matchData)
+		matchMessage, ok = common.EncodeMatchCommand(message[8], matchData, version)
 		if !ok {
 			logging.Error(moduleName, "Failed to reencode match command:", aurora.Cyan(message[8]))
 			return

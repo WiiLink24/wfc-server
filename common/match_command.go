@@ -73,6 +73,9 @@ type MatchCommandDataResvOK struct {
 	ReceiverNewAID   uint32
 	ClientCount      uint32
 	ResvCheckValue   uint32
+
+	// Only exists in version 3
+	ProfileIDs []uint32
 }
 
 type MatchCommandDataResvDeny struct {
@@ -160,10 +163,14 @@ func GetMatchCommandString(command byte) string {
 	return "UNKNOWN"
 }
 
-func DecodeMatchCommand(command byte, buffer []byte) (MatchCommandData, bool) {
+func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandData, bool) {
+	if version != 3 && version != 11 && version != 90 {
+		return MatchCommandData{}, false
+	}
+
 	switch command {
 	case MatchReservation:
-		if len(buffer) != 0x24 {
+		if (version == 3 && len(buffer) != 0xC) || (version == 90 && len(buffer) != 0x24) {
 			break
 		}
 
@@ -172,64 +179,102 @@ func DecodeMatchCommand(command byte, buffer []byte) (MatchCommandData, bool) {
 			break
 		}
 
-		isFriendValue := binary.LittleEndian.Uint32(buffer[0x18:0x1C])
-		if isFriendValue > 1 {
-			break
-		}
-		isFriend := isFriendValue != 0
-
 		publicPort := binary.LittleEndian.Uint32(buffer[0x08:0x0C])
 		if publicPort > 0xffff {
 			break
 		}
 
-		localPort := binary.LittleEndian.Uint32(buffer[0x10:0x14])
-		if localPort > 0xffff {
-			break
-		}
+		if version == 3 {
+			return MatchCommandData{Reservation: &MatchCommandDataReservation{
+				MatchType:  byte(matchType),
+				PublicIP:   binary.BigEndian.Uint32(buffer[0x04:0x08]),
+				PublicPort: uint16(publicPort),
+			}}, true
+		} else if version == 90 {
+			localPort := binary.LittleEndian.Uint32(buffer[0x10:0x14])
+			if localPort > 0xffff {
+				break
+			}
 
-		return MatchCommandData{Reservation: &MatchCommandDataReservation{
-			MatchType:        byte(matchType),
-			PublicIP:         binary.BigEndian.Uint32(buffer[0x04:0x08]),
-			PublicPort:       uint16(publicPort),
-			LocalIP:          binary.BigEndian.Uint32(buffer[0x0C:0x10]),
-			LocalPort:        uint16(localPort),
-			Unknown:          binary.LittleEndian.Uint32(buffer[0x14:0x18]),
-			IsFriend:         isFriend,
-			LocalPlayerCount: binary.LittleEndian.Uint32(buffer[0x1C:0x20]),
-			ResvCheckValue:   binary.LittleEndian.Uint32(buffer[0x20:0x24]),
-		}}, true
+			isFriendValue := binary.LittleEndian.Uint32(buffer[0x18:0x1C])
+			if isFriendValue > 1 {
+				break
+			}
+			isFriend := isFriendValue != 0
+
+			return MatchCommandData{Reservation: &MatchCommandDataReservation{
+				MatchType:        byte(matchType),
+				PublicIP:         binary.BigEndian.Uint32(buffer[0x04:0x08]),
+				PublicPort:       uint16(publicPort),
+				LocalIP:          binary.BigEndian.Uint32(buffer[0x0C:0x10]),
+				LocalPort:        uint16(localPort),
+				Unknown:          binary.LittleEndian.Uint32(buffer[0x14:0x18]),
+				IsFriend:         isFriend,
+				LocalPlayerCount: binary.LittleEndian.Uint32(buffer[0x1C:0x20]),
+				ResvCheckValue:   binary.LittleEndian.Uint32(buffer[0x20:0x24]),
+			}}, true
+		}
 
 	case MatchResvOK:
-		if len(buffer) != 0x34 {
-			break
-		}
+		switch version {
+		case 3:
+			if len(buffer) < 0xC {
+				break
+			}
 
-		publicPort := binary.LittleEndian.Uint32(buffer[0x10:0x14])
-		if publicPort > 0xffff {
-			break
-		}
+			clientCount := binary.LittleEndian.Uint32(buffer[0x00:0x04])
+			if clientCount > 29 || len(buffer) != int(0xC+clientCount*0x4) {
+				break
+			}
 
-		localPort := binary.LittleEndian.Uint32(buffer[0x18:0x1C])
-		if localPort > 0xffff {
-			break
-		}
+			var profileIDs []uint32
+			for i := uint32(0); i < clientCount; i++ {
+				profileIDs = append(profileIDs, binary.LittleEndian.Uint32(buffer[0x4+i*4:0x4+i*4+4]))
+			}
 
-		return MatchCommandData{ResvOK: &MatchCommandDataResvOK{
-			MaxPlayers:       binary.LittleEndian.Uint32(buffer[0x00:0x04]),
-			SenderAID:        binary.LittleEndian.Uint32(buffer[0x04:0x08]),
-			ProfileID:        binary.LittleEndian.Uint32(buffer[0x08:0x0C]),
-			PublicIP:         binary.BigEndian.Uint32(buffer[0x0C:0x10]),
-			PublicPort:       uint16(publicPort),
-			LocalIP:          binary.BigEndian.Uint32(buffer[0x14:0x18]),
-			LocalPort:        uint16(localPort),
-			Unknown:          binary.LittleEndian.Uint32(buffer[0x1C:0x20]),
-			LocalPlayerCount: binary.LittleEndian.Uint32(buffer[0x20:0x24]),
-			GroupID:          binary.LittleEndian.Uint32(buffer[0x24:0x28]),
-			ReceiverNewAID:   binary.LittleEndian.Uint32(buffer[0x28:0x2C]),
-			ClientCount:      binary.LittleEndian.Uint32(buffer[0x2C:0x30]),
-			ResvCheckValue:   binary.LittleEndian.Uint32(buffer[0x30:0x34]),
-		}}, true
+			publicPort := binary.LittleEndian.Uint32(buffer[0x08:0x0C])
+			if publicPort > 0xffff {
+				break
+			}
+
+			return MatchCommandData{ResvOK: &MatchCommandDataResvOK{
+				PublicIP:    binary.BigEndian.Uint32(buffer[0x04:0x08]),
+				PublicPort:  uint16(publicPort),
+				ClientCount: clientCount,
+				ProfileIDs:  profileIDs,
+			}}, true
+
+		case 90:
+			if len(buffer) != 0x34 {
+				break
+			}
+
+			publicPort := binary.LittleEndian.Uint32(buffer[0x10:0x14])
+			if publicPort > 0xffff {
+				break
+			}
+
+			localPort := binary.LittleEndian.Uint32(buffer[0x18:0x1C])
+			if localPort > 0xffff {
+				break
+			}
+
+			return MatchCommandData{ResvOK: &MatchCommandDataResvOK{
+				MaxPlayers:       binary.LittleEndian.Uint32(buffer[0x00:0x04]),
+				SenderAID:        binary.LittleEndian.Uint32(buffer[0x04:0x08]),
+				ProfileID:        binary.LittleEndian.Uint32(buffer[0x08:0x0C]),
+				PublicIP:         binary.BigEndian.Uint32(buffer[0x0C:0x10]),
+				PublicPort:       uint16(publicPort),
+				LocalIP:          binary.BigEndian.Uint32(buffer[0x14:0x18]),
+				LocalPort:        uint16(localPort),
+				Unknown:          binary.LittleEndian.Uint32(buffer[0x1C:0x20]),
+				LocalPlayerCount: binary.LittleEndian.Uint32(buffer[0x20:0x24]),
+				GroupID:          binary.LittleEndian.Uint32(buffer[0x24:0x28]),
+				ReceiverNewAID:   binary.LittleEndian.Uint32(buffer[0x28:0x2C]),
+				ClientCount:      binary.LittleEndian.Uint32(buffer[0x2C:0x30]),
+				ResvCheckValue:   binary.LittleEndian.Uint32(buffer[0x30:0x34]),
+			}}, true
+		}
 
 	case MatchResvDeny:
 		if len(buffer) != 0x04 {
@@ -354,41 +399,64 @@ func DecodeMatchCommand(command byte, buffer []byte) (MatchCommandData, bool) {
 	return MatchCommandData{}, false
 }
 
-func EncodeMatchCommand(command byte, data MatchCommandData) ([]byte, bool) {
+func EncodeMatchCommand(command byte, data MatchCommandData, version int) ([]byte, bool) {
+	if version != 3 && version != 11 && version != 90 {
+		return []byte{}, false
+	}
+
 	switch command {
 	case MatchReservation:
 		message := binary.LittleEndian.AppendUint32([]byte{}, uint32(data.Reservation.MatchType))
 		message = binary.BigEndian.AppendUint32(message, data.Reservation.PublicIP)
 		message = binary.LittleEndian.AppendUint32(message, uint32(data.Reservation.PublicPort))
-		message = binary.BigEndian.AppendUint32(message, data.Reservation.LocalIP)
-		message = binary.LittleEndian.AppendUint32(message, uint32(data.Reservation.LocalPort))
-		message = binary.LittleEndian.AppendUint32(message, data.Reservation.Unknown)
 
-		isFriendInt := uint32(0)
-		if data.Reservation.IsFriend {
-			isFriendInt = 1
+		if version != 3 {
+			message = binary.BigEndian.AppendUint32(message, data.Reservation.LocalIP)
+			message = binary.LittleEndian.AppendUint32(message, uint32(data.Reservation.LocalPort))
+			message = binary.LittleEndian.AppendUint32(message, data.Reservation.Unknown)
+
+			isFriendInt := uint32(0)
+			if data.Reservation.IsFriend {
+				isFriendInt = 1
+			}
+			message = binary.LittleEndian.AppendUint32(message, isFriendInt)
+
+			message = binary.LittleEndian.AppendUint32(message, data.Reservation.LocalPlayerCount)
+			message = binary.LittleEndian.AppendUint32(message, data.Reservation.ResvCheckValue)
 		}
-		message = binary.LittleEndian.AppendUint32(message, isFriendInt)
-
-		message = binary.LittleEndian.AppendUint32(message, data.Reservation.LocalPlayerCount)
-		message = binary.LittleEndian.AppendUint32(message, data.Reservation.ResvCheckValue)
 		return message, true
 
 	case MatchResvOK:
-		message := binary.LittleEndian.AppendUint32([]byte{}, data.ResvOK.MaxPlayers)
-		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.SenderAID)
-		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ProfileID)
-		message = binary.BigEndian.AppendUint32(message, data.ResvOK.PublicIP)
-		message = binary.LittleEndian.AppendUint32(message, uint32(data.ResvOK.PublicPort))
-		message = binary.BigEndian.AppendUint32(message, data.ResvOK.LocalIP)
-		message = binary.LittleEndian.AppendUint32(message, uint32(data.ResvOK.LocalPort))
-		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.Unknown)
-		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.LocalPlayerCount)
-		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.GroupID)
-		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ReceiverNewAID)
-		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ClientCount)
-		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ResvCheckValue)
-		return message, true
+		switch version {
+		case 3:
+			if int(data.ResvOK.ClientCount) != len(data.ResvOK.ProfileIDs) {
+				return []byte{}, false
+			}
+
+			message := binary.LittleEndian.AppendUint32([]byte{}, data.ResvOK.ClientCount)
+			for _, pid := range data.ResvOK.ProfileIDs {
+				message = binary.LittleEndian.AppendUint32(message, pid)
+			}
+			message = binary.BigEndian.AppendUint32(message, data.ResvOK.PublicIP)
+			message = binary.LittleEndian.AppendUint32(message, uint32(data.ResvOK.PublicPort))
+			return message, true
+
+		case 90:
+			message := binary.LittleEndian.AppendUint32([]byte{}, data.ResvOK.MaxPlayers)
+			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.SenderAID)
+			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ProfileID)
+			message = binary.BigEndian.AppendUint32(message, data.ResvOK.PublicIP)
+			message = binary.LittleEndian.AppendUint32(message, uint32(data.ResvOK.PublicPort))
+			message = binary.BigEndian.AppendUint32(message, data.ResvOK.LocalIP)
+			message = binary.LittleEndian.AppendUint32(message, uint32(data.ResvOK.LocalPort))
+			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.Unknown)
+			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.LocalPlayerCount)
+			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.GroupID)
+			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ReceiverNewAID)
+			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ClientCount)
+			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ResvCheckValue)
+			return message, true
+		}
 
 	case MatchResvDeny:
 		message := binary.LittleEndian.AppendUint32([]byte{}, data.ResvDeny.Reason)
