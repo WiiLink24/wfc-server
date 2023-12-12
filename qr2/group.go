@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/logrusorgru/aurora/v3"
 	"strconv"
+	"strings"
 	"wwfc/common"
 	"wwfc/logging"
 )
@@ -12,6 +13,8 @@ type Group struct {
 	GroupID   uint32
 	GroupName string
 	GameName  string
+	MatchType string
+	MKWRegion string
 	Server    *Session
 	Players   map[*Session]bool
 }
@@ -30,6 +33,8 @@ func processResvOK(moduleName string, cmd common.MatchCommandDataResvOK, sender,
 			GroupID:   cmd.GroupID,
 			GroupName: "",
 			GameName:  sender.Data["gamename"],
+			MatchType: sender.Data["dwc_mtype"],
+			MKWRegion: "",
 			Server:    sender,
 			Players:   map[*Session]bool{sender: true},
 		}
@@ -42,6 +47,18 @@ func processResvOK(moduleName string, cmd common.MatchCommandDataResvOK, sender,
 
 			group.GroupName = groupName
 			break
+		}
+
+		if group.GameName == "mariokartwii" {
+			rk := sender.Data["rk"]
+
+			// Check and remove regional searches due to the limited player count
+			// China (ID 6) gets a pass because it was never released
+			if len(rk) == 4 && (strings.HasPrefix(rk, "vs_") || strings.HasPrefix(rk, "bt_")) && rk[3] >= '0' && rk[3] < '6' {
+				rk = rk[:2]
+			}
+
+			group.MKWRegion = rk
 		}
 
 		sender.GroupPointer = group
@@ -123,7 +140,10 @@ func ProcessGPStatusUpdate(senderIP uint64, status string) {
 type GroupInfo struct {
 	GroupName string              `json:"id"`
 	GameName  string              `json:"gamename"`
-	ServerPID string              `json:"host"`
+	MatchType string              `json:"type"`
+	Suspend   bool                `json:"suspend"`
+	ServerPID string              `json:"host,omitempty"`
+	MKWRegion string              `json:"rk,omitempty"`
 	Players   []map[string]string `json:"players"`
 }
 
@@ -140,12 +160,26 @@ func GetGroups(gameName string) []GroupInfo {
 		groupInfo := GroupInfo{
 			GroupName: group.GroupName,
 			GameName:  group.GameName,
+			Suspend:   true,
 			ServerPID: "",
+			MKWRegion: "",
 			Players:   []map[string]string{},
 		}
 
-		if group.Server != nil {
+		if group.MatchType == "0" || group.MatchType == "1" {
+			groupInfo.MatchType = "anybody"
+		} else if group.MatchType == "2" || group.MatchType == "3" {
+			groupInfo.MatchType = "private"
+		} else {
+			groupInfo.MatchType = "unknown"
+		}
+
+		if groupInfo.MatchType == "private" && group.Server != nil {
 			groupInfo.ServerPID = group.Server.Data["dwc_pid"]
+		}
+
+		if groupInfo.GameName == "mariokartwii" {
+			groupInfo.MKWRegion = group.MKWRegion
 		}
 
 		for session, _ := range group.Players {
@@ -154,6 +188,10 @@ func GetGroups(gameName string) []GroupInfo {
 				mapData[k] = v
 			}
 			groupInfo.Players = append(groupInfo.Players, mapData)
+
+			if mapData["dwc_hoststate"] == "2" && mapData["dwc_suspend"] == "0" {
+				groupInfo.Suspend = false
+			}
 		}
 
 		groupsCopy = append(groupsCopy, groupInfo)

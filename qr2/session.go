@@ -195,7 +195,7 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 
 	for _, sessionID := range outdated {
 		logging.Notice(moduleName, "Removing outdated session", aurora.BrightCyan(sessionID), "with PID", aurora.Cyan(newPID))
-		delete(sessions, sessionID)
+		removeSession(sessionID)
 	}
 
 	session.Data["dwc_pid"] = newPID
@@ -232,7 +232,7 @@ func GetSessionServers() []map[string]string {
 	// Remove unreachable sessions
 	for _, sessionID := range unreachable {
 		logging.Notice("QR2", "Removing unreachable session", aurora.BrightCyan(sessionID))
-		delete(sessions, sessionID)
+		removeSession(sessionID)
 	}
 
 	return servers
