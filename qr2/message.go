@@ -35,7 +35,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		receiver = sessionBySearchID[destSearchID]
 	} else {
 		// It's an IP address, used in some circumstances
-		receiver = sessionByPublicIP[destSearchID]
+		receiver = sessions[destSearchID]
 	}
 
 	if receiver == nil || !receiver.Authenticated {
@@ -89,7 +89,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 			return
 		}
 
-		sender = sessionByPublicIP[(uint64(qr2Port)<<32)|uint64(qr2IP)]
+		sender = sessions[(uint64(qr2Port)<<32)|uint64(qr2IP)]
 		if sender == nil || !sender.Authenticated {
 			logging.Error(moduleName, "Session does not exist with QR2 IP and port")
 			return

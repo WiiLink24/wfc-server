@@ -8,7 +8,7 @@ import (
 	"wwfc/common"
 )
 
-func sendChallenge(conn net.PacketConn, addr net.Addr, session Session) {
+func sendChallenge(conn net.PacketConn, addr net.Addr, session Session, lookupAddr uint64) {
 	challenge := session.Challenge
 	if challenge == "" {
 		// Generate challenge
@@ -32,7 +32,7 @@ func sendChallenge(conn net.PacketConn, addr net.Addr, session Session) {
 
 		challenge = common.RandomString(6) + "00" + hexIP + hexPort
 		mutex.Lock()
-		sessions[session.SessionID].Challenge = challenge
+		sessions[lookupAddr].Challenge = challenge
 		mutex.Unlock()
 	}
 

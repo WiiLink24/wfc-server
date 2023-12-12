@@ -4,17 +4,15 @@ import (
 	"encoding/binary"
 	"github.com/logrusorgru/aurora/v3"
 	"net"
-	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/logging"
 )
 
-func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
+func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []byte) {
 	sessionId := binary.BigEndian.Uint32(buffer[1:5])
-	moduleName := "QR2:" + strconv.FormatInt(int64(sessionId), 10)
+	logging.Info(moduleName, "Received heartbeat; session ID:", aurora.BrightCyan(sessionId))
 
-	logging.Info(moduleName, "Received heartbeat from", aurora.BrightCyan(addr))
 	values := strings.Split(string(buffer[5:]), "\u0000")
 
 	payload := map[string]string{}
@@ -41,6 +39,8 @@ func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		return
 	}
 
+	lookupAddr := makeLookupAddr(addr.String())
+
 	if statechanged, ok := payload["statechanged"]; ok {
 		if statechanged == "1" {
 			// TODO: This would be a good place to run the server->client message exploit
@@ -52,19 +52,19 @@ func heartbeat(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 		if statechanged == "2" {
 			logging.Notice(moduleName, "Client session shutdown")
-			removeSession(sessionId)
+			removeSession(lookupAddr)
 			return
 		}
 	}
 
-	session, ok := setSessionData(sessionId, payload, addr)
+	session, ok := setSessionData(moduleName, addr, sessionId, payload)
 	if !ok {
 		return
 	}
 
 	if !session.Authenticated {
 		logging.Notice(moduleName, "Sending challenge")
-		sendChallenge(conn, addr, session)
+		sendChallenge(conn, addr, session, lookupAddr)
 		return
 	}
 }

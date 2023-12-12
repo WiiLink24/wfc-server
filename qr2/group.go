@@ -88,13 +88,13 @@ func ProcessGPResvOK(cmd common.MatchCommandDataResvOK, senderIP uint64, senderP
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	from := sessionByPublicIP[senderIP]
+	from := sessions[senderIP]
 	if from == nil {
 		logging.Error(moduleName, "Sender IP does not exist:", aurora.Cyan(fmt.Sprintf("%012x", senderIP)))
 		return false
 	}
 
-	to := sessionByPublicIP[destIP]
+	to := sessions[destIP]
 	if to == nil {
 		logging.Error(moduleName, "Destination IP does not exist:", aurora.Cyan(fmt.Sprintf("%012x", destIP)))
 		return false
@@ -117,7 +117,7 @@ func ProcessGPStatusUpdate(senderIP uint64, status string) {
 		mutex.Lock()
 		defer mutex.Unlock()
 
-		session := sessionByPublicIP[senderIP]
+		session := sessions[senderIP]
 		if session == nil || session.GroupPointer == nil {
 			return
 		}

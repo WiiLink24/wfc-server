@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"github.com/logrusorgru/aurora/v3"
 	"net"
-	"strconv"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
@@ -55,15 +54,23 @@ func StartServer() {
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	packetType := buffer[0]
-	sessionId := binary.BigEndian.Uint32(buffer[1:5])
-	session, ok := sessions[sessionId]
-	moduleName := "QR2:" + strconv.FormatInt(int64(sessionId), 10)
+	moduleName := "QR2:" + addr.String()
 
+	var session *Session
 	if packetType != HeartbeatRequest && packetType != AvailableRequest {
+		mutex.Lock()
+
+		var ok bool
+		session, ok = sessions[makeLookupAddr(addr.String())]
 		if !ok {
-			logging.Error(moduleName, "Invalid session")
+			mutex.Unlock()
+			logging.Error(moduleName, "Cannot find session for this IP address")
 			return
 		}
+
+		session.SessionID = binary.BigEndian.Uint32(buffer[1:5])
+
+		mutex.Unlock()
 	}
 
 	switch packetType {
@@ -80,7 +87,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 			session.Authenticated = true
 			mutex.Unlock()
 
-			conn.WriteTo(createResponseHeader(ClientRegisteredReply, sessionId), addr)
+			conn.WriteTo(createResponseHeader(ClientRegisteredReply, session.SessionID), addr)
 		} else {
 			mutex.Unlock()
 		}
@@ -92,7 +99,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	case HeartbeatRequest:
 		logging.Notice(moduleName, "Command:", aurora.Yellow("HEARTBEAT"))
-		heartbeat(conn, addr, buffer)
+		heartbeat(moduleName, conn, addr, buffer)
 		break
 
 	case AddErrorRequest:

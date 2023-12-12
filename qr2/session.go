@@ -33,19 +33,17 @@ type Session struct {
 }
 
 var (
-	// I would use a sync.Map instead of the map mutex combo, but this performs better.
-	sessions          = map[uint32]*Session{}
-	sessionByPublicIP = map[uint64]*Session{}
+	sessions          = map[uint64]*Session{}
 	sessionBySearchID = map[uint64]*Session{}
 	mutex             = sync.RWMutex{}
 )
 
 // Remove a session.
-func removeSession(sessionId uint32) {
+func removeSession(addr uint64) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	session := sessions[sessionId]
+	session := sessions[addr]
 	if session == nil {
 		return
 	}
@@ -64,27 +62,22 @@ func removeSession(sessionId uint32) {
 	}
 
 	// Delete search ID lookup
-	delete(sessionBySearchID, sessions[sessionId].SearchID)
+	delete(sessionBySearchID, sessions[addr].SearchID)
 
-	// Delete public IP lookup
-	ip, port := common.IPFormatToInt(sessions[sessionId].Addr.String())
-	lookupIP := (uint64(port) << 32) | uint64(uint32(ip))
-	delete(sessionByPublicIP, lookupIP)
-
-	delete(sessions, sessionId)
+	delete(sessions, addr)
 }
 
 // Update session data, creating the session if it doesn't exist. Returns a copy of the session data.
-func setSessionData(sessionId uint32, payload map[string]string, addr net.Addr) (Session, bool) {
-	moduleName := "QR2:" + strconv.FormatInt(int64(sessionId), 10)
-
+func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload map[string]string) (Session, bool) {
 	newPID, newPIDValid := payload["dwc_pid"]
 	delete(payload, "dwc_pid")
+
+	lookupAddr := makeLookupAddr(addr.String())
 
 	// Moving into performing operations on the session data, so lock the mutex
 	mutex.Lock()
 	defer mutex.Unlock()
-	session, sessionExists := sessions[sessionId]
+	session, sessionExists := sessions[lookupAddr]
 
 	if sessionExists && session.Addr.String() != addr.String() {
 		logging.Error(moduleName, "Session IP mismatch")
@@ -123,12 +116,7 @@ func setSessionData(sessionId uint32, payload map[string]string, addr net.Addr) 
 			}
 		}
 
-		// Set public IP lookup
-		ip, port := common.IPFormatToInt(addr.String())
-		lookupIP := (uint64(port) << 32) | uint64(uint32(ip))
-		sessionByPublicIP[lookupIP] = session
-
-		sessions[sessionId] = session
+		sessions[lookupAddr] = session
 		return *session, true
 	}
 
@@ -141,6 +129,7 @@ func setSessionData(sessionId uint32, payload map[string]string, addr net.Addr) 
 
 	session.Data = payload
 	session.LastKeepAlive = time.Now().Unix()
+	session.SessionID = sessionId
 	return *session, true
 }
 
@@ -179,9 +168,9 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 	}
 
 	// Constraint: only one session can exist with a profile ID
-	var outdated []uint32
-	for sessionID, otherSession := range sessions {
-		if sessionID == session.SessionID {
+	var outdated []uint64
+	for sessionAddr, otherSession := range sessions {
+		if otherSession == session {
 			continue
 		}
 
@@ -190,12 +179,12 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 		}
 
 		// Remove old sessions with the PID
-		outdated = append(outdated, sessionID)
+		outdated = append(outdated, sessionAddr)
 	}
 
-	for _, sessionID := range outdated {
-		logging.Notice(moduleName, "Removing outdated session", aurora.BrightCyan(sessionID), "with PID", aurora.Cyan(newPID))
-		removeSession(sessionID)
+	for _, sessionAddr := range outdated {
+		logging.Notice(moduleName, "Removing outdated session", aurora.BrightCyan(sessions[sessionAddr].Addr.String()), "with PID", aurora.Cyan(newPID))
+		removeSession(sessionAddr)
 	}
 
 	session.Data["dwc_pid"] = newPID
@@ -204,20 +193,25 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 	return true
 }
 
+func makeLookupAddr(addr string) uint64 {
+	ip, port := common.IPFormatToInt(addr)
+	return (uint64(port) << 32) | uint64(uint32(ip))
+}
+
 // Get a copy of the list of servers
 func GetSessionServers() []map[string]string {
 	var servers []map[string]string
-	var unreachable []uint32
+	var unreachable []uint64
 	currentTime := time.Now().Unix()
 
 	mutex.Lock()
 	defer mutex.Unlock()
-	for _, session := range sessions {
+	for sessionAddr, session := range sessions {
 		// If the last keep alive was over a minute ago then consider the server unreachable
 		if session.LastKeepAlive < currentTime-60 {
 			// If the last keep alive was over an hour ago then remove the server
 			if session.LastKeepAlive < currentTime-((60*60)*1) {
-				unreachable = append(unreachable, session.SessionID)
+				unreachable = append(unreachable, sessionAddr)
 			}
 			continue
 		}
@@ -230,9 +224,9 @@ func GetSessionServers() []map[string]string {
 	}
 
 	// Remove unreachable sessions
-	for _, sessionID := range unreachable {
-		logging.Notice("QR2", "Removing unreachable session", aurora.BrightCyan(sessionID))
-		removeSession(sessionID)
+	for _, sessionAddr := range unreachable {
+		logging.Notice("QR2", "Removing unreachable session", aurora.BrightCyan(sessions[sessionAddr].Addr.String()))
+		removeSession(sessionAddr)
 	}
 
 	return servers
