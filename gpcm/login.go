@@ -203,6 +203,8 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	})
 
 	g.Conn.Write([]byte(payload))
+
+	g.sendFriendRequests()
 }
 
 func IsLoggedIn(profileID uint32) bool {
