@@ -49,6 +49,7 @@ type MatchCommandData struct {
 
 type MatchCommandDataReservation struct {
 	MatchType        byte
+	HasPublicIP      bool
 	PublicIP         uint32
 	PublicPort       uint16
 	LocalIP          uint32
@@ -174,13 +175,24 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 
 	switch command {
 	case MatchReservation:
-		if (version == 3 && len(buffer) != 0xC) || (version == 11 && len(buffer) != 0x14) || (version == 90 && len(buffer) != 0x24) {
+		if version == 3 && (len(buffer) != 0x04 && len(buffer) != 0x0C) {
+			break
+		}
+
+		if (version == 11 && len(buffer) != 0x14) || (version == 90 && len(buffer) != 0x24) {
 			break
 		}
 
 		matchType := binary.LittleEndian.Uint32(buffer[0x00:0x04])
 		if matchType > 3 {
 			break
+		}
+
+		if version == 3 && len(buffer) == 0x04 {
+			return MatchCommandData{Reservation: &MatchCommandDataReservation{
+				MatchType:   byte(matchType),
+				HasPublicIP: false,
+			}}, true
 		}
 
 		publicPort := binary.LittleEndian.Uint32(buffer[0x08:0x0C])
@@ -191,9 +203,10 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		switch version {
 		case 3:
 			return MatchCommandData{Reservation: &MatchCommandDataReservation{
-				MatchType:  byte(matchType),
-				PublicIP:   binary.BigEndian.Uint32(buffer[0x04:0x08]),
-				PublicPort: uint16(publicPort),
+				MatchType:   byte(matchType),
+				HasPublicIP: true,
+				PublicIP:    binary.BigEndian.Uint32(buffer[0x04:0x08]),
+				PublicPort:  uint16(publicPort),
 			}}, true
 
 		case 11:
@@ -205,6 +218,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 
 			return MatchCommandData{Reservation: &MatchCommandDataReservation{
 				MatchType:        byte(matchType),
+				HasPublicIP:      true,
 				PublicIP:         binary.BigEndian.Uint32(buffer[0x04:0x08]),
 				PublicPort:       uint16(publicPort),
 				IsFriend:         isFriend,
@@ -225,6 +239,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 
 			return MatchCommandData{Reservation: &MatchCommandDataReservation{
 				MatchType:        byte(matchType),
+				HasPublicIP:      true,
 				PublicIP:         binary.BigEndian.Uint32(buffer[0x04:0x08]),
 				PublicPort:       uint16(publicPort),
 				LocalIP:          binary.BigEndian.Uint32(buffer[0x0C:0x10]),
@@ -423,6 +438,11 @@ func EncodeMatchCommand(command byte, data MatchCommandData, version int) ([]byt
 	switch command {
 	case MatchReservation:
 		message := binary.LittleEndian.AppendUint32([]byte{}, uint32(data.Reservation.MatchType))
+
+		if version == 3 && !data.Reservation.HasPublicIP {
+			return message, true
+		}
+
 		message = binary.BigEndian.AppendUint32(message, data.Reservation.PublicIP)
 		message = binary.LittleEndian.AppendUint32(message, uint32(data.Reservation.PublicPort))
 

@@ -86,6 +86,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 
 		if senderIPInt != int32(qr2IP) {
 			logging.Error(moduleName, "Wrong QR2 IP in match command packet header")
+			return
 		}
 
 		sender = sessionByPublicIP[(uint64(qr2Port)<<32)|uint64(qr2IP)]
@@ -113,14 +114,16 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 				return
 			}
 
-			if qr2IP != matchData.Reservation.PublicIP {
-				logging.Error(moduleName, "RESERVATION: Public IP mismatch in header and command")
-				return
-			}
+			if matchData.Reservation.HasPublicIP {
+				if qr2IP != matchData.Reservation.PublicIP {
+					logging.Error(moduleName, "RESERVATION: Public IP mismatch in header and command")
+					return
+				}
 
-			if qr2Port != matchData.Reservation.PublicPort {
-				logging.Error(moduleName, "RESERVATION: Public port mismatch in header and command")
-				return
+				if qr2Port != matchData.Reservation.PublicPort {
+					logging.Error(moduleName, "RESERVATION: Public port mismatch in header and command")
+					return
+				}
 			}
 
 			if version == 90 {
