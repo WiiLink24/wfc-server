@@ -275,10 +275,8 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 				flagsBuffer = binary.BigEndian.AppendUint16(flagsBuffer, uint16(portValue))
 			}
 
-			// Just a dummy IP? This is taken from dwc_network_server_emulator
-			// TODO: Check if this is actually needed
 			flags |= ICMPIPFlag
-			flagsBuffer = append(flagsBuffer, []byte{0, 0, 0, 0}...)
+			flagsBuffer = append(flagsBuffer, 0, 0, 0, 0)
 		} else {
 			// Regular server, hide the public IP until match reservation is made
 			var searchIDStr string
@@ -297,6 +295,12 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 			// Append high value as public port
 			flags |= NonstandardPortFlag
 			flagsBuffer = binary.BigEndian.AppendUint16(flagsBuffer, uint16((searchID>>32)&0xffff))
+
+			flags |= PrivateIPFlag | NonstandardPrivatePortFlag
+			flagsBuffer = append(flagsBuffer, 0, 0, 0, 0, 0, 0)
+
+			flags |= ICMPIPFlag
+			flagsBuffer = append(flagsBuffer, 0, 0, 0, 0)
 		}
 
 		// Append the server buffer to the output
