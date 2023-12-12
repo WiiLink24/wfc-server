@@ -82,6 +82,9 @@ func StartServer() {
 func (g *GameSpySession) closeSession() {
 	if g.LoggedIn {
 		qr2.Logout(g.User.ProfileId)
+		if g.QR2IP != 0 {
+			qr2.ProcessGPStatusUpdate(g.QR2IP, "0")
+		}
 		g.sendLogoutStatus()
 	}
 
@@ -115,7 +118,7 @@ func handleRequest(conn net.Conn) {
 
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
-		logging.Notice(session.ModuleName, "Unable to set keepalive (1):", err.Error())
+		logging.Notice(session.ModuleName, "Unable to set keepalive:", err.Error())
 	}
 
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{

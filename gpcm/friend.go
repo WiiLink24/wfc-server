@@ -109,19 +109,21 @@ func (g *GameSpySession) authAddFriend(command common.GameSpyCommand) {
 }
 
 func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
-	// TODO: Some games don't make it obvious to QR2 when they leave a group, so try checking via a status update
-
 	status := command.CommandValue
+
+	if g.QR2IP != 0 {
+		qr2.ProcessGPStatusUpdate(g.QR2IP, status)
+	}
 
 	statstring, ok := command.OtherValues["statstring"]
 	if !ok {
-		logging.Notice(g.ModuleName, "Missing statstring")
+		logging.Warn(g.ModuleName, "Missing statstring")
 		statstring = ""
 	}
 
 	locstring, ok := command.OtherValues["locstring"]
 	if !ok {
-		logging.Notice(g.ModuleName, "Missing locstring")
+		logging.Warn(g.ModuleName, "Missing locstring")
 		locstring = ""
 	}
 

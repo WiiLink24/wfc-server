@@ -95,6 +95,31 @@ func ProcessGPResvOK(cmd common.MatchCommandDataResvOK, senderIP uint64, senderP
 	return processResvOK(moduleName, cmd, from, to)
 }
 
+func ProcessGPStatusUpdate(senderIP uint64, status string) {
+	if status == "0" || status == "1" || status == "3" || status == "4" {
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		session := sessionByPublicIP[senderIP]
+		if session == nil || session.GroupPointer == nil {
+			return
+		}
+
+		delete(session.GroupPointer.Players, session)
+
+		if len(session.GroupPointer.Players) == 0 {
+			logging.Notice("QR2", "Deleting group", aurora.Cyan(session.GroupPointer.GroupName))
+			delete(groups, session.GroupPointer.GroupName)
+		} else if session.GroupPointer.Server == session {
+			logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupName))
+			session.GroupPointer.Server = nil
+			// TODO: Search for new host via dwc_hoststate
+		}
+
+		session.GroupPointer = nil
+	}
+}
+
 type GroupInfo struct {
 	GroupName string              `json:"id"`
 	GameName  string              `json:"gamename"`
