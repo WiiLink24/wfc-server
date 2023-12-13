@@ -76,7 +76,13 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		senderProfileID := binary.LittleEndian.Uint32(message[0x10:0x14])
 		moduleName = "QR2/MSG:p" + strconv.FormatUint(uint64(senderProfileID), 10)
 
-		if (int(message[9]) + 0x14) != len(message) {
+		dataSize := message[9]
+		if dataSize > 0x80 {
+			logging.Error(moduleName, "Received malicious match command packet header")
+			return
+		}
+
+		if (int(dataSize) + 0x14) != len(message) {
 			logging.Error(moduleName, "Received invalid match command packet header")
 			return
 		}
