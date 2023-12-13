@@ -13,12 +13,14 @@ func HandleGroups(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(r.URL.String())
 	if err != nil {
-		panic(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	query, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
-		panic(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	gameName := query.Get("gamename")
@@ -42,7 +44,8 @@ func HandleGroups(w http.ResponseWriter, r *http.Request) {
 
 	jsonData, err := json.Marshal(groups)
 	if err != nil {
-		panic(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
