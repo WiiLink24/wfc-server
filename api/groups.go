@@ -9,6 +9,8 @@ import (
 )
 
 func HandleGroups(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	u, err := url.Parse(r.URL.String())
 	if err != nil {
 		panic(err)
@@ -19,7 +21,8 @@ func HandleGroups(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	groups := qr2.GetGroups(append(query["gamename"], "")[0])
+	gameName := query.Get("gamename")
+	groups := qr2.GetGroups(gameName)
 
 	for _, group := range groups {
 		for i, player := range group.Players {
@@ -42,7 +45,6 @@ func HandleGroups(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	w.Header().Set("Content-Type", "text/json")
 	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
 	w.Write(jsonData)
 }
