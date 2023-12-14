@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"wwfc/common"
 	"wwfc/qr2"
 )
 
@@ -36,6 +37,10 @@ func HandleGroups(w http.ResponseWriter, r *http.Request) {
 			if player["gamename"] == "mariokartwii" {
 				filtered["ev"] = player["ev"]
 				filtered["eb"] = player["eb"]
+				pid, err := strconv.ParseUint(player["dwc_pid"], 10, 32)
+				if err == nil {
+					filtered["fc"] = common.CalcFriendCodeString(uint32(pid), "RMCJ")
+				}
 			}
 
 			group.Players[i] = filtered
