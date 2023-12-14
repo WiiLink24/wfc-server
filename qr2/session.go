@@ -24,6 +24,7 @@ type Session struct {
 	Addr          net.Addr
 	Challenge     string
 	Authenticated bool
+	Login         LoginInfo
 	LastKeepAlive int64
 	Endianness    byte // Some fields depend on the client's endianness
 	Data          map[string]string
@@ -155,7 +156,9 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 
 	// Check if the public IP matches the one used for the GPCM session
 	var gpPublicIP string
-	if loginInfo, ok := logins[uint32(profileID)]; ok {
+	var loginInfo LoginInfo
+	var ok bool
+	if loginInfo, ok = logins[uint32(profileID)]; ok {
 		gpPublicIP = loginInfo.GPPublicIP
 	} else {
 		logging.Error(moduleName, "Provided dwc_pid is not logged in:", aurora.Cyan(newPID))
@@ -166,6 +169,8 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 		logging.Error(moduleName, "Caller public IP does not match GPCM session")
 		return false
 	}
+
+	session.Login = loginInfo
 
 	// Constraint: only one session can exist with a profile ID
 	var outdated []uint64

@@ -31,7 +31,7 @@ func HandleGroups(w http.ResponseWriter, r *http.Request) {
 			filtered := map[string]string{}
 
 			filtered["pid"] = player["dwc_pid"]
-			filtered["name"] = player["name"]
+			filtered["name"] = player["+ingamesn"]
 
 			if player["gamename"] == "mariokartwii" {
 				filtered["ev"] = player["ev"]

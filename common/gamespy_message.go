@@ -30,6 +30,10 @@ func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {
 
 		for len(msg) > 0 && string(msg[0]) == `\` {
 			keyEnd := strings.Index(msg[1:], `\`) + 1
+			if keyEnd < 2 {
+				return nil, InvalidGameSpyCommand
+			}
+
 			key := msg[1:keyEnd]
 			value := ""
 			msg = msg[keyEnd+1:]

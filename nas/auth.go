@@ -1,6 +1,8 @@
 package nas
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"github.com/logrusorgru/aurora/v3"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf16"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -30,7 +33,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 	fields := map[string]string{}
 	for key, values := range r.PostForm {
 		if len(values) != 1 {
-			logging.Warn(moduleName, "Ignoring multiple POST form values:", aurora.Cyan(key).String()+":", aurora.Cyan(values))
+			logging.Warn(moduleName, "Ignoring none or multiple POST form values:", aurora.Cyan(key).String()+":", aurora.Cyan(values))
 			continue
 		}
 
@@ -40,8 +43,20 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			replyHTTPError(w, 400, "400 Bad Request")
 			return
 		}
-		logging.Info(moduleName, aurora.Cyan(key).String()+":", aurora.Cyan(string(parsed)))
-		fields[key] = string(parsed)
+
+		value := string(parsed)
+
+		if key == "ingamesn" {
+			// Special handling required for the UTF-16 string
+			var utf16String []uint16
+			for i := 0; i < len(parsed)/2; i++ {
+				utf16String = append(utf16String, binary.BigEndian.Uint16(parsed[i*2:i*2+2]))
+			}
+			value = string(utf16.Decode(utf16String))
+		}
+
+		logging.Info(moduleName, aurora.Cyan(key).String()+":", aurora.Cyan(value))
+		fields[key] = value
 	}
 
 	reply := map[string]string{}
@@ -139,7 +154,7 @@ func acctcreate() map[string]string {
 		"retry":    "0",
 		"datetime": getDateTime(),
 		"returncd": "002",
-		"userid":   strconv.FormatInt(database.GetUniqueUserID(), 10),
+		"userid":   strconv.FormatUint(database.GetUniqueUserID(), 10),
 	}
 }
 
@@ -150,6 +165,13 @@ func login(moduleName string, fields map[string]string) map[string]string {
 		"locator":  "gamespy.com",
 	}
 
+	gamecd, ok := fields["gamecd"]
+	if !ok {
+		logging.Error(moduleName, "No gamecd in form")
+		param["returncd"] = "103"
+		return param
+	}
+
 	strUserId, ok := fields["userid"]
 	if !ok {
 		logging.Error(moduleName, "No userid in form")
@@ -157,8 +179,8 @@ func login(moduleName string, fields map[string]string) map[string]string {
 		return param
 	}
 
-	userId, err := strconv.ParseInt(strUserId, 10, 64)
-	if err != nil {
+	userId, err := strconv.ParseUint(strUserId, 10, 64)
+	if err != nil || userId >= 0x80000000000 {
 		logging.Error(moduleName, "Invalid userid string in form")
 		param["returncd"] = "103"
 		return param
@@ -171,7 +193,45 @@ func login(moduleName string, fields map[string]string) map[string]string {
 		return param
 	}
 
-	authToken, challenge := database.GenerateAuthToken(pool, ctx, userId, gsbrcd)
+	cfc, ok := fields["cfc"]
+	if !ok {
+		logging.Error(moduleName, "No cfc in form")
+		param["returncd"] = "103"
+		return param
+	}
+
+	cfcInt, err := strconv.ParseUint(cfc, 10, 64)
+	if err != nil || cfcInt > 9999999999999999 {
+		logging.Error(moduleName, "Invalid cfc string in form")
+		param["returncd"] = "103"
+		return param
+	}
+
+	region, ok := fields["region"]
+	if !ok {
+		region = "ff"
+	}
+
+	regionByte, err := hex.DecodeString(region)
+	if err != nil || len(regionByte) != 1 {
+		logging.Error(moduleName, "Invalid region byte in form")
+		param["returncd"] = "103"
+		return param
+	}
+
+	lang, ok := fields["lang"]
+	if !ok {
+		lang = "ff"
+	}
+
+	langByte, err := hex.DecodeString(lang)
+	if err != nil || len(langByte) != 1 {
+		logging.Error(moduleName, "Invalid lang byte in form")
+		param["returncd"] = "103"
+		return param
+	}
+
+	authToken, challenge := common.MarshalNASAuthToken(gamecd, userId, gsbrcd, cfcInt, regionByte[0], langByte[0], fields["ingamesn"])
 
 	param["returncd"] = "001"
 	param["challenge"] = challenge

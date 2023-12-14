@@ -3,12 +3,13 @@ package gpcm
 import (
 	"crypto/md5"
 	"crypto/sha1"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"github.com/logrusorgru/aurora/v3"
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -96,7 +97,7 @@ func verifySignature(authToken string, signature string) bool {
 		logging.Error("GPCM", "Auth token signature failed")
 		return false
 	}
-	logging.Notice("GPCM", "Auth token signature verified")
+	logging.Notice("GPCM", "Auth token signature verified; NG ID:", aurora.Cyan(fmt.Sprintf("%08x", ngId)))
 
 	return true
 }
@@ -124,21 +125,24 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	}
 
 	signature, exists := command.OtherValues["wwfc_sig"]
-	if exists {
-		// TODO: This is still in testing so it's only checked if it exists
-		if !verifySignature(authToken, signature) {
-			g.replyError(GPError{
-				ErrorCode:   ErrLogin.ErrorCode,
-				ErrorString: "The authentication signature is invalid.",
-				Fatal:       true,
-			})
-			return
-		}
+	if !exists || !verifySignature(authToken, signature) {
+		g.replyError(GPError{
+			ErrorCode:   ErrLogin.ErrorCode,
+			ErrorString: "The authentication signature is invalid.",
+			Fatal:       true,
+		})
+		return
 	}
 
-	challenge := database.GetChallenge(pool, ctx, authToken)
-	if challenge == "" {
+	err, _, issueTime, userId, gsbrcd, cfc, _, _, ingamesn, challenge := common.UnmarshalNASAuthToken(authToken)
+	if err != nil {
 		g.replyError(ErrLogin)
+		return
+	}
+
+	currentTime := time.Now()
+	if issueTime.Before(currentTime.Add(-10*time.Minute)) || issueTime.After(currentTime) {
+		g.replyError(ErrLoginLoginTicketExpired)
 		return
 	}
 
@@ -151,7 +155,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	proof := generateProof(g.Challenge, challenge, command.OtherValues["authtoken"], command.OtherValues["challenge"])
 
 	// Perform the login with the database.
-	user, ok := database.LoginUserToGPCM(pool, ctx, authToken)
+	user, ok := database.LoginUserToGPCM(pool, ctx, userId, gsbrcd)
 	if !ok {
 		// There was an error logging in to the GP backend.
 		g.replyError(ErrLogin)
@@ -175,10 +179,9 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	sessions[g.User.ProfileId] = g
 	mutex.Unlock()
 
-	g.LoginTicket = strings.Replace(base64.StdEncoding.EncodeToString([]byte(common.RandomString(16))), "=", "_", -1)
-	// Now initiate the session
-	_ = database.CreateSession(pool, ctx, g.User.ProfileId, g.LoginTicket)
+	g.LoginTicket = common.MarshalGPCMLoginTicket(g.User.ProfileId)
 	g.SessionKey = rand.Int31n(290000000) + 10000000
+	g.InGameName = ingamesn
 
 	g.LoggedIn = true
 	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10)
@@ -186,7 +189,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	// Notify QR2 of the login
 	// TODO: Get ingamesn and cfc from NAS
-	qr2.Login(g.User.ProfileId, "", "", g.Conn.RemoteAddr().String())
+	qr2.Login(g.User.ProfileId, ingamesn, cfc, g.Conn.RemoteAddr().String())
 
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
@@ -194,8 +197,8 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		OtherValues: map[string]string{
 			"sesskey":    strconv.FormatInt(int64(g.SessionKey), 10),
 			"proof":      proof,
-			"userid":     strconv.FormatInt(g.User.UserId, 10),
-			"profileid":  strconv.FormatInt(int64(g.User.ProfileId), 10),
+			"userid":     strconv.FormatUint(g.User.UserId, 10),
+			"profileid":  strconv.FormatUint(uint64(g.User.ProfileId), 10),
 			"uniquenick": g.User.UniqueNick,
 			"lt":         g.LoginTicket,
 			"id":         command.OtherValues["id"],
