@@ -2,19 +2,21 @@ package database
 
 import (
 	"context"
+	"errors"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"math/rand"
 )
 
 const (
-	InsertUser        = `INSERT INTO users (user_id, gsbrcd, password, email, unique_nick) VALUES ($1, $2, $3, $4, $5) RETURNING profile_id`
-	UpdateUserTable   = `UPDATE users SET firstname = CASE WHEN $3 THEN $2 ELSE firstname END, lastname = CASE WHEN $5 THEN $4 ELSE lastname END WHERE profile_id = $1 RETURNING user_id, gsbrcd, email, unique_nick, firstname, lastname`
-	GetUser           = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname FROM users WHERE profile_id = $1`
-	CreateUserSession = `INSERT INTO sessions (session_key, profile_id, login_ticket) VALUES ($1, $2, $3)`
-	GetTicketSession  = `SELECT session_key, profile_id FROM sessions WHERE login_ticket = $1`
-	DoesUserExist     = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
-	DeleteUserSession = `DELETE FROM sessions WHERE profile_id = $1`
-	GetUserProfileID  = `SELECT profile_id FROM users WHERE user_id = $1 AND gsbrcd = $2`
+	InsertUser              = `INSERT INTO users (user_id, gsbrcd, password, email, unique_nick) VALUES ($1, $2, $3, $4, $5) RETURNING profile_id`
+	InsertUserWithProfileID = `INSERT INTO users (user_id, gsbrcd, password, email, unique_nick) VALUES ($1, $2, $3, $4, $5)`
+	UpdateUserTable         = `UPDATE users SET firstname = CASE WHEN $3 THEN $2 ELSE firstname END, lastname = CASE WHEN $5 THEN $4 ELSE lastname END WHERE profile_id = $1 RETURNING user_id, gsbrcd, email, unique_nick, firstname, lastname`
+	UpdateUserProfileID     = `UPDATE users SET profile_id = $3 WHERE user_id = $1 AND gsbrcd = $2`
+	GetUser                 = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname FROM users WHERE profile_id = $1`
+	DoesUserExist           = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
+	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
+	DeleteUserSession       = `DELETE FROM sessions WHERE profile_id = $1`
+	GetUserProfileID        = `SELECT profile_id, email, unique_nick, firstname, lastname FROM users WHERE user_id = $1 AND gsbrcd = $2`
 
 	GetMKWFriendInfoQuery    = `SELECT mariokartwii_friend_info FROM users WHERE profile_id = $1`
 	UpdateMKWFriendInfoQuery = `UPDATE users SET mariokartwii_friend_info = $2 WHERE profile_id = $1`
@@ -30,11 +32,55 @@ type User struct {
 	LastName   string
 }
 
-func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) {
-	err := pool.QueryRow(ctx, InsertUser, user.UserId, user.GsbrCode, "", user.Email, user.UniqueNick).Scan(&user.ProfileId)
-	if err != nil {
-		panic(err)
+var (
+	ErrProfileIDInUse         = errors.New("profile ID is already in use")
+	ErrReservedProfileIDRange = errors.New("profile ID is in reserved range")
+)
+
+func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) error {
+	if user.ProfileId == 0 {
+		return pool.QueryRow(ctx, InsertUser, user.UserId, user.GsbrCode, "", user.Email, user.UniqueNick).Scan(&user.ProfileId)
 	}
+
+	if user.ProfileId >= 1000000000 {
+		return ErrReservedProfileIDRange
+	}
+
+	var exists bool
+	err := pool.QueryRow(ctx, IsProfileIDInUse, user.ProfileId).Scan(&exists)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		return ErrProfileIDInUse
+	}
+
+	_, err = pool.Exec(ctx, InsertUserWithProfileID, user.UserId, user.GsbrCode, "", user.Email, user.UniqueNick, user.ProfileId)
+	return err
+}
+
+func (user *User) UpdateProfileID(pool *pgxpool.Pool, ctx context.Context, newProfileId uint32) error {
+	if newProfileId >= 1000000000 {
+		return ErrReservedProfileIDRange
+	}
+
+	var exists bool
+	err := pool.QueryRow(ctx, IsProfileIDInUse, newProfileId).Scan(&exists)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		return ErrProfileIDInUse
+	}
+
+	_, err = pool.Exec(ctx, UpdateUserProfileID, user.UserId, user.GsbrCode, newProfileId)
+	if err == nil {
+		user.ProfileId = newProfileId
+	}
+
+	return err
 }
 
 func GetUniqueUserID() uint64 {

@@ -191,8 +191,6 @@ func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, 
 		panic("Invalid secret key")
 	}
 
-	logging.Notice(moduleName, request.LoginTicket)
-
 	err, profileId, _ := common.UnmarshalGPCMLoginTicket(request.LoginTicket)
 	if err != nil {
 		panic(err)

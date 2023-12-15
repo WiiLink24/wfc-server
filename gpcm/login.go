@@ -154,8 +154,23 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	proof := generateProof(g.Challenge, challenge, command.OtherValues["authtoken"], command.OtherValues["challenge"])
 
+	cmdProfileId := uint32(0)
+	if cmdProfileIdStr, exists := command.OtherValues["profileid"]; exists {
+		cmdProfileId2, err := strconv.ParseUint(cmdProfileIdStr, 10, 32)
+		if err != nil {
+			g.replyError(GPError{
+				ErrorCode:   ErrLogin.ErrorCode,
+				ErrorString: "The provided profile ID is invalid.",
+				Fatal:       true,
+			})
+			return
+		}
+
+		cmdProfileId = uint32(cmdProfileId2)
+	}
+
 	// Perform the login with the database.
-	user, ok := database.LoginUserToGPCM(pool, ctx, userId, gsbrcd)
+	user, ok := database.LoginUserToGPCM(pool, ctx, userId, gsbrcd, cmdProfileId)
 	if !ok {
 		// There was an error logging in to the GP backend.
 		g.replyError(ErrLogin)
