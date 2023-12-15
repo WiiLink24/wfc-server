@@ -9,14 +9,15 @@ import (
 
 const (
 	InsertUser              = `INSERT INTO users (user_id, gsbrcd, password, email, unique_nick) VALUES ($1, $2, $3, $4, $5) RETURNING profile_id`
-	InsertUserWithProfileID = `INSERT INTO users (user_id, gsbrcd, password, email, unique_nick) VALUES ($1, $2, $3, $4, $5)`
+	InsertUserWithProfileID = `INSERT INTO users (user_id, gsbrcd, password, ng_device_id, email, unique_nick) VALUES ($1, $2, $3, $4, $5, $6)`
 	UpdateUserTable         = `UPDATE users SET firstname = CASE WHEN $3 THEN $2 ELSE firstname END, lastname = CASE WHEN $5 THEN $4 ELSE lastname END WHERE profile_id = $1 RETURNING user_id, gsbrcd, email, unique_nick, firstname, lastname`
 	UpdateUserProfileID     = `UPDATE users SET profile_id = $3 WHERE user_id = $1 AND gsbrcd = $2`
+	UpdateUserNGDeviceID    = `UPDATE users SET ng_device_id = $2 WHERE profile_id = $1`
 	GetUser                 = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname FROM users WHERE profile_id = $1`
 	DoesUserExist           = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
 	DeleteUserSession       = `DELETE FROM sessions WHERE profile_id = $1`
-	GetUserProfileID        = `SELECT profile_id, email, unique_nick, firstname, lastname FROM users WHERE user_id = $1 AND gsbrcd = $2`
+	GetUserProfileID        = `SELECT profile_id, ng_device_id, email, unique_nick, firstname, lastname FROM users WHERE user_id = $1 AND gsbrcd = $2`
 
 	GetMKWFriendInfoQuery    = `SELECT mariokartwii_friend_info FROM users WHERE profile_id = $1`
 	UpdateMKWFriendInfoQuery = `UPDATE users SET mariokartwii_friend_info = $2 WHERE profile_id = $1`
@@ -26,6 +27,7 @@ type User struct {
 	ProfileId  uint32
 	UserId     uint64
 	GsbrCode   string
+	NgDeviceId uint32
 	Email      string
 	UniqueNick string
 	FirstName  string
@@ -56,7 +58,7 @@ func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) error {
 		return ErrProfileIDInUse
 	}
 
-	_, err = pool.Exec(ctx, InsertUserWithProfileID, user.UserId, user.GsbrCode, "", user.Email, user.UniqueNick, user.ProfileId)
+	_, err = pool.Exec(ctx, InsertUserWithProfileID, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick, user.ProfileId)
 	return err
 }
 

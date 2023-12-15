@@ -25,10 +25,11 @@ SET default_table_access_method = heap;
 --
 
 CREATE TABLE public.users (
-    profile_id integer NOT NULL,
+    profile_id bigint NOT NULL,
     user_id bigint NOT NULL,
     gsbrcd character varying NOT NULL,
     password character varying NOT NULL,
+    ng_device_id bigint,
     email character varying NOT NULL,
     unique_nick character varying NOT NULL,
     firstname character varying,

@@ -3,6 +3,7 @@ package gpcm
 import (
 	"crypto/md5"
 	"crypto/sha1"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"github.com/logrusorgru/aurora/v3"
@@ -35,10 +36,10 @@ func generateProof(gpcmChallenge, nasChallenge, authToken, clientChallenge strin
 	return generateResponse(clientChallenge, nasChallenge, authToken, gpcmChallenge)
 }
 
-func verifySignature(authToken string, signature string) bool {
+func verifySignature(authToken string, signature string) uint32 {
 	sigBytes, err := common.Base64DwcEncoding.DecodeString(signature)
 	if err != nil || len(sigBytes) != 0x144 {
-		return false
+		return 0
 	}
 
 	ngId := sigBytes[0x000:0x004]
@@ -69,7 +70,7 @@ func verifySignature(authToken string, signature string) bool {
 
 	if !verifyECDSA(msPublicKey, msSignature, ngCertBlobHash[:]) {
 		logging.Error("GPCM", "NG cert verify failed")
-		return false
+		return 0
 	}
 	logging.Info("GPCM", "NG cert verified")
 
@@ -88,18 +89,18 @@ func verifySignature(authToken string, signature string) bool {
 
 	if !verifyECDSA(ngPublicKey, ngSignature, apCertBlobHash[:]) {
 		logging.Error("GPCM", "AP cert verify failed")
-		return false
+		return 0
 	}
 	logging.Info("GPCM", "AP cert verified")
 
 	authTokenHash := sha1.Sum([]byte(authToken))
 	if !verifyECDSA(apPublicKey, apSignature, authTokenHash[:]) {
 		logging.Error("GPCM", "Auth token signature failed")
-		return false
+		return 0
 	}
 	logging.Notice("GPCM", "Auth token signature verified; NG ID:", aurora.Cyan(fmt.Sprintf("%08x", ngId)))
 
-	return true
+	return binary.BigEndian.Uint32(ngId)
 }
 
 func (g *GameSpySession) login(command common.GameSpyCommand) {
@@ -125,7 +126,17 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	}
 
 	signature, exists := command.OtherValues["wwfc_sig"]
-	if !exists || !verifySignature(authToken, signature) {
+	if !exists {
+		g.replyError(GPError{
+			ErrorCode:   ErrLogin.ErrorCode,
+			ErrorString: "Missing authentication signature.",
+			Fatal:       true,
+		})
+		return
+	}
+
+	var deviceId uint32
+	if deviceId = verifySignature(authToken, signature); deviceId == 0 {
 		g.replyError(GPError{
 			ErrorCode:   ErrLogin.ErrorCode,
 			ErrorString: "The authentication signature is invalid.",
@@ -170,7 +181,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	}
 
 	// Perform the login with the database.
-	user, ok := database.LoginUserToGPCM(pool, ctx, userId, gsbrcd, cmdProfileId)
+	user, ok := database.LoginUserToGPCM(pool, ctx, userId, gsbrcd, cmdProfileId, deviceId)
 	if !ok {
 		// There was an error logging in to the GP backend.
 		g.replyError(ErrLogin)
