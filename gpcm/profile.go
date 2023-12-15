@@ -43,7 +43,7 @@ func (g *GameSpySession) getProfile(command common.GameSpyCommand) {
 		OtherValues: map[string]string{
 			"profileid":  command.OtherValues["profileid"],
 			"nick":       user.UniqueNick,
-			"userid":     strconv.FormatInt(user.UserId, 10),
+			"userid":     strconv.FormatUint(uint64(user.UserId), 10),
 			"email":      user.Email,
 			"sig":        common.RandomHexString(32),
 			"uniquenick": user.UniqueNick,

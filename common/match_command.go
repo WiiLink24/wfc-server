@@ -58,6 +58,8 @@ type MatchCommandDataReservation struct {
 	IsFriend         bool
 	LocalPlayerCount uint32
 	ResvCheckValue   uint32
+
+	UserData []byte
 }
 
 type MatchCommandDataResvOK struct {
@@ -75,17 +77,20 @@ type MatchCommandDataResvOK struct {
 	ClientCount      uint32
 	ResvCheckValue   uint32
 
-	// Only exists in version 3 and 11
+	// Version 3 and 11
 	ProfileIDs []uint32
 
 	// Version 11
 	IsFriend bool
-	UserData uint32
+
+	UserData []byte
 }
 
 type MatchCommandDataResvDeny struct {
 	Reason       uint32
 	ReasonString string
+
+	UserData []byte
 }
 
 type MatchCommandDataTellAddr struct {
@@ -173,13 +178,18 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		return MatchCommandData{}, false
 	}
 
+	// Match commands must be 4 byte aligned
+	if (len(buffer) & 3) != 0 {
+		return MatchCommandData{}, false
+	}
+
 	switch command {
 	case MatchReservation:
-		if version == 3 && (len(buffer) != 0x04 && len(buffer) != 0x0C) {
+		if version == 3 && len(buffer) < 0x0C {
 			break
 		}
 
-		if (version == 11 && len(buffer) != 0x14) || (version == 90 && len(buffer) != 0x24) {
+		if (version == 11 && len(buffer) < 0x14) || (version == 90 && len(buffer) < 0x24) {
 			break
 		}
 
@@ -188,7 +198,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 			break
 		}
 
-		if version == 3 && len(buffer) == 0x04 {
+		if version == 3 && len(buffer) < 0x0C {
 			return MatchCommandData{Reservation: &MatchCommandDataReservation{
 				MatchType:   byte(matchType),
 				HasPublicIP: false,
@@ -207,6 +217,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 				HasPublicIP: true,
 				PublicIP:    binary.BigEndian.Uint32(buffer[0x04:0x08]),
 				PublicPort:  uint16(publicPort),
+				UserData:    buffer[0x0C:],
 			}}, true
 
 		case 11:
@@ -223,6 +234,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 				PublicPort:       uint16(publicPort),
 				IsFriend:         isFriend,
 				LocalPlayerCount: binary.LittleEndian.Uint32(buffer[0x10:0x14]),
+				UserData:         buffer[0x14:],
 			}}, true
 
 		case 90:
@@ -248,6 +260,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 				IsFriend:         isFriend,
 				LocalPlayerCount: binary.LittleEndian.Uint32(buffer[0x1C:0x20]),
 				ResvCheckValue:   binary.LittleEndian.Uint32(buffer[0x20:0x24]),
+				UserData:         buffer[0x24:],
 			}}, true
 		}
 
@@ -258,49 +271,50 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 			}
 
 			clientCount := binary.LittleEndian.Uint32(buffer[0x00:0x04])
-			if version == 3 && (clientCount > 29 || len(buffer) != int(0xC+clientCount*0x4)) {
+			if version == 3 && (clientCount > 29 || len(buffer) < int(0x0C+clientCount*0x4)) {
 				break
 			}
-			if version == 11 && (clientCount > 24 || len(buffer) != int(0x20+clientCount*0x4)) {
+			if version == 11 && (clientCount > 24 || len(buffer) < int(0x20+clientCount*0x4)) {
 				break
 			}
 
 			var profileIDs []uint32
 			for i := uint32(0); i < clientCount; i++ {
-				profileIDs = append(profileIDs, binary.LittleEndian.Uint32(buffer[0x4+i*4:0x4+i*4+4]))
+				profileIDs = append(profileIDs, binary.LittleEndian.Uint32(buffer[0x04+i*4:0x04+i*4+4]))
 			}
 
-			index := 0x4 + clientCount*4
+			index := 0x04 + clientCount*4
 
-			publicPort := binary.LittleEndian.Uint32(buffer[index+0x4 : index+0x8])
+			publicPort := binary.LittleEndian.Uint32(buffer[index+0x04 : index+0x08])
 			if publicPort > 0xffff {
 				break
 			}
 
 			if version == 3 {
 				return MatchCommandData{ResvOK: &MatchCommandDataResvOK{
-					PublicIP:    binary.BigEndian.Uint32(buffer[index : index+0x4]),
+					PublicIP:    binary.BigEndian.Uint32(buffer[index : index+0x04]),
 					PublicPort:  uint16(publicPort),
 					ClientCount: clientCount,
 					ProfileIDs:  profileIDs,
+					UserData:    buffer[index+0x8:],
 				}}, true
 			} else if version == 11 {
-				isFriendValue := binary.LittleEndian.Uint32(buffer[index+0x8 : index+0xC])
+				isFriendValue := binary.LittleEndian.Uint32(buffer[index+0x08 : index+0x0C])
 				if isFriendValue > 1 {
 					break
 				}
 				isFriend := isFriendValue != 0
 
 				return MatchCommandData{ResvOK: &MatchCommandDataResvOK{
-					MaxPlayers:  binary.LittleEndian.Uint32(buffer[0x14:0x18]),
-					SenderAID:   binary.LittleEndian.Uint32(buffer[index+0xC : index+0x10]),
-					PublicIP:    binary.BigEndian.Uint32(buffer[index : index+0x4]),
+					MaxPlayers:  binary.LittleEndian.Uint32(buffer[index+0x14 : index+0x18]),
+					SenderAID:   binary.LittleEndian.Uint32(buffer[index+0x0C : index+0x10]),
+					PublicIP:    binary.BigEndian.Uint32(buffer[index : index+0x04]),
 					PublicPort:  uint16(publicPort),
-					GroupID:     binary.LittleEndian.Uint32(buffer[0x10:0x14]),
+					GroupID:     binary.LittleEndian.Uint32(buffer[index+0x10 : index+0x14]),
 					ClientCount: clientCount,
 					ProfileIDs:  profileIDs,
 					IsFriend:    isFriend,
-					UserData:    binary.LittleEndian.Uint32(buffer[0x18:0x1C]),
+					UserData:    buffer[index+0x18:],
 				}}, true
 			}
 			break
@@ -335,6 +349,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 			ReceiverNewAID:   binary.LittleEndian.Uint32(buffer[0x28:0x2C]),
 			ClientCount:      binary.LittleEndian.Uint32(buffer[0x2C:0x30]),
 			ResvCheckValue:   binary.LittleEndian.Uint32(buffer[0x30:0x34]),
+			UserData:         buffer[0x34:],
 		}}, true
 
 	case MatchResvDeny:
@@ -359,6 +374,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		return MatchCommandData{ResvDeny: &MatchCommandDataResvDeny{
 			Reason:       reason,
 			ReasonString: reasonString,
+			UserData:     buffer[0x4:],
 		}}, true
 
 	case MatchResvWait:
@@ -468,6 +484,12 @@ func EncodeMatchCommand(command byte, data MatchCommandData, version int) ([]byt
 			message = binary.LittleEndian.AppendUint32(message, data.Reservation.LocalPlayerCount)
 			message = binary.LittleEndian.AppendUint32(message, data.Reservation.ResvCheckValue)
 		}
+
+		message = append(message, data.Reservation.UserData...)
+		if (len(message) & 3) != 0 {
+			return []byte{}, false
+		}
+
 		return message, true
 
 	case MatchResvOK:
@@ -483,6 +505,11 @@ func EncodeMatchCommand(command byte, data MatchCommandData, version int) ([]byt
 			message = binary.LittleEndian.AppendUint32(message, uint32(data.ResvOK.PublicPort))
 
 			if version == 3 {
+				message = append(message, data.ResvOK.UserData...)
+				if (len(message) & 3) != 0 {
+					return []byte{}, false
+				}
+
 				return message, true
 			}
 
@@ -496,7 +523,12 @@ func EncodeMatchCommand(command byte, data MatchCommandData, version int) ([]byt
 			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.SenderAID)
 			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.GroupID)
 			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.MaxPlayers)
-			message = binary.LittleEndian.AppendUint32(message, data.ResvOK.UserData)
+
+			message = append(message, data.ResvOK.UserData...)
+			if (len(message) & 3) != 0 {
+				return []byte{}, false
+			}
+
 			return message, true
 		}
 
@@ -514,10 +546,22 @@ func EncodeMatchCommand(command byte, data MatchCommandData, version int) ([]byt
 		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ReceiverNewAID)
 		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ClientCount)
 		message = binary.LittleEndian.AppendUint32(message, data.ResvOK.ResvCheckValue)
+
+		message = append(message, data.ResvOK.UserData...)
+		if (len(message) & 3) != 0 {
+			return []byte{}, false
+		}
+
 		return message, true
 
 	case MatchResvDeny:
 		message := binary.LittleEndian.AppendUint32([]byte{}, data.ResvDeny.Reason)
+
+		message = append(message, data.ResvOK.UserData...)
+		if (len(message) & 3) != 0 {
+			return []byte{}, false
+		}
+
 		return message, true
 
 	case MatchResvWait:

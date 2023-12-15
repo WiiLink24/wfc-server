@@ -187,6 +187,9 @@ func GetGroups(gameName string) []GroupInfo {
 			for k, v := range session.Data {
 				mapData[k] = v
 			}
+
+			mapData["+ingamesn"] = session.Login.InGameName
+
 			groupInfo.Players = append(groupInfo.Players, mapData)
 
 			if mapData["dwc_hoststate"] == "2" && mapData["dwc_suspend"] == "0" {

@@ -191,8 +191,13 @@ func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, 
 		panic("Invalid secret key")
 	}
 
-	// GetSession panics if it can't find the session for the login ticket
-	_, profileId := database.GetSession(pool, ctx, request.LoginTicket)
+	logging.Notice(moduleName, request.LoginTicket)
+
+	err, profileId, _ := common.UnmarshalGPCMLoginTicket(request.LoginTicket)
+	if err != nil {
+		panic(err)
+	}
+
 	logging.Info(moduleName, "Profile ID:", aurora.BrightCyan(profileId))
 	logging.Info(moduleName, "Game:", aurora.Cyan(request.GameID), "-", aurora.BrightCyan(gameInfo.Name))
 	logging.Info(moduleName, "Table ID:", aurora.Cyan(request.TableID))

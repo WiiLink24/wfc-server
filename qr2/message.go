@@ -30,7 +30,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	var receiver *Session
 	senderIPInt, _ := common.IPFormatToInt(senderIP)
 
-	useSearchID := destSearchID < (0x400 << 32)
+	useSearchID := destSearchID < (1 << 24)
 	if useSearchID {
 		receiver = sessionBySearchID[destSearchID]
 	} else {
@@ -62,7 +62,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		moduleName = "QR2/MSG:s" + strconv.FormatUint(uint64(natnegID), 10)
 	} else if bytes.Equal(message[:4], []byte{0xbb, 0x49, 0xcc, 0x4d}) || bytes.Equal(message[:4], []byte("SBCM")) {
 		// DWC match command
-		if len(message) < 0x14 {
+		if len(message) < 0x14 || len(message) > 0x94 {
 			logging.Error(moduleName, "Received invalid length match command packet")
 			return
 		}
@@ -198,7 +198,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 
 		var matchMessage []byte
 		matchMessage, ok = common.EncodeMatchCommand(message[8], matchData, version)
-		if !ok {
+		if !ok || len(matchMessage) > 0x80 {
 			logging.Error(moduleName, "Failed to reencode match command:", aurora.Cyan(printHex(message)))
 			return
 		}
