@@ -3,6 +3,7 @@ package gpcm
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"strings"
@@ -263,6 +264,12 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		break
 	}
 
+	if len(msgData) > 0x200 || (len(msgData)&3) != 0 {
+		logging.Error(g.ModuleName, "Invalid length message data; message:", msg)
+		g.replyError(ErrMessage)
+		return
+	}
+
 	msgMatchData, ok := common.DecodeMatchCommand(cmd, msgData, version)
 	common.LogMatchCommand(g.ModuleName, strconv.FormatInt(int64(toProfileId), 10), cmd, msgMatchData)
 	if !ok {
@@ -272,16 +279,23 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	}
 
 	if cmd == common.MatchReservation {
-		if common.IPFormatNoPortToInt(g.Conn.RemoteAddr().String()) == int32(msgMatchData.Reservation.PublicIP) {
-			g.QR2IP = uint64(msgMatchData.Reservation.PublicIP) | (uint64(msgMatchData.Reservation.PublicPort) << 32)
+		if common.IPFormatNoPortToInt(g.Conn.RemoteAddr().String()) != int32(msgMatchData.Reservation.PublicIP) {
+			logging.Error(g.ModuleName, "RESERVATION: Public IP mismatch")
+			g.replyError(ErrMessage)
+			return
 		}
-	} else if cmd == common.MatchResvOK {
-		if common.IPFormatNoPortToInt(g.Conn.RemoteAddr().String()) == int32(msgMatchData.ResvOK.PublicIP) {
-			g.QR2IP = uint64(msgMatchData.ResvOK.PublicIP) | (uint64(msgMatchData.ResvOK.PublicPort) << 32)
-		}
-	}
 
-	// TODO: Replace public IP with QR2 search ID
+		g.QR2IP = uint64(msgMatchData.Reservation.PublicIP) | (uint64(msgMatchData.Reservation.PublicPort) << 32)
+
+	} else if cmd == common.MatchResvOK {
+		if common.IPFormatNoPortToInt(g.Conn.RemoteAddr().String()) != int32(msgMatchData.ResvOK.PublicIP) {
+			logging.Error(g.ModuleName, "RESV_OK: Public IP mismatch")
+			g.replyError(ErrMessage)
+			return
+		}
+
+		g.QR2IP = uint64(msgMatchData.ResvOK.PublicIP) | (uint64(msgMatchData.ResvOK.PublicPort) << 32)
+	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -300,7 +314,10 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	}
 
 	if cmd == common.MatchReservation {
-		g.ReservationPID = uint32(toProfileId)
+		msgMatchData.Reservation.PublicIP = 0
+		msgMatchData.Reservation.PublicPort = 0
+		msgMatchData.Reservation.LocalIP = 0
+		msgMatchData.Reservation.LocalPort = 0
 	} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
 		if toSession.ReservationPID != g.User.ProfileId {
 			logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "has no reservation with the sender")
@@ -319,7 +336,30 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 				g.replyError(ErrMessage)
 				return
 			}
+
+			if g.QR2IP&0xffffffff != toSession.QR2IP&0xffffffff {
+				searchId := qr2.GetSearchID(g.QR2IP)
+				if searchId == 0 {
+					logging.Error(g.ModuleName, "Could not get QR2 search ID for IP", aurora.Cyan(fmt.Sprintf("%016x", g.QR2IP)))
+					g.replyError(ErrMessage)
+					return
+				}
+
+				msgMatchData.ResvOK.PublicIP = uint32(searchId & 0xffffffff)
+				msgMatchData.ResvOK.PublicPort = uint16(searchId >> 32)
+			}
 		}
+	}
+
+	newMsg, ok := common.EncodeMatchCommand(cmd, msgMatchData, version)
+	if !ok || len(newMsg) > 0x200 {
+		logging.Error(g.ModuleName, "Failed to encode match command; message:", msg)
+		g.replyError(ErrMessage)
+		return
+	}
+
+	if cmd == common.MatchReservation {
+		g.ReservationPID = uint32(toProfileId)
 	}
 
 	sendMessageToSession("1", g.User.ProfileId, toSession, msg)

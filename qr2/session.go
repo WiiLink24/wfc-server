@@ -108,7 +108,7 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 
 		// Set search ID
 		for {
-			searchID := uint64(rand.Int63n((0x400<<32)-1) + 1)
+			searchID := uint64(rand.Int63n((1<<24)-1) + 1)
 			if _, exists := sessionBySearchID[searchID]; !exists {
 				session.SearchID = searchID
 				session.Data["+searchid"] = strconv.FormatUint(searchID, 10)
@@ -235,4 +235,15 @@ func GetSessionServers() []map[string]string {
 	}
 
 	return servers
+}
+
+func GetSearchID(addr uint64) uint64 {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if session := sessions[addr]; session != nil {
+		return session.SearchID
+	}
+
+	return 0
 }
