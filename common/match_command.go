@@ -557,7 +557,7 @@ func EncodeMatchCommand(command byte, data MatchCommandData, version int) ([]byt
 	case MatchResvDeny:
 		message := binary.LittleEndian.AppendUint32([]byte{}, data.ResvDeny.Reason)
 
-		message = append(message, data.ResvOK.UserData...)
+		message = append(message, data.ResvDeny.UserData...)
 		if (len(message) & 3) != 0 {
 			return []byte{}, false
 		}
