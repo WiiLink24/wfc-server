@@ -65,13 +65,13 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 			}
 		}
 
-		if user.LastName == "" {
-			user = UpdateProfile(pool, ctx, user.ProfileId, map[string]string{
-				"lastname": "000000000" + gsbrcd,
-			})
-		}
-
 		logging.Notice("DATABASE", "Log in GPCM user:", aurora.Cyan(userId), aurora.Cyan(user.GsbrCode), "-", aurora.Cyan(user.ProfileId))
+	}
+
+	if user.LastName == "" {
+		user = UpdateProfile(pool, ctx, user.ProfileId, map[string]string{
+			"lastname": "000000000" + gsbrcd,
+		})
 	}
 
 	return user, true
