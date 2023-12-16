@@ -41,7 +41,7 @@ var (
 
 func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) error {
 	if user.ProfileId == 0 {
-		return pool.QueryRow(ctx, InsertUser, user.UserId, user.GsbrCode, "", user.Email, user.UniqueNick).Scan(&user.ProfileId)
+		return pool.QueryRow(ctx, InsertUser, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick).Scan(&user.ProfileId)
 	}
 
 	if user.ProfileId >= 1000000000 {
