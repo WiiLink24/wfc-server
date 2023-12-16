@@ -123,13 +123,12 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 		panic(err)
 	}
 
-	// logging.Notice(moduleName, string(body))
-
 	// Parse the SOAP request XML
 	soap := StorageRequestEnvelope{}
 	err = xml.Unmarshal(body, &soap)
 	if err != nil {
-		panic(err)
+		logging.Error(moduleName, "Received invalid XML")
+		return
 	}
 
 	response := StorageResponseEnvelope{
@@ -172,7 +171,6 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 	}
 
 	payload := append([]byte(`<?xml version="1.0" encoding="utf-8"?>`), out...)
-	// logging.Notice(moduleName, string(payload))
 
 	w.Header().Set("Content-Type", "text/xml")
 	w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
