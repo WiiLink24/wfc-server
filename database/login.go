@@ -66,7 +66,7 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		}
 
 		if user.LastName == "" {
-			user = UpdateProfile(pool, ctx, profileId, map[string]string{
+			user = UpdateProfile(pool, ctx, user.ProfileId, map[string]string{
 				"lastname": "000000000" + gsbrcd,
 			})
 		}
