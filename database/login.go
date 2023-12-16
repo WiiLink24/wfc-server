@@ -37,9 +37,19 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		logging.Notice("DATABASE", "Created new GPCM user:", aurora.Cyan(userId), aurora.Cyan(gsbrcd), aurora.Cyan(user.ProfileId))
 	} else {
 		var expectedNgId *uint32
-		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &expectedNgId, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName)
+		var firstName *string
+		var lastName *string
+		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &expectedNgId, &user.Email, &user.UniqueNick, &firstName, &lastName)
 		if err != nil {
 			panic(err)
+		}
+
+		if firstName != nil {
+			user.FirstName = *firstName
+		}
+
+		if lastName != nil {
+			user.LastName = *lastName
 		}
 
 		if expectedNgId != nil {
@@ -68,8 +78,9 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		logging.Notice("DATABASE", "Log in GPCM user:", aurora.Cyan(userId), aurora.Cyan(user.GsbrCode), "-", aurora.Cyan(user.ProfileId))
 	}
 
-	if user.LastName == "" {
-		user = UpdateProfile(pool, ctx, user.ProfileId, map[string]string{
+	// This should be set if the user already knows its own profile ID
+	if profileId != 0 && user.LastName == "" {
+		user.UpdateProfile(pool, ctx, map[string]string{
 			"lastname": "000000000" + gsbrcd,
 		})
 	}

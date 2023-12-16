@@ -61,5 +61,5 @@ func (g *GameSpySession) getProfile(command common.GameSpyCommand) {
 }
 
 func (g *GameSpySession) updateProfile(command common.GameSpyCommand) {
-	g.User = database.UpdateProfile(pool, ctx, g.User.ProfileId, command.OtherValues)
+	g.User.UpdateProfile(pool, ctx, command.OtherValues)
 }
