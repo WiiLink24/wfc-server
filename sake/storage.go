@@ -181,17 +181,18 @@ func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, 
 	gameInfo := common.GetGameInfoByID(request.GameID)
 	if gameInfo == nil {
 		logging.Error(moduleName, "Invalid game ID:", aurora.Cyan(request.GameID))
-		panic("Invalid game ID")
+		return 0, common.GameInfo{}, false
 	}
 
 	if gameInfo.SecretKey != request.SecretKey {
 		logging.Error(moduleName, "Mismatch", aurora.BrightCyan(gameInfo.Name), "secret key:", aurora.Cyan(request.SecretKey), "!=", aurora.BrightCyan(gameInfo.SecretKey))
-		panic("Invalid secret key")
+		return 0, common.GameInfo{}, false
 	}
 
 	err, profileId, _ := common.UnmarshalGPCMLoginTicket(request.LoginTicket)
 	if err != nil {
-		panic(err)
+		logging.Error(moduleName, err)
+		return 0, common.GameInfo{}, false
 	}
 
 	logging.Info(moduleName, "Profile ID:", aurora.BrightCyan(profileId))
