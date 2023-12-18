@@ -82,6 +82,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reply 200 to conntest
+	if strings.HasPrefix(r.Host, "conntest.") {
+		// Respond with a 200 status code
+		replyHTTPError(w, 200, "ok")
+		return
+	}
+	
 	// Stage 1
 	if match := regexStage1URL.FindStringSubmatch(r.URL.String()); match != nil {
 		val, err := strconv.Atoi(match[1])
