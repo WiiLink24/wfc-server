@@ -31,6 +31,7 @@ func (g *GameSpySession) isFriendAuthorized(profileId uint32) bool {
 }
 
 const addFriendMessage = "\r\n\r\n|signed|00000000000000000000000000000000"
+const logOutMessage = "|s|0|ss|Offline|ls||ip|0|p|0|qm|0"
 
 func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	strNewProfileId := command.OtherValues["newprofileid"]
@@ -117,7 +118,35 @@ func (g *GameSpySession) sendFriendRequests() {
 }
 
 func (g *GameSpySession) removeFriend(command common.GameSpyCommand) {
-	// TODO
+	strDelProfileID := command.OtherValues["delprofileid"]
+	delProfileID64, err := strconv.ParseUint(strDelProfileID, 10, 32)
+	if err != nil {
+		logging.Error(g.ModuleName, aurora.Cyan(strDelProfileID), "is not a valid profile id")
+		g.replyError(ErrDeleteFriend)
+		return
+	}
+	delProfileID32 := uint32(delProfileID64)
+
+	delProfileIDIndex := -1
+	for i, profileID := range g.AuthFriendList {
+		if profileID == delProfileID32 {
+			delProfileIDIndex = i
+			break
+		}
+	}
+	if delProfileIDIndex == -1 {
+		logging.Error(g.ModuleName, aurora.Cyan(strDelProfileID), "is not a friend")
+		g.replyError(ErrDeleteFriendNotFriends)
+		return
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	g.AuthFriendList[delProfileIDIndex] = g.AuthFriendList[len(g.AuthFriendList)-1]
+	g.AuthFriendList = g.AuthFriendList[:len(g.AuthFriendList)-1]
+
+	sendMessageToProfileId("100", g.User.ProfileId, delProfileID32, logOutMessage)
 }
 
 func (g *GameSpySession) authAddFriend(command common.GameSpyCommand) {
@@ -407,7 +436,7 @@ func (g *GameSpySession) exchangeFriendStatus(profileId uint32) {
 func (g *GameSpySession) sendLogoutStatus() {
 	mutex.Lock()
 	for _, storedPid := range g.AuthFriendList {
-		sendMessageToProfileId("100", g.User.ProfileId, storedPid, "|s|0|ss|Offline|ls||ip|0|p|0|qm|0")
+		sendMessageToProfileId("100", g.User.ProfileId, storedPid, logOutMessage)
 	}
 	mutex.Unlock()
 }
