@@ -12,6 +12,8 @@ type Config struct {
 	DatabaseName    string `xml:"databaseName"`
 	Address         string `xml:"address"`
 	Port            string `xml:"nasPort"`
+	PortHTTPS       string `xml:"nasPortHttps"`
+	EnableHTTPS     bool   `xml:"enableHttps"`
 }
 
 func GetConfig() Config {

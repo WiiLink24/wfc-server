@@ -1,6 +1,8 @@
-# Local configuration file
+# Local configuration files
 config.xml
 salt.bin
+naswii-cert.der
+naswii-key.pem
 
 # Payload data
 payload

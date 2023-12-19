@@ -3,8 +3,6 @@ package nas
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -14,6 +12,9 @@ import (
 	"wwfc/logging"
 	"wwfc/nhttp"
 	"wwfc/sake"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
@@ -38,6 +39,10 @@ func StartServer() {
 	}
 
 	address := config.Address + ":" + config.Port
+
+	if config.EnableHTTPS {
+		go startHTTPSProxy(config.Address+":"+config.PortHTTPS, "localhost:"+config.Port)
+	}
 
 	logging.Notice("NAS", "Starting HTTP server on", address)
 	panic(nhttp.ListenAndServe(address, http.HandlerFunc(handleRequest)))
@@ -88,7 +93,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		replyHTTPError(w, 200, "ok")
 		return
 	}
-	
+
 	// Stage 1
 	if match := regexStage1URL.FindStringSubmatch(r.URL.String()); match != nil {
 		val, err := strconv.Atoi(match[1])

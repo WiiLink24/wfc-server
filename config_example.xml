@@ -2,6 +2,8 @@
     <!-- The address the server will bind to -->
     <address>127.0.0.1</address>
     <nasPort>80</nasPort>
+    <nasPortHttps>443</nasPortHttps>
+    <enableHttps>false</enableHttps>
 
     <!-- Database Credentials -->
     <username>username</username>
