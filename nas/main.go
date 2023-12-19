@@ -87,10 +87,9 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reply 200 to conntest
+	// Handle conntest server
 	if strings.HasPrefix(r.Host, "conntest.") {
-		// Respond with a 200 status code
-		replyHTTPError(w, 200, "ok")
+		handleConnectionTest(w)
 		return
 	}
 
