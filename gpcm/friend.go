@@ -88,7 +88,6 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	// Friends are now mutual!
 	// TODO: Add a limit
 	g.AuthFriendList = append(g.AuthFriendList, uint32(newProfileId))
-	newSession.AuthFriendList = append(newSession.AuthFriendList, uint32(g.User.ProfileId))
 
 	sendMessageToProfileId("2", g.User.ProfileId, uint32(newProfileId), addFriendMessage)
 }
