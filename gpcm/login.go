@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/logrusorgru/aurora/v3"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -15,6 +14,8 @@ import (
 	"wwfc/database"
 	"wwfc/logging"
 	"wwfc/qr2"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {
@@ -110,42 +111,13 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		return
 	}
 
-	if command.OtherValues["payload_ver"] != "1" {
-		g.replyError(GPError{
-			ErrorCode:   ErrLogin.ErrorCode,
-			ErrorString: "The payload version is invalid.",
-			Fatal:       true,
-		})
-		return
-	}
-
 	authToken := command.OtherValues["authtoken"]
 	if authToken == "" {
 		g.replyError(ErrLogin)
 		return
 	}
 
-	signature, exists := command.OtherValues["wwfc_sig"]
-	if !exists {
-		g.replyError(GPError{
-			ErrorCode:   ErrLogin.ErrorCode,
-			ErrorString: "Missing authentication signature.",
-			Fatal:       true,
-		})
-		return
-	}
-
-	var deviceId uint32
-	if deviceId = verifySignature(authToken, signature); deviceId == 0 {
-		g.replyError(GPError{
-			ErrorCode:   ErrLogin.ErrorCode,
-			ErrorString: "The authentication signature is invalid.",
-			Fatal:       true,
-		})
-		return
-	}
-
-	err, _, issueTime, userId, gsbrcd, cfc, _, _, ingamesn, challenge := common.UnmarshalNASAuthToken(authToken)
+	err, gamecd, issueTime, userId, gsbrcd, cfc, _, _, ingamesn, challenge, isLocalhost := common.UnmarshalNASAuthToken(authToken)
 	if err != nil {
 		g.replyError(ErrLogin)
 		return
@@ -155,6 +127,43 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	if issueTime.Before(currentTime.Add(-10*time.Minute)) || issueTime.After(currentTime) {
 		g.replyError(ErrLoginLoginTicketExpired)
 		return
+	}
+
+	payloadVer, payloadVerExists := command.OtherValues["payload_ver"]
+	signature, signatureExists := command.OtherValues["wwfc_sig"]
+	deviceId := uint32(0)
+
+	if isLocalhost && !payloadVerExists && !signatureExists {
+		// Players using the DNS exploit, need patching using a QR2 exploit
+		// TODO: Check that the game is compatible with the DNS
+		g.NeedsExploit = true
+	} else {
+		if !payloadVerExists || payloadVer != "1" {
+			g.replyError(GPError{
+				ErrorCode:   ErrLogin.ErrorCode,
+				ErrorString: "The payload version is invalid.",
+				Fatal:       true,
+			})
+			return
+		}
+
+		if !signatureExists {
+			g.replyError(GPError{
+				ErrorCode:   ErrLogin.ErrorCode,
+				ErrorString: "Missing authentication signature.",
+				Fatal:       true,
+			})
+			return
+		}
+
+		if deviceId = verifySignature(authToken, signature); deviceId == 0 {
+			g.replyError(GPError{
+				ErrorCode:   ErrLogin.ErrorCode,
+				ErrorString: "The authentication signature is invalid.",
+				Fatal:       true,
+			})
+			return
+		}
 	}
 
 	response := generateResponse(g.Challenge, challenge, authToken, command.OtherValues["challenge"])
@@ -194,11 +203,10 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	// Check to see if a session is already open with this profile ID
 	mutex.Lock()
-	_, exists = sessions[g.User.ProfileId]
+	_, exists := sessions[g.User.ProfileId]
 	if exists {
 		mutex.Unlock()
-		// Original GPCM would've force kicked the other logged in client,
-		// but we just kick this client
+		// TODO: Kick the other client, not this one
 		g.replyError(ErrForcedDisconnect)
 		return
 	}
@@ -207,15 +215,16 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	g.LoginTicket = common.MarshalGPCMLoginTicket(g.User.ProfileId)
 	g.SessionKey = rand.Int31n(290000000) + 10000000
+	g.GameCode = gamecd
 	g.InGameName = ingamesn
 
+	g.DeviceAuthenticated = !g.NeedsExploit
 	g.LoggedIn = true
 	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10)
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ")
 
 	// Notify QR2 of the login
-	// TODO: Get ingamesn and cfc from NAS
-	qr2.Login(g.User.ProfileId, ingamesn, cfc, g.Conn.RemoteAddr().String())
+	qr2.Login(g.User.ProfileId, ingamesn, cfc, g.Conn.RemoteAddr().String(), g.NeedsExploit, g.DeviceAuthenticated)
 
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",

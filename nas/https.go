@@ -315,12 +315,11 @@ func startHTTPSProxy(address string, nasAddr string) {
 
 			// Read bytes from the HTTP server and forward them through the TLS connection
 			go func() {
-				buf := make([]byte, 0x1000)
+				recvBuf := make([]byte, 0x100)
 
 				seq := uint64(1)
-				index := 0
 				for {
-					n, err := newConn.Read(buf[index:])
+					n, err := newConn.Read(recvBuf)
 					if err != nil {
 						if errors.Is(err, io.EOF) || strings.Contains(err.Error(), "use of closed network connection") {
 							return
@@ -330,9 +329,9 @@ func startHTTPSProxy(address string, nasAddr string) {
 						return
 					}
 
-					// fmt.Printf("Sent:\n% X ", buf[index:index+n])
+					// fmt.Printf("Sent:\n% X ", recvBuf[:n])
 					var record []byte
-					record, seq = encryptTLS(macFn, cipher, buf[index:index+n], seq, []byte{0x17, 0x03, 0x01, byte(n >> 8), byte(n)})
+					record, seq = encryptTLS(macFn, cipher, recvBuf[:n], seq, []byte{0x17, 0x03, 0x01, byte(n >> 8), byte(n)})
 
 					_, err = conn.Write(record)
 					if err != nil {
@@ -349,6 +348,11 @@ func startHTTPSProxy(address string, nasAddr string) {
 			for {
 				n, err := conn.Read(buf[index:])
 				if err != nil {
+					if errors.Is(err, io.EOF) || strings.Contains(err.Error(), "use of closed network connection") {
+						logging.Info(moduleName, "Connection closed by client after", aurora.BrightCyan(total), "bytes")
+						return
+					}
+
 					logging.Error(moduleName, "Failed to read from client:", err)
 					return
 				}
@@ -387,18 +391,20 @@ func startHTTPSProxy(address string, nasAddr string) {
 					// fmt.Printf("\nDecrypted content:\n% X \n", buf[5:5+recordLength])
 
 					if buf[0] != 0x17 {
-						if buf[0] == 0x15 && buf[5] == 0x01 && buf[6] == 0x00 {
+						if buf[0] == 0x15 || buf[5] == 0x01 || buf[6] == 0x00 {
+							logging.Info(moduleName, "Alert connection close by client after", aurora.BrightCyan(total), "bytes")
 							return
 						}
-						logging.Error(moduleName, "Non-application data received")
-						return
-					}
 
-					// Send the decrypted content to the HTTP server
-					_, err = newConn.Write(buf[5 : 5+recordLength-16])
-					if err != nil {
-						logging.Error(moduleName, "Failed to write to HTTP server:", err)
+						logging.Error(moduleName, "Non-application data received:", aurora.Cyan(fmt.Sprintf("% X ", buf[:5+recordLength])))
 						return
+					} else {
+						// Send the decrypted content to the HTTP server
+						_, err = newConn.Write(buf[5 : 5+recordLength-16])
+						if err != nil {
+							logging.Error(moduleName, "Failed to write to HTTP server:", err)
+							return
+						}
 					}
 
 					buf = buf[5+recordLength:]

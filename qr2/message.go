@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"wwfc/common"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 func printHex(data []byte) string {
@@ -46,6 +47,10 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	if destPid, ok := receiver.Data["dwc_pid"]; !ok || destPid == "" {
 		logging.Error(moduleName, "Destination", aurora.Cyan(destSearchID), "has no profile ID")
 		return
+	}
+
+	if receiver.Login == nil || !receiver.Login.DeviceAuthenticated {
+		logging.Error(moduleName, "Destination", aurora.Cyan(destSearchID), "is not device authenticated")
 	}
 
 	// Decode and validate the message
@@ -97,6 +102,11 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 
 		if !sender.setProfileID(moduleName, strconv.FormatUint(uint64(senderProfileID), 10)) {
 			// Error already logged
+			return
+		}
+
+		if sender.Login == nil || !sender.Login.DeviceAuthenticated {
+			logging.Error(moduleName, "Sender is not device authenticated")
 			return
 		}
 

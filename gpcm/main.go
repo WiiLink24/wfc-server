@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"net"
 	"sync"
@@ -14,24 +12,31 @@ import (
 	"wwfc/database"
 	"wwfc/logging"
 	"wwfc/qr2"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 )
 
 type GameSpySession struct {
-	Conn           net.Conn
-	User           database.User
-	ModuleName     string
-	LoggedIn       bool
-	Challenge      string
-	LoginTicket    string
-	SessionKey     int32
-	InGameName     string
-	Status         string
-	LocString      string
-	FriendList     []uint32
-	AuthFriendList []uint32
+	Conn                net.Conn
+	User                database.User
+	ModuleName          string
+	LoggedIn            bool
+	DeviceAuthenticated bool
+	Challenge           string
+	LoginTicket         string
+	SessionKey          int32
+	GameCode            string
+	InGameName          string
+	Status              string
+	LocString           string
+	FriendList          []uint32
+	AuthFriendList      []uint32
 
 	QR2IP          uint64
 	ReservationPID uint32
+
+	NeedsExploit bool
 }
 
 var (

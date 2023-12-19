@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/logrusorgru/aurora/v3"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,6 +15,8 @@ import (
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
@@ -76,7 +77,8 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			break
 
 		case "login":
-			reply = login(moduleName, fields)
+			isLocalhost := strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") || strings.HasPrefix(r.RemoteAddr, "[::1]:")
+			reply = login(moduleName, fields, isLocalhost)
 			break
 
 		case "svcloc":
@@ -158,7 +160,7 @@ func acctcreate() map[string]string {
 	}
 }
 
-func login(moduleName string, fields map[string]string) map[string]string {
+func login(moduleName string, fields map[string]string, isLocalhost bool) map[string]string {
 	param := map[string]string{
 		"retry":    "0",
 		"datetime": getDateTime(),
@@ -231,7 +233,7 @@ func login(moduleName string, fields map[string]string) map[string]string {
 		return param
 	}
 
-	authToken, challenge := common.MarshalNASAuthToken(gamecd, userId, gsbrcd, cfcInt, regionByte[0], langByte[0], fields["ingamesn"])
+	authToken, challenge := common.MarshalNASAuthToken(gamecd, userId, gsbrcd, cfcInt, regionByte[0], langByte[0], fields["ingamesn"], isLocalhost)
 
 	param["returncd"] = "001"
 	param["challenge"] = challenge

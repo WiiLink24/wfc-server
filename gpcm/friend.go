@@ -4,12 +4,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/logging"
 	"wwfc/qr2"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 func (g *GameSpySession) isFriendAdded(profileId uint32) bool {
@@ -198,7 +199,18 @@ func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
 	mutex.Unlock()
 }
 
+const (
+	resvDenyVer3  = "GPCM3vMAT\x0316"
+	resvDenyVer11 = "GPCM11vMAT\x0300000010"
+	resvDenyVer90 = "GPCM90vMAT\x03EAAAAA**"
+
+	resvWaitVer3  = "GPCM3vMAT\x04"
+	resvWaitVer11 = "GPCM11vMAT\x04"
+	resvWaitVer90 = "GPCM90vMAT\x04"
+)
+
 func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
+	// TODO: There are other command values that mean the same thing
 	if command.CommandValue != "1" {
 		logging.Notice(g.ModuleName, "Received unknown bestie message type:", aurora.Cyan(command.CommandValue))
 		return
@@ -228,20 +240,35 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	// Parse message for security and room tracking purposes
 	var version int
 	var msgDataIndex int
+	var resvDenyMsg string
+	var resvWaitMsg string
 
 	if strings.HasPrefix(msg, "GPCM3vMAT") {
 		version = 3
+		resvDenyMsg = resvDenyVer3
+		resvWaitMsg = resvWaitVer3
 		msgDataIndex = 9
 	} else if strings.HasPrefix(msg, "GPCM11vMAT") {
 		// Only used for Brawl
 		version = 11
+		resvDenyMsg = resvDenyVer11
+		resvWaitMsg = resvWaitVer11
 		msgDataIndex = 10
 	} else if strings.HasPrefix(msg, "GPCM90vMAT") {
 		version = 90
+		resvDenyMsg = resvDenyVer90
+		resvWaitMsg = resvWaitVer90
 		msgDataIndex = 10
 	} else {
 		logging.Error(g.ModuleName, "Invalid message prefix; message:", msg)
 		g.replyError(ErrMessage)
+		return
+	}
+
+	if !g.DeviceAuthenticated {
+		logging.Notice(g.ModuleName, "Sender is not device authenticated yet")
+		// g.replyError(ErrMessage)
+		sendMessageToSession("1", uint32(toProfileId), g, resvWaitMsg)
 		return
 	}
 
@@ -268,7 +295,6 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 
 			msgData = binary.LittleEndian.AppendUint32(msgData, uint32(intValue))
 		}
-		break
 
 	case 11:
 		for _, stringValue := range strings.Split(msg[msgDataIndex:], "/") {
@@ -281,7 +307,6 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 
 			msgData = append(msgData, byteValue...)
 		}
-		break
 
 	case 90:
 		msgData, err = common.Base64DwcEncoding.DecodeString(msg[msgDataIndex:])
@@ -290,7 +315,11 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 			g.replyError(ErrMessage)
 			return
 		}
-		break
+
+	default:
+		logging.Error(g.ModuleName, "Invalid message version; message:", msg)
+		g.replyError(ErrMessage)
+		return
 	}
 
 	if len(msgData) > 0x200 || (len(msgData)&3) != 0 {
@@ -332,13 +361,20 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	var toSession *GameSpySession
 	if toSession, ok = sessions[uint32(toProfileId)]; !ok || !toSession.LoggedIn {
 		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not online")
-		g.replyError(ErrMessageFriendOffline)
+		// g.replyError(ErrMessageFriendOffline)
+		sendMessageToSession("1", toSession.User.ProfileId, g, resvDenyMsg)
 		return
 	}
 
 	if !toSession.isFriendAdded(g.User.ProfileId) {
 		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not friends with sender")
 		g.replyError(ErrMessageNotFriends)
+		return
+	}
+
+	if !toSession.DeviceAuthenticated {
+		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not device authenticated")
+		sendMessageToSession("1", toSession.User.ProfileId, g, resvDenyMsg)
 		return
 	}
 
@@ -419,6 +455,12 @@ func sendMessageToProfileId(msgType string, from uint32, to uint32, msg string) 
 func (g *GameSpySession) sendFriendStatus(profileId uint32) {
 	if g.isFriendAdded(profileId) {
 		if session, ok := sessions[profileId]; ok && session.LoggedIn && session.isFriendAdded(g.User.ProfileId) {
+			// Prevent players abusing a stack overflow exploit with the locstring in Mario Kart Wii
+			if session.NeedsExploit && strings.HasPrefix(session.GameCode, "RMC") && len(g.LocString) > 0x14 {
+				logging.Warn("GPCM", "Blocked message from", aurora.Cyan(g.User.ProfileId), "to", aurora.Cyan(session.User.ProfileId), "due to a stack overflow exploit")
+				return
+			}
+
 			sendMessageToSession("100", g.User.ProfileId, session, g.Status)
 		}
 	}

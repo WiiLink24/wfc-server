@@ -1,7 +1,6 @@
 package qr2
 
 import (
-	"github.com/logrusorgru/aurora/v3"
 	"math/rand"
 	"net"
 	"strconv"
@@ -10,6 +9,8 @@ import (
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 const (
@@ -24,7 +25,7 @@ type Session struct {
 	Addr          net.Addr
 	Challenge     string
 	Authenticated bool
-	Login         LoginInfo
+	Login         *LoginInfo
 	LastKeepAlive int64
 	Endianness    byte // Some fields depend on the client's endianness
 	Data          map[string]string
@@ -60,6 +61,13 @@ func removeSession(addr uint64) {
 			session.GroupPointer.Server = nil
 			// TODO: Search for new host via dwc_hoststate
 		}
+
+		session.GroupPointer = nil
+	}
+
+	if session.Login != nil {
+		session.Login.Session = nil
+		session.Login = nil
 	}
 
 	// Delete search ID lookup
@@ -156,7 +164,7 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 
 	// Check if the public IP matches the one used for the GPCM session
 	var gpPublicIP string
-	var loginInfo LoginInfo
+	var loginInfo *LoginInfo
 	var ok bool
 	if loginInfo, ok = logins[uint32(profileID)]; ok {
 		gpPublicIP = loginInfo.GPPublicIP
@@ -172,24 +180,18 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 
 	session.Login = loginInfo
 
-	// Constraint: only one session can exist with a profile ID
-	var outdated []uint64
-	for sessionAddr, otherSession := range sessions {
-		if otherSession == session {
-			continue
-		}
-
-		if otherPID, ok := otherSession.Data["dwc_pid"]; !ok || otherPID != newPID {
-			continue
-		}
-
-		// Remove old sessions with the PID
-		outdated = append(outdated, sessionAddr)
+	// Constraint: only one session can exist with a given profile ID
+	if loginInfo.Session != nil {
+		logging.Notice(moduleName, "Removing outdated session", aurora.BrightCyan(loginInfo.Session.Addr.String()), "with PID", aurora.Cyan(newPID))
+		removeSession(makeLookupAddr(loginInfo.Session.Addr.String()))
 	}
 
-	for _, sessionAddr := range outdated {
-		logging.Notice(moduleName, "Removing outdated session", aurora.BrightCyan(sessions[sessionAddr].Addr.String()), "with PID", aurora.Cyan(newPID))
-		removeSession(sessionAddr)
+	loginInfo.Session = session
+
+	if loginInfo.DeviceAuthenticated {
+		session.Data["+deviceauth"] = "1"
+	} else {
+		session.Data["+deviceauth"] = "0"
 	}
 
 	session.Data["dwc_pid"] = newPID

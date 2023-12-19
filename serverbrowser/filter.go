@@ -1,9 +1,10 @@
 package serverbrowser
 
 import (
-	"github.com/logrusorgru/aurora/v3"
 	"wwfc/logging"
 	"wwfc/serverbrowser/filter"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 // DWC makes requests in the following formats:
@@ -26,6 +27,10 @@ func filterServers(servers []map[string]string, queryGame string, expression str
 
 	for _, server := range servers {
 		if server["gamename"] != queryGame {
+			continue
+		}
+
+		if server["+deviceauth"] != "1" {
 			continue
 		}
 
