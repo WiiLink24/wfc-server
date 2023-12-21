@@ -3,6 +3,7 @@ package gpcm
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,6 +14,21 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 )
 
+func removeFromUint32Array(arrayPointer *[]uint32, index int) error {
+	array := *arrayPointer
+	arrayLength := len(array)
+
+	if index < 0 || index >= arrayLength {
+		return errors.New("index is out of bounds")
+	}
+
+	lastIndex := arrayLength - 1
+
+	array[index] = array[lastIndex]
+	*arrayPointer = array[:lastIndex]
+	return nil
+}
+
 func (g *GameSpySession) isFriendAdded(profileId uint32) bool {
 	for _, storedPid := range g.FriendList {
 		if storedPid == profileId {
@@ -22,6 +38,15 @@ func (g *GameSpySession) isFriendAdded(profileId uint32) bool {
 	return false
 }
 
+func (g *GameSpySession) getFriendIndex(profileId uint32) int {
+	for i, storedPid := range g.FriendList {
+		if storedPid == profileId {
+			return i
+		}
+	}
+	return -1
+}
+
 func (g *GameSpySession) isFriendAuthorized(profileId uint32) bool {
 	for _, storedPid := range g.AuthFriendList {
 		if storedPid == profileId {
@@ -29,6 +54,15 @@ func (g *GameSpySession) isFriendAuthorized(profileId uint32) bool {
 		}
 	}
 	return false
+}
+
+func (g *GameSpySession) getAuthorizedFriendIndex(profileId uint32) int {
+	for i, storedPid := range g.AuthFriendList {
+		if storedPid == profileId {
+			return i
+		}
+	}
+	return -1
 }
 
 const addFriendMessage = "\r\n\r\n|signed|00000000000000000000000000000000"
@@ -70,7 +104,9 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	defer mutex.Unlock()
 
 	// TODO: Add a limit
-	g.FriendList = append(g.FriendList, uint32(newProfileId))
+	if !g.isFriendAdded(uint32(newProfileId)) {
+		g.FriendList = append(g.FriendList, uint32(newProfileId))
+	}
 
 	// Check if destination has added the sender
 	newSession, ok := sessions[uint32(newProfileId)]
@@ -127,24 +163,24 @@ func (g *GameSpySession) removeFriend(command common.GameSpyCommand) {
 	}
 	delProfileID32 := uint32(delProfileID64)
 
-	delProfileIDIndex := -1
-	for i, profileID := range g.AuthFriendList {
-		if profileID == delProfileID32 {
-			delProfileIDIndex = i
-			break
-		}
-	}
-	if delProfileIDIndex == -1 {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if !g.isFriendAdded(delProfileID32) {
 		logging.Error(g.ModuleName, aurora.Cyan(strDelProfileID), "is not a friend")
 		g.replyError(ErrDeleteFriendNotFriends)
 		return
 	}
+	if !g.isFriendAuthorized(delProfileID32) {
+		logging.Error(g.ModuleName, aurora.Cyan(strDelProfileID), "is not an authorized friend")
+		g.replyError(ErrDeleteFriendNotFriends)
+		return
+	}
 
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	g.AuthFriendList[delProfileIDIndex] = g.AuthFriendList[len(g.AuthFriendList)-1]
-	g.AuthFriendList = g.AuthFriendList[:len(g.AuthFriendList)-1]
+	delProfileIDIndex := g.getFriendIndex(delProfileID32)
+	removeFromUint32Array(&g.FriendList, delProfileIDIndex)
+	delProfileIDIndex = g.getAuthorizedFriendIndex(delProfileID32)
+	removeFromUint32Array(&g.AuthFriendList, delProfileIDIndex)
 
 	sendMessageToProfileId("100", g.User.ProfileId, delProfileID32, logOutMessage)
 }
