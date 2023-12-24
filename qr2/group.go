@@ -220,7 +220,7 @@ func GetGroups(gameName string) []GroupInfo {
 			groupInfo.MKWRegion = group.MKWRegion
 		}
 
-		for session, _ := range group.Players {
+		for session := range group.Players {
 			mapData := map[string]string{}
 			for k, v := range session.Data {
 				mapData[k] = v

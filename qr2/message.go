@@ -289,6 +289,7 @@ func sendClientExploit(moduleName string, sessionCopy Session) {
 	mutex.Lock()
 	session, sessionExists := sessions[makeLookupAddr(sessionCopy.Addr.String())]
 	if !sessionExists {
+		mutex.Unlock()
 		logging.Error(moduleName, "Session not found")
 		return
 	}

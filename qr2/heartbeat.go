@@ -90,10 +90,10 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 	if !session.Authenticated {
 		logging.Notice(moduleName, "Sending challenge")
 		sendChallenge(conn, addr, session, lookupAddr)
-		return
 	} else if !session.ExploitReceived && session.Login != nil && session.Login.NeedsExploit && statechanged == "1" {
 		logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")
 		sendClientExploit(moduleName, session)
-		return
 	}
+
+	logging.Info(moduleName, "Heartbeat ok")
 }
