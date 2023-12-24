@@ -2,6 +2,7 @@ package qr2
 
 type LoginInfo struct {
 	ProfileID           uint32
+	GameCode            string
 	InGameName          string
 	ConsoleFriendCode   uint64
 	GPPublicIP          string
@@ -12,11 +13,12 @@ type LoginInfo struct {
 
 var logins = map[uint32]*LoginInfo{}
 
-func Login(profileID uint32, inGameName string, consoleFriendCode uint64, publicIP string, needsExploit bool, deviceAuthenticated bool) {
+func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCode uint64, publicIP string, needsExploit bool, deviceAuthenticated bool) {
 	mutex.Lock()
 
 	logins[profileID] = &LoginInfo{
 		ProfileID:           profileID,
+		GameCode:            gameCode,
 		InGameName:          inGameName,
 		ConsoleFriendCode:   consoleFriendCode,
 		GPPublicIP:          publicIP,

@@ -2,11 +2,12 @@ package qr2
 
 import (
 	"encoding/binary"
-	"github.com/logrusorgru/aurora/v3"
 	"net"
 	"strings"
 	"wwfc/common"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []byte) {
@@ -16,13 +17,20 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 	values := strings.Split(string(buffer[5:]), "\u0000")
 
 	payload := map[string]string{}
+	unknowns := []string{}
 	for i := 0; i < len(values); i += 2 {
 		if len(values[i]) == 0 || values[i][0] == '+' {
 			continue
 		}
 
-		payload[values[i]] = values[i+1]
 		logging.Info(moduleName, aurora.Cyan(values[i]).String()+":", aurora.Cyan(values[i+1]))
+
+		if values[i] == "unknown" {
+			unknowns = append(unknowns, values[i+1])
+			continue
+		}
+
+		payload[values[i]] = values[i+1]
 	}
 
 	realIP, realPort := common.IPFormatToString(addr.String())
@@ -41,7 +49,8 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 
 	lookupAddr := makeLookupAddr(addr.String())
 
-	if statechanged, ok := payload["statechanged"]; ok {
+	statechanged, ok := payload["statechanged"]
+	if ok {
 		if statechanged == "1" {
 			// TODO: This would be a good place to run the server->client message exploit
 			// for DNS patcher games that require code patches. The status code should be
@@ -62,9 +71,29 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		return
 	}
 
+	if payload["gamename"] == "mariokartwii" && len(unknowns) > 0 {
+		// Try to login using the first unknown as a profile ID
+		// This makes it possible to execute the exploit on the client sooner
+		profileId := unknowns[0]
+		logging.Notice(moduleName, "Attempting to use unknown as profile ID", aurora.Cyan(profileId))
+
+		mutex.Lock()
+		session, sessionExists := sessions[lookupAddr]
+		if !sessionExists {
+			logging.Error(moduleName, "Session not found")
+		} else {
+			session.setProfileID(moduleName, profileId)
+		}
+		mutex.Unlock()
+	}
+
 	if !session.Authenticated {
 		logging.Notice(moduleName, "Sending challenge")
 		sendChallenge(conn, addr, session, lookupAddr)
+		return
+	} else if !session.ExploitReceived && session.Login != nil && session.Login.NeedsExploit && statechanged == "1" {
+		logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")
+		sendClientExploit(moduleName, session)
 		return
 	}
 }

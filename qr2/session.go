@@ -20,18 +20,19 @@ const (
 )
 
 type Session struct {
-	SessionID     uint32
-	SearchID      uint64
-	Addr          net.Addr
-	Challenge     string
-	Authenticated bool
-	Login         *LoginInfo
-	LastKeepAlive int64
-	Endianness    byte // Some fields depend on the client's endianness
-	Data          map[string]string
-	PacketCount   uint32
-	ReservationID uint64
-	GroupPointer  *Group
+	SessionID       uint32
+	SearchID        uint64
+	Addr            net.Addr
+	Challenge       string
+	Authenticated   bool
+	Login           *LoginInfo
+	ExploitReceived bool
+	LastKeepAlive   int64
+	Endianness      byte // Some fields depend on the client's endianness
+	Data            map[string]string
+	PacketCount     uint32
+	ReservationID   uint64
+	GroupPointer    *Group
 }
 
 var (

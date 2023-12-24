@@ -24,6 +24,7 @@ type GameSpySession struct {
 	LoggedIn            bool
 	DeviceAuthenticated bool
 	Challenge           string
+	AuthToken           string
 	LoginTicket         string
 	SessionKey          int32
 	GameCode            string
@@ -89,7 +90,7 @@ func (g *GameSpySession) closeSession() {
 	if g.LoggedIn {
 		qr2.Logout(g.User.ProfileId)
 		if g.QR2IP != 0 {
-			qr2.ProcessGPStatusUpdate(g.QR2IP, "0")
+			qr2.ProcessGPStatusUpdate(g.User.ProfileId, g.QR2IP, "0")
 		}
 		g.sendLogoutStatus()
 	}
@@ -105,7 +106,7 @@ func (g *GameSpySession) closeSession() {
 
 // Handles incoming requests.
 func handleRequest(conn net.Conn) {
-	session := GameSpySession{
+	session := &GameSpySession{
 		Conn:           conn,
 		User:           database.User{},
 		ModuleName:     "GPCM",
@@ -172,6 +173,7 @@ func handleRequest(conn net.Conn) {
 			session.Conn.Write([]byte(`\ka\\final\`))
 		})
 		commands = session.handleCommand("login", commands, session.login)
+		commands = session.handleCommand("wwfc_exlogin", commands, session.exLogin)
 		commands = session.ignoreCommand("logout", commands)
 
 		if len(commands) != 0 && session.LoggedIn == false {

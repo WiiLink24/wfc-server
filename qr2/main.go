@@ -2,11 +2,12 @@ package qr2
 
 import (
 	"encoding/binary"
-	"github.com/logrusorgru/aurora/v3"
 	"net"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 const (
@@ -21,6 +22,8 @@ const (
 	KeepAliveRequest        = 0x08
 	AvailableRequest        = 0x09
 	ClientRegisteredReply   = 0x0A
+
+	ClientExploitReply = 0x10
 )
 
 var masterConn net.PacketConn
@@ -116,6 +119,10 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	case ClientMessageAckRequest:
 		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK"))
+
+		// In case ClientExploitReply is lost, this can be checked as well
+		// This would be sent either after the payload is downloaded, or the client is already patched
+		session.ExploitReceived = true
 		return
 
 	case KeepAliveRequest:
@@ -131,7 +138,13 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		return
 
 	case ClientRegisteredReply:
-		logging.Notice(moduleName, "Command:", aurora.Cyan("CLIENT_REGISTERED"))
+		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_REGISTERED"))
+		break
+
+	case ClientExploitReply:
+		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_EXPLOIT_ACK"))
+
+		session.ExploitReceived = true
 		break
 
 	default:

@@ -169,9 +169,7 @@ func (g *GameSpySession) authAddFriend(command common.GameSpyCommand) {
 func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
 	status := command.CommandValue
 
-	if g.QR2IP != 0 {
-		qr2.ProcessGPStatusUpdate(g.QR2IP, status)
-	}
+	qr2.ProcessGPStatusUpdate(g.User.ProfileId, g.QR2IP, status)
 
 	statstring, ok := command.OtherValues["statstring"]
 	if !ok {

@@ -3,8 +3,9 @@ package database
 import (
 	"context"
 	"errors"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"math/rand"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 const (
@@ -80,6 +81,15 @@ func (user *User) UpdateProfileID(pool *pgxpool.Pool, ctx context.Context, newPr
 	_, err = pool.Exec(ctx, UpdateUserProfileID, user.UserId, user.GsbrCode, newProfileId)
 	if err == nil {
 		user.ProfileId = newProfileId
+	}
+
+	return err
+}
+
+func (user *User) UpdateDeviceID(pool *pgxpool.Pool, ctx context.Context, newDeviceId uint32) error {
+	_, err := pool.Exec(ctx, UpdateUserNGDeviceID, user.ProfileId, newDeviceId)
+	if err == nil {
+		user.NgDeviceId = newDeviceId
 	}
 
 	return err

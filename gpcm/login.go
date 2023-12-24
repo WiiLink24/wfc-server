@@ -213,6 +213,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	sessions[g.User.ProfileId] = g
 	mutex.Unlock()
 
+	g.AuthToken = authToken
 	g.LoginTicket = common.MarshalGPCMLoginTicket(g.User.ProfileId)
 	g.SessionKey = rand.Int31n(290000000) + 10000000
 	g.GameCode = gamecd
@@ -224,7 +225,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ")
 
 	// Notify QR2 of the login
-	qr2.Login(g.User.ProfileId, ingamesn, cfc, g.Conn.RemoteAddr().String(), g.NeedsExploit, g.DeviceAuthenticated)
+	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.Conn.RemoteAddr().String(), g.NeedsExploit, g.DeviceAuthenticated)
 
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
@@ -243,6 +244,42 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.Conn.Write([]byte(payload))
 
 	g.sendFriendRequests()
+}
+
+func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
+	payloadVer, payloadVerExists := command.OtherValues["payload_ver"]
+	signature, signatureExists := command.OtherValues["wwfc_sig"]
+	deviceId := uint32(0)
+
+	if !payloadVerExists || payloadVer != "1" {
+		g.replyError(GPError{
+			ErrorCode:   ErrLogin.ErrorCode,
+			ErrorString: "The payload version is invalid.",
+			Fatal:       true,
+		})
+		return
+	}
+
+	if !signatureExists {
+		g.replyError(GPError{
+			ErrorCode:   ErrLogin.ErrorCode,
+			ErrorString: "Missing authentication signature.",
+			Fatal:       true,
+		})
+		return
+	}
+
+	if deviceId = verifySignature(g.AuthToken, signature); deviceId == 0 {
+		g.replyError(GPError{
+			ErrorCode:   ErrLogin.ErrorCode,
+			ErrorString: "The authentication signature is invalid.",
+			Fatal:       true,
+		})
+		return
+	}
+
+	g.DeviceAuthenticated = true
+	qr2.SetDeviceAuthenticated(g.User.ProfileId)
 }
 
 func IsLoggedIn(profileID uint32) bool {

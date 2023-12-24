@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"os"
 	"strconv"
+	"time"
 	"wwfc/common"
 	"wwfc/logging"
 
@@ -270,4 +272,56 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	if err != nil {
 		logging.Error(moduleName, "Error sending message:", err.Error())
 	}
+}
+
+func sendClientExploit(moduleName string, sessionCopy Session) {
+	if len(sessionCopy.Login.GameCode) != 4 || !common.IsUppercaseAlphanumeric(sessionCopy.Login.GameCode) {
+		logging.Error(moduleName, "Invalid game code:", aurora.Cyan(sessionCopy.Login.GameCode))
+		return
+	}
+
+	exploit, err := os.ReadFile("payload/sbcm/" + "payload." + sessionCopy.Login.GameCode + ".bin")
+	if err != nil {
+		logging.Error(moduleName, "Error reading exploit file", aurora.Cyan(sessionCopy.Login.GameCode), "-", err.Error())
+		return
+	}
+
+	mutex.Lock()
+	session, sessionExists := sessions[makeLookupAddr(sessionCopy.Addr.String())]
+	if !sessionExists {
+		logging.Error(moduleName, "Session not found")
+		return
+	}
+
+	packetCount := session.PacketCount + 1
+	session.PacketCount = packetCount
+	mutex.Unlock()
+
+	// Now send the exploit
+	payload := createResponseHeader(ClientMessageRequest, sessionCopy.SessionID)
+	payload = append(payload, []byte{0, 0, 0, 0}...)
+	binary.BigEndian.PutUint32(payload[len(payload)-4:], packetCount)
+	payload = append(payload, exploit[0xB:]...)
+
+	go func() {
+		for {
+			_, err = masterConn.WriteTo(payload, sessionCopy.Addr)
+			if err != nil {
+				logging.Error(moduleName, "Error sending message:", err.Error())
+			}
+
+			// Resend the message if no ack after 2 seconds
+			time.Sleep(2 * time.Second)
+
+			mutex.Lock()
+			session, sessionExists := sessions[makeLookupAddr(sessionCopy.Addr.String())]
+			if !sessionExists || session.ExploitReceived || session.Login == nil || !session.Login.NeedsExploit {
+				mutex.Unlock()
+				return
+			}
+
+			mutex.Unlock()
+			logging.Notice(moduleName, "Resending SBCM exploit to DNS patcher client")
+		}
+	}()
 }

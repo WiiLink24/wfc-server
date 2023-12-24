@@ -2,11 +2,12 @@ package qr2
 
 import (
 	"fmt"
-	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 type Group struct {
@@ -112,11 +113,48 @@ func ProcessGPResvOK(cmd common.MatchCommandDataResvOK, senderIP uint64, senderP
 	return processResvOK(moduleName, cmd, from, to)
 }
 
-func ProcessGPStatusUpdate(senderIP uint64, status string) {
-	if status == "0" || status == "1" || status == "3" || status == "4" {
-		mutex.Lock()
-		defer mutex.Unlock()
+func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
+	moduleName := "QR2/GPStatus:" + strconv.FormatUint(uint64(profileID), 10)
 
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	login, exists := logins[profileID]
+	if !exists || login == nil {
+		logging.Error(moduleName, "Received status update for non-existent profile ID", aurora.Cyan(profileID))
+		return
+	}
+
+	session := login.Session
+	if session == nil {
+		if senderIP == 0 {
+			logging.Info(moduleName, "Received status update for profile ID", aurora.Cyan(profileID), "but no session exists")
+			return
+		}
+
+		// Login with this profile ID
+		session, exists = sessions[senderIP]
+		if !exists || session == nil {
+			logging.Info(moduleName, "Received status update for profile ID", aurora.Cyan(profileID), "but no session exists")
+			return
+		}
+
+		if !session.setProfileID(moduleName, strconv.FormatUint(uint64(profileID), 10)) {
+			return
+		}
+	}
+
+	// Send the client message exploit if not received yet
+	if status != "0" && status != "1" && !session.ExploitReceived && session.Login != nil && session.Login.NeedsExploit {
+		sessionCopy := *session
+
+		mutex.Unlock()
+		logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")
+		sendClientExploit(moduleName, sessionCopy)
+		mutex.Lock()
+	}
+
+	if status == "0" || status == "1" || status == "3" || status == "4" {
 		session := sessions[senderIP]
 		if session == nil || session.GroupPointer == nil {
 			return
