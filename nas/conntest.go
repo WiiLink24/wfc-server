@@ -16,9 +16,12 @@ func handleConnectionTest(w http.ResponseWriter) {
 	response += `            This is test.html page` + "\n"
 	response += `            </body>` + "\n"
 	response += `            </html>` + "\n"
+	response += `          `
 
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-type", "text/html")
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
+	w.Header().Set("X-Organization", "Nintendo")
+	w.Header().Set("Connection", "Keep-Alive")
 	w.WriteHeader(200)
 	w.Write([]byte(response))
 }
