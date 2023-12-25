@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/logrusorgru/aurora/v3"
+	"github.com/sasha-s/go-deadlock"
 )
 
 type GameSpySession struct {
@@ -45,7 +45,7 @@ var (
 	pool *pgxpool.Pool
 	// I would use a sync.Map instead of the map mutex combo, but this performs better.
 	sessions = map[uint32]*GameSpySession{}
-	mutex    = sync.RWMutex{}
+	mutex    = deadlock.Mutex{}
 )
 
 func StartServer() {

@@ -5,12 +5,12 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
 
 	"github.com/logrusorgru/aurora/v3"
+	"github.com/sasha-s/go-deadlock"
 )
 
 const (
@@ -38,7 +38,7 @@ type Session struct {
 var (
 	sessions          = map[uint64]*Session{}
 	sessionBySearchID = map[uint64]*Session{}
-	mutex             = sync.RWMutex{}
+	mutex             = deadlock.Mutex{}
 )
 
 // Remove a session.

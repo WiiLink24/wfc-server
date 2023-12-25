@@ -49,7 +49,9 @@ func Logout(profileID uint32) {
 	// Delete login's session
 	if login, exists := logins[profileID]; exists {
 		if login.Session != nil {
+			mutex.Unlock()
 			removeSession(makeLookupAddr(login.Session.Addr.String()))
+			mutex.Lock()
 		}
 	}
 
