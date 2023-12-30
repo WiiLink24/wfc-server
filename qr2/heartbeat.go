@@ -61,7 +61,9 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 
 		if statechanged == "2" {
 			logging.Notice(moduleName, "Client session shutdown")
+			mutex.Lock()
 			removeSession(lookupAddr)
+			mutex.Unlock()
 			return
 		}
 	}

@@ -15,6 +15,7 @@ var logins = map[uint32]*LoginInfo{}
 
 func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCode uint64, publicIP string, needsExploit bool, deviceAuthenticated bool) {
 	mutex.Lock()
+	defer mutex.Unlock()
 
 	logins[profileID] = &LoginInfo{
 		ProfileID:           profileID,
@@ -26,12 +27,11 @@ func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCo
 		DeviceAuthenticated: deviceAuthenticated,
 		Session:             nil,
 	}
-
-	mutex.Unlock()
 }
 
 func SetDeviceAuthenticated(profileID uint32) {
 	mutex.Lock()
+	defer mutex.Unlock()
 
 	if login, exists := logins[profileID]; exists {
 		login.DeviceAuthenticated = true
@@ -39,23 +39,18 @@ func SetDeviceAuthenticated(profileID uint32) {
 			login.Session.Data["+deviceauth"] = "1"
 		}
 	}
-
-	mutex.Unlock()
 }
 
 func Logout(profileID uint32) {
 	mutex.Lock()
+	defer mutex.Unlock()
 
 	// Delete login's session
 	if login, exists := logins[profileID]; exists {
 		if login.Session != nil {
-			mutex.Unlock()
 			removeSession(makeLookupAddr(login.Session.Addr.String()))
-			mutex.Lock()
 		}
 	}
 
 	delete(logins, profileID)
-
-	mutex.Unlock()
 }

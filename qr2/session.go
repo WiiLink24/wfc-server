@@ -43,9 +43,6 @@ var (
 
 // Remove a session.
 func removeSession(addr uint64) {
-	mutex.Lock()
-	defer mutex.Unlock()
-
 	session := sessions[addr]
 	if session == nil {
 		return
