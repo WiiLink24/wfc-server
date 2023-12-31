@@ -203,12 +203,28 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	// Check to see if a session is already open with this profile ID
 	mutex.Lock()
-	_, exists := sessions[g.User.ProfileId]
+	otherSession, exists := sessions[g.User.ProfileId]
 	if exists {
-		mutex.Unlock()
-		// TODO: Kick the other client, not this one
-		g.replyError(ErrForcedDisconnect)
-		return
+		otherSession.replyError(ErrForcedDisconnect)
+		otherSession.Conn.Close()
+
+		for i := 0; ; i++ {
+			mutex.Unlock()
+			time.Sleep(300 * time.Millisecond)
+			mutex.Lock()
+
+			if _, exists = sessions[g.User.ProfileId]; !exists {
+				break
+			}
+
+			// Give up after 6 seconds
+			if i >= 20 {
+				mutex.Unlock()
+				logging.Error(g.ModuleName, "Failed to disconnect other session")
+				g.replyError(ErrForcedDisconnect)
+				return
+			}
+		}
 	}
 	sessions[g.User.ProfileId] = g
 	mutex.Unlock()
