@@ -38,33 +38,29 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			continue
 		}
 
-        var value string
-        if !strings.HasPrefix(key, "_") {
-            parsed, err := common.Base64DwcEncoding.DecodeString(values[0])
-            if err != nil {
-                logging.Error(moduleName, "Invalid POST form value:", aurora.Cyan(key).String()+":", aurora.Cyan(values[0]))
-                replyHTTPError(w, 400, "400 Bad Request")
-                return
-            }
-			
-            if key == "ingamesn" {
-                // Special handling required for the UTF-16 string
-                var utf16String []uint16
-                for i := 0; i < len(parsed)/2; i++ {
-                    utf16String = append(utf16String, binary.BigEndian.Uint16(parsed[i*2:i*2+2]))
-                }
-                value = string(utf16.Decode(utf16String))
-            } else {
-                value = string(parsed)
-            }
-        } else {
-            // Values unique to CTGP/the Wiimmfi payload, for compatibility reasons. Some of these are not base64 encoded.
-            value = values[0]
-        }
+		var value string
+		if !strings.HasPrefix(key, "_") {
+			parsed, err := common.Base64DwcEncoding.DecodeString(values[0])
+			if err != nil {
+				logging.Error(moduleName, "Invalid POST form value:", aurora.Cyan(key).String()+":", aurora.Cyan(values[0]))
+				replyHTTPError(w, 400, "400 Bad Request")
+				return
+			}
 
-        logging.Info(moduleName, aurora.Cyan(key).String()+":", aurora.Cyan(value))
-        fields[key] = value
-    }
+			if key == "ingamesn" {
+				// Special handling required for the UTF-16 string
+				var utf16String []uint16
+				for i := 0; i < len(parsed)/2; i++ {
+					utf16String = append(utf16String, binary.BigEndian.Uint16(parsed[i*2:i*2+2]))
+				}
+				value = string(utf16.Decode(utf16String))
+			} else {
+				value = string(parsed)
+			}
+		} else {
+			// Values unique to CTGP/the Wiimmfi payload, for compatibility reasons. Some of these are not base64 encoded.
+			value = values[0]
+		}
 
 		logging.Info(moduleName, aurora.Cyan(key).String()+":", aurora.Cyan(value))
 		fields[key] = value
