@@ -75,12 +75,6 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for /online
-	if r.URL.String() == "/online" {
-		returnOnlineStats(w)
-		return
-	}
-
 	// Check for /api/groups
 	if r.URL.Path == "/api/groups" {
 		api.HandleGroups(w, r)
