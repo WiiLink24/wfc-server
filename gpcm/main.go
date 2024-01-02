@@ -35,6 +35,7 @@ type GameSpySession struct {
 	AuthFriendList      []uint32
 
 	QR2IP          uint64
+	Reservation    common.MatchCommandData
 	ReservationPID uint32
 
 	NeedsExploit bool

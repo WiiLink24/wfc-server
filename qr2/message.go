@@ -112,6 +112,14 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 			return
 		}
 
+		mutex.Lock()
+		if sender.Data["gamename"] != receiver.Data["gamename"] {
+			mutex.Unlock()
+			logging.Error(moduleName, "Sender and receiver are not playing the same game")
+			return
+		}
+		mutex.Unlock()
+
 		var ok bool
 		matchData, ok = common.DecodeMatchCommand(message[8], message[0x14:], version)
 		if !ok {
@@ -209,7 +217,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		}
 
 		var matchMessage []byte
-		matchMessage, ok = common.EncodeMatchCommand(message[8], matchData, version)
+		matchMessage, ok = common.EncodeMatchCommand(message[8], matchData)
 		if !ok || len(matchMessage) > 0x80 {
 			logging.Error(moduleName, "Failed to reencode match command:", aurora.Cyan(printHex(message)))
 			return
@@ -223,6 +231,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	}
 
 	mutex.Lock()
+	defer mutex.Unlock()
 
 	destPid, ok := receiver.Data["dwc_pid"]
 	if !ok || destPid == "" {
@@ -234,8 +243,6 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	receiver.PacketCount = packetCount
 	destAddr := receiver.Addr
 
-	mutex.Unlock()
-
 	if isNatnegPacket {
 		cookie := binary.BigEndian.Uint32(message[0x2:0x6])
 		logging.Notice(moduleName, "Send NN cookie", aurora.Cyan(cookie), "to", aurora.BrightCyan(destPid))
@@ -244,20 +251,25 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		common.LogMatchCommand(moduleName, destPid, cmd, matchData)
 
 		if cmd == common.MatchReservation {
+			sender.Reservation = matchData
 			sender.ReservationID = receiver.SearchID
 		} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
-			if receiver.ReservationID != sender.SearchID {
+			if receiver.ReservationID != sender.SearchID || receiver.Reservation.Reservation == nil {
 				logging.Error(moduleName, "Destination has no reservation with the sender")
 				return
 			}
 
+			if receiver.Reservation.Version != matchData.Version {
+				logging.Error(moduleName, "Reservation version mismatch")
+				return
+			}
+
 			if cmd == common.MatchResvOK {
-				mutex.Lock()
-				if !processResvOK(moduleName, *matchData.ResvOK, sender, receiver) {
-					mutex.Unlock()
+				if !processResvOK(moduleName, matchData.Version, *receiver.Reservation.Reservation, *matchData.ResvOK, sender, receiver) {
 					return
 				}
-				mutex.Unlock()
+			} else {
+				receiver.ReservationID = 0
 			}
 		}
 	}

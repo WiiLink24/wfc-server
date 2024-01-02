@@ -11,18 +11,19 @@ import (
 )
 
 type Group struct {
-	GroupID   uint32
-	GroupName string
-	GameName  string
-	MatchType string
-	MKWRegion string
-	Server    *Session
-	Players   map[*Session]bool
+	GroupID       uint32
+	GroupName     string
+	GameName      string
+	MatchType     string
+	MKWRegion     string
+	LastJoinIndex int
+	Server        *Session
+	Players       map[*Session]bool
 }
 
 var groups = map[string]*Group{}
 
-func processResvOK(moduleName string, cmd common.MatchCommandDataResvOK, sender, destination *Session) bool {
+func processResvOK(moduleName string, matchVersion int, reservation common.MatchCommandDataReservation, resvOK common.MatchCommandDataResvOK, sender, destination *Session) bool {
 	if len(groups) >= 100000 {
 		logging.Error(moduleName, "Hit arbitrary global maximum group count (somehow)")
 		return false
@@ -31,13 +32,14 @@ func processResvOK(moduleName string, cmd common.MatchCommandDataResvOK, sender,
 	group := sender.GroupPointer
 	if group == nil {
 		group = &Group{
-			GroupID:   cmd.GroupID,
-			GroupName: "",
-			GameName:  sender.Data["gamename"],
-			MatchType: sender.Data["dwc_mtype"],
-			MKWRegion: "",
-			Server:    sender,
-			Players:   map[*Session]bool{sender: true},
+			GroupID:       resvOK.GroupID,
+			GroupName:     "",
+			GameName:      sender.Data["gamename"],
+			MatchType:     sender.Data["dwc_mtype"],
+			MKWRegion:     "",
+			LastJoinIndex: 0,
+			Server:        sender,
+			Players:       map[*Session]bool{sender: true},
 		}
 
 		for {
@@ -62,6 +64,11 @@ func processResvOK(moduleName string, cmd common.MatchCommandDataResvOK, sender,
 			group.MKWRegion = rk
 		}
 
+		sender.Data["+joinindex"] = "0"
+		if matchVersion == 90 {
+			sender.Data["+localplayers"] = strconv.FormatUint(uint64(resvOK.LocalPlayerCount), 10)
+		}
+
 		sender.GroupPointer = group
 		groups[group.GroupName] = group
 
@@ -71,16 +78,23 @@ func processResvOK(moduleName string, cmd common.MatchCommandDataResvOK, sender,
 	// TODO: Check if the sender is the actual server (host) once host migration works
 
 	// Keep group ID updated
-	sender.GroupPointer.GroupID = cmd.GroupID
+	group.GroupID = resvOK.GroupID
 
 	logging.Info(moduleName, "New player", aurora.BrightCyan(destination.Data["dwc_pid"]), "in group", aurora.Cyan(group.GroupName))
+
+	group.LastJoinIndex++
+	destination.Data["+joinindex"] = strconv.Itoa(group.LastJoinIndex)
+	if matchVersion == 90 {
+		destination.Data["+localplayers"] = strconv.FormatUint(uint64(reservation.LocalPlayerCount), 10)
+	}
+
 	group.Players[destination] = true
 	destination.GroupPointer = group
 
 	return true
 }
 
-func ProcessGPResvOK(cmd common.MatchCommandDataResvOK, senderIP uint64, senderPid uint32, destIP uint64, destPid uint32) bool {
+func ProcessGPResvOK(matchVersion int, reservation common.MatchCommandDataReservation, resvOK common.MatchCommandDataResvOK, senderIP uint64, senderPid uint32, destIP uint64, destPid uint32) bool {
 	senderPidStr := strconv.FormatUint(uint64(senderPid), 10)
 	destPidStr := strconv.FormatUint(uint64(destPid), 10)
 
@@ -110,7 +124,7 @@ func ProcessGPResvOK(cmd common.MatchCommandDataResvOK, senderIP uint64, senderP
 		return false
 	}
 
-	return processResvOK(moduleName, cmd, from, to)
+	return processResvOK(moduleName, matchVersion, reservation, resvOK, from, to)
 }
 
 func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
@@ -176,13 +190,13 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 }
 
 type GroupInfo struct {
-	GroupName string              `json:"id"`
-	GameName  string              `json:"gamename"`
-	MatchType string              `json:"type"`
-	Suspend   bool                `json:"suspend"`
-	ServerPID string              `json:"host,omitempty"`
-	MKWRegion string              `json:"rk,omitempty"`
-	Players   []map[string]string `json:"players"`
+	GroupName   string                       `json:"id"`
+	GameName    string                       `json:"game"`
+	MatchType   string                       `json:"type"`
+	Suspend     bool                         `json:"suspend"`
+	ServerIndex string                       `json:"host,omitempty"`
+	MKWRegion   string                       `json:"rk,omitempty"`
+	Players     map[string]map[string]string `json:"players"`
 }
 
 // GetGroups returns an unsorted copy of all online rooms
@@ -196,12 +210,12 @@ func GetGroups(gameName string) []GroupInfo {
 		}
 
 		groupInfo := GroupInfo{
-			GroupName: group.GroupName,
-			GameName:  group.GameName,
-			Suspend:   true,
-			ServerPID: "",
-			MKWRegion: "",
-			Players:   []map[string]string{},
+			GroupName:   group.GroupName,
+			GameName:    group.GameName,
+			Suspend:     true,
+			ServerIndex: "",
+			MKWRegion:   "",
+			Players:     map[string]map[string]string{},
 		}
 
 		if group.MatchType == "0" || group.MatchType == "1" {
@@ -213,7 +227,7 @@ func GetGroups(gameName string) []GroupInfo {
 		}
 
 		if groupInfo.MatchType == "private" && group.Server != nil {
-			groupInfo.ServerPID = group.Server.Data["dwc_pid"]
+			groupInfo.ServerIndex = group.Server.Data["+joinindex"]
 		}
 
 		if groupInfo.GameName == "mariokartwii" {
@@ -228,7 +242,7 @@ func GetGroups(gameName string) []GroupInfo {
 
 			mapData["+ingamesn"] = session.Login.InGameName
 
-			groupInfo.Players = append(groupInfo.Players, mapData)
+			groupInfo.Players[mapData["+joinindex"]] = mapData
 
 			if mapData["dwc_hoststate"] == "2" && mapData["dwc_suspend"] == "0" {
 				groupInfo.Suspend = false

@@ -417,8 +417,14 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		msgMatchData.Reservation.LocalIP = 0
 		msgMatchData.Reservation.LocalPort = 0
 	} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
-		if toSession.ReservationPID != g.User.ProfileId {
+		if toSession.ReservationPID != g.User.ProfileId || g.Reservation.Reservation == nil {
 			logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "has no reservation with the sender")
+			g.replyError(ErrMessage)
+			return
+		}
+
+		if g.Reservation.Version != msgMatchData.Version {
+			logging.Error(g.ModuleName, "Reservation version mismatch")
 			g.replyError(ErrMessage)
 			return
 		}
@@ -430,7 +436,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 				return
 			}
 
-			if !qr2.ProcessGPResvOK(*msgMatchData.ResvOK, g.QR2IP, g.User.ProfileId, toSession.QR2IP, uint32(toProfileId)) {
+			if !qr2.ProcessGPResvOK(msgMatchData.Version, *g.Reservation.Reservation, *msgMatchData.ResvOK, g.QR2IP, g.User.ProfileId, toSession.QR2IP, uint32(toProfileId)) {
 				g.replyError(ErrMessage)
 				return
 			}
@@ -449,7 +455,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		}
 	}
 
-	newMsg, ok := common.EncodeMatchCommand(cmd, msgMatchData, version)
+	newMsg, ok := common.EncodeMatchCommand(cmd, msgMatchData)
 	if !ok || len(newMsg) > 0x200 {
 		logging.Error(g.ModuleName, "Failed to encode match command; message:", msg)
 		g.replyError(ErrMessage)
@@ -457,6 +463,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	}
 
 	if cmd == common.MatchReservation {
+		g.Reservation = msgMatchData
 		g.ReservationPID = uint32(toProfileId)
 	}
 

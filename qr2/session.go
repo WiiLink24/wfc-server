@@ -32,6 +32,7 @@ type Session struct {
 	Data            map[string]string
 	PacketCount     uint32
 	ReservationID   uint64
+	Reservation     common.MatchCommandData
 	GroupPointer    *Group
 }
 
@@ -101,6 +102,7 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 			Endianness:    ClientNoEndian,
 			Data:          payload,
 			PacketCount:   0,
+			Reservation:   common.MatchCommandData{},
 			ReservationID: 0,
 		}
 	}
