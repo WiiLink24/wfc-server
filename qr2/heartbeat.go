@@ -97,5 +97,16 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		sendClientExploit(moduleName, session)
 	}
 
+	mutex.Lock()
+	if session.GroupPointer != nil {
+		if session.GroupPointer.Server == nil {
+			session.GroupPointer.findNewServer()
+		} else {
+			// Update the match type if needed
+			session.GroupPointer.updateMatchType()
+		}
+	}
+	mutex.Unlock()
+
 	logging.Info(moduleName, "Heartbeat ok")
 }

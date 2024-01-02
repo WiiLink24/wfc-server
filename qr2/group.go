@@ -181,12 +181,47 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 			delete(groups, session.GroupPointer.GroupName)
 		} else if session.GroupPointer.Server == session {
 			logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupName))
-			session.GroupPointer.Server = nil
-			// TODO: Search for new host via dwc_hoststate
+			session.GroupPointer.findNewServer()
 		}
 
 		session.GroupPointer = nil
 	}
+}
+
+// findNewServer attempts to find the new server/host in the group when the current server goes down.
+// If no server is found, the group's server pointer is set to nil.
+// Expects the mutex to be locked.
+func (g *Group) findNewServer() {
+	server := (*Session)(nil)
+	serverJoinIndex := -1
+	for session := range g.Players {
+		if session.Data["dwc_hoststate"] != "2" {
+			continue
+		}
+
+		joinIndex, err := strconv.Atoi(session.Data["+joinindex"])
+		if err != nil {
+			continue
+		}
+
+		if server == nil || joinIndex < serverJoinIndex {
+			server = session
+			serverJoinIndex = joinIndex
+		}
+	}
+
+	g.Server = server
+	g.updateMatchType()
+}
+
+// updateMatchType updates the match type of the group based on the host's dwc_mtype value.
+// Expects the mutex to be locked.
+func (g *Group) updateMatchType() {
+	if g.Server == nil || g.Server.Data["dwc_mtype"] == "" {
+		return
+	}
+
+	g.MatchType = g.Server.Data["dwc_mtype"]
 }
 
 type GroupInfo struct {
@@ -212,6 +247,7 @@ func GetGroups(gameName string) []GroupInfo {
 		groupInfo := GroupInfo{
 			GroupName:   group.GroupName,
 			GameName:    group.GameName,
+			MatchType:   "",
 			Suspend:     true,
 			ServerIndex: "",
 			MKWRegion:   "",
@@ -226,7 +262,7 @@ func GetGroups(gameName string) []GroupInfo {
 			groupInfo.MatchType = "unknown"
 		}
 
-		if groupInfo.MatchType == "private" && group.Server != nil {
+		if group.Server != nil {
 			groupInfo.ServerIndex = group.Server.Data["+joinindex"]
 		}
 

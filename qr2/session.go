@@ -58,7 +58,7 @@ func removeSession(addr uint64) {
 		} else if session.GroupPointer.Server == session {
 			logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupName))
 			session.GroupPointer.Server = nil
-			// TODO: Search for new host via dwc_hoststate
+			session.GroupPointer.findNewServer()
 		}
 
 		session.GroupPointer = nil
