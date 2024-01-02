@@ -87,6 +87,12 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for /api/stats
+	if r.URL.Path == "/api/stats" {
+		api.HandleStats(w, r)
+		return
+	}
+
 	// Handle conntest server
 	if strings.HasPrefix(r.Host, "conntest.") {
 		handleConnectionTest(w)
