@@ -88,6 +88,10 @@ func StartServer() {
 }
 
 func (g *GameSpySession) closeSession() {
+	if r := recover(); r != nil {
+		logging.Error(g.ModuleName, "Panic:", r)
+	}
+
 	if g.LoggedIn {
 		qr2.Logout(g.User.ProfileId)
 		if g.QR2IP != 0 {
