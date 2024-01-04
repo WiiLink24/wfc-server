@@ -415,13 +415,19 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		if len(buffer) != 0x00 {
 			break
 		}
-		return MatchCommandData{}, true
+		return MatchCommandData{
+			Version: version,
+			Command: command,
+		}, true
 
 	case MatchResvCancel:
 		if len(buffer) != 0x00 {
 			break
 		}
-		return MatchCommandData{}, true
+		return MatchCommandData{
+			Version: version,
+			Command: command,
+		}, true
 
 	case MatchTellAddr:
 		if len(buffer) != 0x08 {
