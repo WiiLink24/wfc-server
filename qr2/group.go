@@ -75,10 +75,13 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 		logging.Notice(moduleName, "Created new group", aurora.Cyan(group.GroupName))
 	}
 
-	// TODO: Check if the sender is the actual server (host) once host migration works
-
 	// Keep group ID updated
 	group.GroupID = resvOK.GroupID
+
+	if group.Players[destination] {
+		// Player is already in the group
+		return true
+	}
 
 	logging.Info(moduleName, "New player", aurora.BrightCyan(destination.Data["dwc_pid"]), "in group", aurora.Cyan(group.GroupName))
 
