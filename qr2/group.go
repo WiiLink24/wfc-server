@@ -242,6 +242,8 @@ func GetGroups(gameName string) []GroupInfo {
 	var groupsCopy []GroupInfo
 
 	mutex.Lock()
+	defer mutex.Unlock()
+
 	for _, group := range groups {
 		if gameName != "" && gameName != group.GameName {
 			continue
@@ -279,7 +281,11 @@ func GetGroups(gameName string) []GroupInfo {
 				mapData[k] = v
 			}
 
-			mapData["+ingamesn"] = session.Login.InGameName
+			if login := session.Login; login != nil {
+				mapData["+ingamesn"] = login.InGameName
+			} else {
+				mapData["+ingamesn"] = ""
+			}
 
 			groupInfo.Players[mapData["+joinindex"]] = mapData
 
@@ -290,7 +296,6 @@ func GetGroups(gameName string) []GroupInfo {
 
 		groupsCopy = append(groupsCopy, groupInfo)
 	}
-	mutex.Unlock()
 
 	return groupsCopy
 }
