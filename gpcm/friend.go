@@ -318,6 +318,10 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 
 	switch version {
 	case 3:
+		if len(msg) == msgDataIndex {
+			break
+		}
+
 		for _, stringValue := range strings.Split(msg[msgDataIndex:], "/") {
 			intValue, err := strconv.ParseUint(stringValue, 10, 32)
 			if err != nil {
@@ -330,6 +334,10 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		}
 
 	case 11:
+		if len(msg) == msgDataIndex {
+			break
+		}
+
 		for _, stringValue := range strings.Split(msg[msgDataIndex:], "/") {
 			byteValue, err := hex.DecodeString(stringValue)
 			if err != nil || len(byteValue) != 4 {
@@ -342,6 +350,10 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		}
 
 	case 90:
+		if len(msg) == msgDataIndex {
+			break
+		}
+
 		msgData, err = common.Base64DwcEncoding.DecodeString(msg[msgDataIndex:])
 		if err != nil {
 			logging.Error(g.ModuleName, "Invalid message base64 data; message:", msg)
