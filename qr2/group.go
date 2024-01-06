@@ -91,6 +91,10 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 		destination.Data["+localplayers"] = strconv.FormatUint(uint64(reservation.LocalPlayerCount), 10)
 	}
 
+	if destination.GroupPointer != nil && destination.GroupPointer != group {
+		destination.removeFromGroup()
+	}
+
 	group.Players[destination] = true
 	destination.GroupPointer = group
 
@@ -177,17 +181,7 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 			return
 		}
 
-		delete(session.GroupPointer.Players, session)
-
-		if len(session.GroupPointer.Players) == 0 {
-			logging.Notice("QR2", "Deleting group", aurora.Cyan(session.GroupPointer.GroupName))
-			delete(groups, session.GroupPointer.GroupName)
-		} else if session.GroupPointer.Server == session {
-			logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupName))
-			session.GroupPointer.findNewServer()
-		}
-
-		session.GroupPointer = nil
+		session.removeFromGroup()
 	}
 }
 

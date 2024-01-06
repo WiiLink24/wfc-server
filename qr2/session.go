@@ -42,7 +42,7 @@ var (
 	mutex             = deadlock.Mutex{}
 )
 
-// Remove a session.
+// Remove a session. Expects the global mutex to already be locked.
 func removeSession(addr uint64) {
 	session := sessions[addr]
 	if session == nil {
@@ -50,18 +50,7 @@ func removeSession(addr uint64) {
 	}
 
 	if session.GroupPointer != nil {
-		delete(session.GroupPointer.Players, session)
-
-		if len(session.GroupPointer.Players) == 0 {
-			logging.Notice("QR2", "Deleting group", aurora.Cyan(session.GroupPointer.GroupName))
-			delete(groups, session.GroupPointer.GroupName)
-		} else if session.GroupPointer.Server == session {
-			logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupName))
-			session.GroupPointer.Server = nil
-			session.GroupPointer.findNewServer()
-		}
-
-		session.GroupPointer = nil
+		session.removeFromGroup()
 	}
 
 	if session.Login != nil {
@@ -73,6 +62,26 @@ func removeSession(addr uint64) {
 	delete(sessionBySearchID, sessions[addr].SearchID)
 
 	delete(sessions, addr)
+}
+
+// Remove session from group. Expects the global mutex to already be locked.
+func (session *Session) removeFromGroup() {
+	if session.GroupPointer == nil {
+		return
+	}
+
+	delete(session.GroupPointer.Players, session)
+
+	if len(session.GroupPointer.Players) == 0 {
+		logging.Notice("QR2", "Deleting group", aurora.Cyan(session.GroupPointer.GroupName))
+		delete(groups, session.GroupPointer.GroupName)
+	} else if session.GroupPointer.Server == session {
+		logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupName))
+		session.GroupPointer.Server = nil
+		session.GroupPointer.findNewServer()
+	}
+
+	session.GroupPointer = nil
 }
 
 // Update session data, creating the session if it doesn't exist. Returns a copy of the session data.
