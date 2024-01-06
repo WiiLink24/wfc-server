@@ -423,11 +423,22 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		return
 	}
 
+	sameAddress := strings.Split(g.Conn.RemoteAddr().String(), ":")[0] == strings.Split(toSession.Conn.RemoteAddr().String(), ":")[0]
+
 	if cmd == common.MatchReservation {
-		msgMatchData.Reservation.PublicIP = 0
-		msgMatchData.Reservation.PublicPort = 0
-		msgMatchData.Reservation.LocalIP = 0
-		msgMatchData.Reservation.LocalPort = 0
+		if g.QR2IP == 0 {
+			logging.Error(g.ModuleName, "Missing QR2 IP")
+			g.replyError(ErrMessage)
+			return
+		}
+
+		if !sameAddress {
+			searchId := qr2.GetSearchID(g.QR2IP)
+			msgMatchData.Reservation.PublicIP = uint32(searchId & 0xffffffff)
+			msgMatchData.Reservation.PublicPort = uint16(searchId >> 32)
+			msgMatchData.Reservation.LocalIP = 0
+			msgMatchData.Reservation.LocalPort = 0
+		}
 	} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
 		if toSession.ReservationPID != g.User.ProfileId || toSession.Reservation.Reservation == nil {
 			logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "has no reservation with the sender")
@@ -453,7 +464,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 				return
 			}
 
-			if g.QR2IP&0xffffffff != toSession.QR2IP&0xffffffff {
+			if !sameAddress {
 				searchId := qr2.GetSearchID(g.QR2IP)
 				if searchId == 0 {
 					logging.Error(g.ModuleName, "Could not get QR2 search ID for IP", aurora.Cyan(fmt.Sprintf("%016x", g.QR2IP)))
@@ -468,7 +479,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	}
 
 	newMsg, ok := common.EncodeMatchCommand(cmd, msgMatchData)
-	if !ok || len(newMsg) > 0x200 {
+	if !ok || len(newMsg) > 0x200 || (len(newMsg)%4) != 0 {
 		logging.Error(g.ModuleName, "Failed to encode match command; message:", msg)
 		g.replyError(ErrMessage)
 		return
@@ -479,7 +490,37 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		g.ReservationPID = uint32(toProfileId)
 	}
 
-	sendMessageToSession("1", g.User.ProfileId, toSession, msg)
+	var newMsgStr string
+
+	// Re-encode the new message
+	switch version {
+	case 3:
+		newMsgStr = "GPCM3vMAT" + string(cmd)
+
+		for i := 0; i < len(newMsg); i += 4 {
+			if i > 0 {
+				newMsgStr += "/"
+			}
+
+			newMsgStr += strconv.FormatUint(uint64(binary.LittleEndian.Uint32(newMsg[i:])), 10)
+		}
+
+	case 11:
+		newMsgStr = "GPCM11vMAT" + string(cmd)
+
+		for i := 0; i < len(newMsg); i += 4 {
+			if i > 0 {
+				newMsgStr += "/"
+			}
+
+			newMsgStr += hex.EncodeToString(newMsg[i : i+4])
+		}
+
+	case 90:
+		newMsgStr = "GPCM90vMAT" + string(cmd) + common.Base64DwcEncoding.EncodeToString(newMsg)
+	}
+
+	sendMessageToSession("1", g.User.ProfileId, toSession, newMsgStr)
 }
 
 func sendMessageToSession(msgType string, from uint32, session *GameSpySession, msg string) {
