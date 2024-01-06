@@ -128,12 +128,6 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		}
 
 		if message[8] == common.MatchReservation {
-			if matchData.Reservation.MatchType == 3 {
-				// TODO: Check that this is correct
-				logging.Error(moduleName, "RESERVATION: Attempt to join a private room over ServerBrowser")
-				return
-			}
-
 			if matchData.Reservation.HasPublicIP {
 				if qr2IP != matchData.Reservation.PublicIP {
 					logging.Error(moduleName, "RESERVATION: Public IP mismatch in header and command")
