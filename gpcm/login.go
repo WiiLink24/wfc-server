@@ -143,7 +143,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		// TODO: Check that the game is compatible with the DNS
 		g.NeedsExploit = true
 	} else {
-		if !payloadVerExists || payloadVer != "1" {
+		if !payloadVerExists || payloadVer != "2" {
 			g.replyError(GPError{
 				ErrorCode:   ErrLogin.ErrorCode,
 				ErrorString: "The payload version is invalid.",
@@ -277,7 +277,7 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 	signature, signatureExists := command.OtherValues["wwfc_sig"]
 	deviceId := uint32(0)
 
-	if !payloadVerExists || payloadVer != "1" {
+	if !payloadVerExists || payloadVer != "2" {
 		g.replyError(GPError{
 			ErrorCode:   ErrLogin.ErrorCode,
 			ErrorString: "The payload version is invalid.",
