@@ -35,7 +35,7 @@ func HandleStats(w http.ResponseWriter, r *http.Request) {
 	stats := map[string]Stats{}
 
 	servers := qr2.GetSessionServers()
-	groups := qr2.GetGroups("")
+	groups := qr2.GetGroups([]string{}, []string{})
 
 	globalStats := Stats{
 		OnlinePlayerCount: len(servers),

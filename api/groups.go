@@ -24,8 +24,7 @@ func HandleGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gameName := query.Get("game")
-	groups := qr2.GetGroups(gameName)
+	groups := qr2.GetGroups(query["game"], query["id"])
 
 	for _, group := range groups {
 		for i, player := range group.Players {

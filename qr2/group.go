@@ -238,14 +238,18 @@ type GroupInfo struct {
 }
 
 // GetGroups returns an unsorted copy of all online rooms
-func GetGroups(gameName string) []GroupInfo {
+func GetGroups(gameNames []string, groupNames []string) []GroupInfo {
 	var groupsCopy []GroupInfo
 
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	for _, group := range groups {
-		if gameName != "" && gameName != group.GameName {
+		if len(gameNames) > 0 && !common.StringInSlice(group.GameName, gameNames) {
+			continue
+		}
+
+		if len(groupNames) > 0 && !common.StringInSlice(group.GroupName, groupNames) {
 			continue
 		}
 
