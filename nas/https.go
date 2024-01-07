@@ -150,6 +150,13 @@ func startHTTPSProxy(config common.Config) {
 
 // handleWiiTLS handles the TLS request from the Wii. It may call handleRealTLS if the request is from a modern web browser.
 func handleWiiTLS(moduleName string, rawConn net.Conn, nasAddr string, privKeyPath string, certsPath string, serverCertsRecord []byte, certLen uint32, rsaKey *rsa.PrivateKey) {
+	// Recover from panics
+	defer func() {
+		if r := recover(); r != nil {
+			logging.Error(moduleName, "Panic:", r)
+		}
+	}()
+
 	conn := newBufferedConn(rawConn)
 
 	defer conn.Close()
@@ -456,6 +463,13 @@ func handleWiiTLS(moduleName string, rawConn net.Conn, nasAddr string, privKeyPa
 
 // handleRealTLS handles the TLS request legitimately using crypto/tls
 func handleRealTLS(moduleName string, conn net.Conn, nasAddr string, privKeyPath string, certsPath string) {
+	// Recover from panics
+	defer func() {
+		if r := recover(); r != nil {
+			logging.Error(moduleName, "Panic:", r)
+		}
+	}()
+
 	// Read server key and certs
 	// TODO: Cache this
 	serverKey, err := os.ReadFile(privKeyPath)
