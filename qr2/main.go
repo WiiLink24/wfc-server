@@ -32,7 +32,7 @@ func StartServer() {
 	// Get config
 	config := common.GetConfig()
 
-	address := config.Address + ":27900"
+	address := *config.GameSpyAddress + ":27900"
 	conn, err := net.ListenPacket("udp", address)
 	if err != nil {
 		panic(err)

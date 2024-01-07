@@ -65,7 +65,7 @@ func StartServer() {
 		panic(err)
 	}
 
-	address := config.Address + ":29900"
+	address := *config.GameSpyAddress + ":29900"
 	l, err := net.Listen("tcp", address)
 	if err != nil {
 		panic(err)
