@@ -6,3 +6,6 @@ naswii-key.pem
 
 # Payload data
 payload
+
+# Editor files
+.vscode
