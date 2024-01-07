@@ -121,7 +121,7 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 	}
 
 	if !sessionExists {
-		logging.Notice(moduleName, "Creating session", aurora.Cyan(sessionId).String())
+		logging.Info(moduleName, "Creating session", aurora.Cyan(sessionId).String())
 
 		// Set search ID
 		for {

@@ -90,7 +90,7 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	}
 
 	fc := common.CalcFriendCodeString(uint32(newProfileId), "RMCJ")
-	logging.Notice(g.ModuleName, "Add friend:", aurora.Cyan(strNewProfileId), aurora.Cyan(fc))
+	logging.Info(g.ModuleName, "Add friend:", aurora.Cyan(strNewProfileId), aurora.Cyan(fc))
 
 	if g.isFriendAuthorized(uint32(newProfileId)) {
 		logging.Info(g.ModuleName, "Attempt to add a friend who is already authorized")
@@ -204,6 +204,7 @@ func (g *GameSpySession) authAddFriend(command common.GameSpyCommand) {
 
 func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
 	status := command.CommandValue
+	logging.Notice(g.ModuleName, "New status:", aurora.BrightMagenta(status))
 
 	qr2.ProcessGPStatusUpdate(g.User.ProfileId, g.QR2IP, status)
 
@@ -220,16 +221,15 @@ func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
 	}
 
 	statusMsg := "|s|" + status + "|ss|" + statstring + "|ls|" + locstring + "|ip|0|p|0|qm|0"
-	logging.Notice(g.ModuleName, "New status:", aurora.BrightMagenta(statusMsg))
 
 	mutex.Lock()
+	defer mutex.Unlock()
 	g.LocString = locstring
 	g.Status = statusMsg
 
 	for _, storedPid := range g.FriendList {
 		g.sendFriendStatus(storedPid)
 	}
-	mutex.Unlock()
 }
 
 const (
@@ -245,7 +245,7 @@ const (
 func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	// TODO: There are other command values that mean the same thing
 	if command.CommandValue != "1" {
-		logging.Notice(g.ModuleName, "Received unknown bestie message type:", aurora.Cyan(command.CommandValue))
+		logging.Error(g.ModuleName, "Received unknown bestie message type:", aurora.Cyan(command.CommandValue))
 		return
 	}
 

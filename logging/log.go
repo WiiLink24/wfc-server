@@ -2,11 +2,22 @@ package logging
 
 import (
 	"fmt"
-	"github.com/logrusorgru/aurora/v3"
 	"log"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
+var logLevel = 0
+
+func SetLevel(level int) {
+	logLevel = level
+}
+
 func Notice(module string, arguments ...any) {
+	if logLevel < 1 {
+		return
+	}
+
 	var finalStr string
 	for _, argument := range arguments {
 		finalStr += fmt.Sprint(argument)
@@ -17,6 +28,10 @@ func Notice(module string, arguments ...any) {
 }
 
 func Error(module string, arguments ...any) {
+	if logLevel < 2 {
+		return
+	}
+
 	var finalStr string
 	for _, argument := range arguments {
 		finalStr += fmt.Sprint(argument)
@@ -27,6 +42,10 @@ func Error(module string, arguments ...any) {
 }
 
 func Warn(module string, arguments ...any) {
+	if logLevel < 3 {
+		return
+	}
+
 	var finalStr string
 	for _, argument := range arguments {
 		finalStr += fmt.Sprint(argument)
@@ -37,6 +56,10 @@ func Warn(module string, arguments ...any) {
 }
 
 func Info(module string, arguments ...any) {
+	if logLevel < 4 {
+		return
+	}
+
 	var finalStr string
 	for _, argument := range arguments {
 		finalStr += fmt.Sprint(argument)

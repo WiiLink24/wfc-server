@@ -3,7 +3,6 @@ package sake
 import (
 	"encoding/base64"
 	"encoding/xml"
-	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"net/http"
 	"regexp"
@@ -12,6 +11,8 @@ import (
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 const (
@@ -140,7 +141,7 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 
 	xmlName := soap.Body.Data.XMLName.Space + "/" + soap.Body.Data.XMLName.Local
 	if headerAction == xmlName || headerAction == `"`+xmlName+`"` {
-		logging.Notice(moduleName, "SOAPAction:", aurora.Yellow(soap.Body.Data.XMLName.Local))
+		logging.Info(moduleName, "SOAPAction:", aurora.Yellow(soap.Body.Data.XMLName.Local))
 
 		if profileId, gameInfo, ok := getRequestIdentity(moduleName, soap.Body.Data); ok {
 			switch xmlName {
@@ -268,7 +269,7 @@ func getMyRecords(moduleName string, profileId uint32, gameInfo common.GameInfo,
 		}
 	}
 
-	logging.Notice(moduleName, "Wrote", aurora.Cyan(fieldCount), "field(s)")
+	logging.Info(moduleName, "Wrote", aurora.Cyan(fieldCount), "field(s)")
 	return &response
 }
 
@@ -382,6 +383,6 @@ func searchForRecords(moduleName string, gameInfo common.GameInfo, request Stora
 		}
 	}
 
-	logging.Notice(moduleName, "Wrote", aurora.BrightCyan(fieldCount), "field(s) across", aurora.BrightCyan(i), "record(s)")
+	logging.Info(moduleName, "Wrote", aurora.BrightCyan(fieldCount), "field(s) across", aurora.BrightCyan(i), "record(s)")
 	return &response
 }

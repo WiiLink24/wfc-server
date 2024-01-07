@@ -114,7 +114,7 @@ func handleRequest(conn net.Conn) {
 	session := &GameSpySession{
 		Conn:           conn,
 		User:           database.User{},
-		ModuleName:     "GPCM",
+		ModuleName:     "GPCM:" + conn.RemoteAddr().String(),
 		LoggedIn:       false,
 		Challenge:      "",
 		Status:         "",
@@ -130,7 +130,7 @@ func handleRequest(conn net.Conn) {
 
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
-		logging.Notice(session.ModuleName, "Unable to set keepalive:", err.Error())
+		logging.Error(session.ModuleName, "Unable to set keepalive:", err.Error())
 	}
 
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
@@ -153,7 +153,7 @@ func handleRequest(conn net.Conn) {
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				// Client closed connection, terminate.
-				logging.Notice(session.ModuleName, "Client closed connection")
+				logging.Info(session.ModuleName, "Client closed connection")
 				return
 			}
 
@@ -207,7 +207,7 @@ func (g *GameSpySession) handleCommand(name string, commands []common.GameSpyCom
 			continue
 		}
 
-		logging.Notice(g.ModuleName, "Command:", aurora.Yellow(command.Command))
+		logging.Info(g.ModuleName, "Command:", aurora.Yellow(command.Command))
 		handler(command)
 	}
 

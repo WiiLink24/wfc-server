@@ -50,22 +50,12 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 	lookupAddr := makeLookupAddr(addr.String())
 
 	statechanged, ok := payload["statechanged"]
-	if ok {
-		if statechanged == "1" {
-			// TODO: This would be a good place to run the server->client message exploit
-			// for DNS patcher games that require code patches. The status code should be
-			// set to 5 at this point (if publicip is not 0), which is required.
-			logging.Notice(moduleName, "Client session update")
-			// Fall through
-		}
-
-		if statechanged == "2" {
-			logging.Notice(moduleName, "Client session shutdown")
-			mutex.Lock()
-			removeSession(lookupAddr)
-			mutex.Unlock()
-			return
-		}
+	if ok && statechanged == "2" {
+		logging.Notice(moduleName, "Client session shutdown")
+		mutex.Lock()
+		removeSession(lookupAddr)
+		mutex.Unlock()
+		return
 	}
 
 	session, ok := setSessionData(moduleName, addr, sessionId, payload)
@@ -76,21 +66,20 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 	if payload["gamename"] == "mariokartwii" && len(unknowns) > 0 {
 		// Try to login using the first unknown as a profile ID
 		// This makes it possible to execute the exploit on the client sooner
-		profileId := unknowns[0]
-		logging.Notice(moduleName, "Attempting to use unknown as profile ID", aurora.Cyan(profileId))
 
 		mutex.Lock()
 		session, sessionExists := sessions[lookupAddr]
 		if !sessionExists {
 			logging.Error(moduleName, "Session not found")
-		} else {
+		} else if session.Login == nil {
+			profileId := unknowns[0]
+			logging.Info(moduleName, "Attempting to use unknown as profile ID", aurora.Cyan(profileId))
 			session.setProfileID(moduleName, profileId)
 		}
 		mutex.Unlock()
 	}
 
 	if !session.Authenticated {
-		logging.Notice(moduleName, "Sending challenge")
 		sendChallenge(conn, addr, session, lookupAddr)
 	} else if !session.ExploitReceived && session.Login != nil && session.Login.NeedsExploit && statechanged == "1" {
 		logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")

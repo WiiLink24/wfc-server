@@ -1,11 +1,12 @@
 package gpcm
 
 import (
-	"github.com/logrusorgru/aurora/v3"
 	"strconv"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 func (g *GameSpySession) getProfile(command common.GameSpyCommand) {
@@ -17,7 +18,7 @@ func (g *GameSpySession) getProfile(command common.GameSpyCommand) {
 		return
 	}
 
-	logging.Notice(g.ModuleName, "Looking up the profile of", aurora.Cyan(profileId).String())
+	logging.Info(g.ModuleName, "Looking up the profile of", aurora.Cyan(profileId).String())
 
 	user := database.User{}
 	locstring := ""

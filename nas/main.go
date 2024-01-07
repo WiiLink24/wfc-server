@@ -52,7 +52,6 @@ var regexSakeHost = regexp.MustCompile(`^([a-z\-]+\.)?sake\.gs\.`)
 var regexStage1URL = regexp.MustCompile(`^/w([0-9])$`)
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
-	// TODO: Move this to its own server
 	// Check for *.sake.gs.* or sake.gs.*
 	if regexSakeHost.MatchString(r.Host) {
 		// Redirect to the sake server
@@ -60,18 +59,9 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logging.Notice("NAS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
-	moduleName := "NAS:" + r.RemoteAddr
-
-	if r.URL.String() == "/ac" || r.URL.String() == "/pr" || r.URL.String() == "/download" {
-		handleAuthRequest(moduleName, w, r)
-		return
-	}
-
-	// TODO: Move this to its own server
-	// Check for /payload
-	if strings.HasPrefix(r.URL.String(), "/payload?") {
-		handlePayloadRequest(moduleName, w, r)
+	// Handle conntest server
+	if strings.HasPrefix(r.Host, "conntest.") {
+		handleConnectionTest(w)
 		return
 	}
 
@@ -87,9 +77,18 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle conntest server
-	if strings.HasPrefix(r.Host, "conntest.") {
-		handleConnectionTest(w)
+	logging.Info("NAS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
+	moduleName := "NAS:" + r.RemoteAddr
+
+	if r.URL.String() == "/ac" || r.URL.String() == "/pr" || r.URL.String() == "/download" {
+		handleAuthRequest(moduleName, w, r)
+		return
+	}
+
+	// TODO: Move this to its own server
+	// Check for /payload
+	if strings.HasPrefix(r.URL.String(), "/payload?") {
+		handlePayloadRequest(moduleName, w, r)
 		return
 	}
 

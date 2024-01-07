@@ -78,11 +78,11 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	switch packetType {
 	case QueryRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("QUERY"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("QUERY"))
 		break
 
 	case ChallengeRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("CHALLENGE"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("CHALLENGE"))
 
 		mutex.Lock()
 		if session.Challenge != "" {
@@ -97,28 +97,28 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		break
 
 	case EchoRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("ECHO"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("ECHO"))
 		break
 
 	case HeartbeatRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("HEARTBEAT"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("HEARTBEAT"))
 		heartbeat(moduleName, conn, addr, buffer)
 		break
 
 	case AddErrorRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("ADDERROR"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("ADDERROR"))
 		break
 
 	case EchoResponseRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("ECHO_RESPONSE"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("ECHO_RESPONSE"))
 		break
 
 	case ClientMessageRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE"))
 		return
 
 	case ClientMessageAckRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK"))
 
 		// In case ClientExploitReply is lost, this can be checked as well
 		// This would be sent either after the payload is downloaded, or the client is already patched
@@ -126,23 +126,23 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		return
 
 	case KeepAliveRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
 		mutex.Lock()
 		session.LastKeepAlive = time.Now().Unix()
 		mutex.Unlock()
 		return
 
 	case AvailableRequest:
-		logging.Notice("QR2", "Command:", aurora.Yellow("AVAILABLE"))
+		logging.Info("QR2", "Command:", aurora.Yellow("AVAILABLE"))
 		conn.WriteTo(createResponseHeader(AvailableRequest, 0), addr)
 		return
 
 	case ClientRegisteredReply:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_REGISTERED"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_REGISTERED"))
 		break
 
 	case ClientExploitReply:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("CLIENT_EXPLOIT_ACK"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_EXPLOIT_ACK"))
 
 		session.ExploitReceived = true
 		break

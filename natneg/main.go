@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/logrusorgru/aurora/v3"
 	"net"
 	"sync"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 const (
@@ -121,7 +122,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	mutex.Lock()
 	session, exists := sessions[cookie]
 	if !exists {
-		logging.Notice(moduleName, "Creating session")
+		logging.Info(moduleName, "Creating session")
 		session = &NATNEGSession{
 			Cookie:  cookie,
 			Mutex:   sync.RWMutex{},
@@ -149,7 +150,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		break
 
 	case NNInitRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("NNInitRequest"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("NNInitRequest"))
 		session.handleInit(conn, addr, buffer[12:], moduleName, version)
 		break
 
@@ -162,11 +163,11 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		break
 
 	case NNErtTestReply:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("NNErtReply"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("NNErtReply"))
 		break
 
 	case NNStateUpdate:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("NNStateUpdate"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("NNStateUpdate"))
 		break
 
 	case NNConnectRequest:
@@ -174,16 +175,16 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		break
 
 	case NNConnectReply:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("NNConnectReply"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("NNConnectReply"))
 		// TODO: Set the client Connected value to true here
 		break
 
 	case NNConnectPing:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("NNConnectPing"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("NNConnectPing"))
 		break
 
 	case NNBackupTestRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("NNBackupTestRequest"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("NNBackupTestRequest"))
 		break
 
 	case NNBackupTestReply:
@@ -191,7 +192,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		break
 
 	case NNAddressCheckRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("NNAddressCheckRequest"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("NNAddressCheckRequest"))
 		break
 
 	case NNAddressCheckReply:
@@ -199,11 +200,11 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		break
 
 	case NNNatifyRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("NNNatifyRequest"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("NNNatifyRequest"))
 		break
 
 	case NNReportRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("NNReportRequest"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("NNReportRequest"))
 		session.handleReport(conn, addr, buffer[12:], moduleName, version)
 		break
 
@@ -212,7 +213,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		break
 
 	case NNPreInitRequest:
-		logging.Notice(moduleName, "Command:", aurora.Yellow("NNPreInitRequest"))
+		logging.Info(moduleName, "Command:", aurora.Yellow("NNPreInitRequest"))
 		break
 
 	case NNPreInitReply:
@@ -316,7 +317,7 @@ func (session *NATNEGSession) handleInit(conn net.PacketConn, addr net.Addr, buf
 	if !sender.isMapped() {
 		return
 	}
-	logging.Notice(moduleName, "Mapped", aurora.BrightCyan(sender.NegotiateIP), aurora.BrightCyan(sender.LocalIP), aurora.BrightCyan(sender.ServerIP))
+	logging.Info(moduleName, "Mapped", aurora.BrightCyan(sender.NegotiateIP), aurora.BrightCyan(sender.LocalIP), aurora.BrightCyan(sender.ServerIP))
 
 	for id, destination := range session.Clients {
 		if id == clientIndex || destination.Connected || !destination.isMapped() {

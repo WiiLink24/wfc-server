@@ -3,11 +3,12 @@ package sake
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 	"net/http"
 	"wwfc/common"
 	"wwfc/logging"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
@@ -35,7 +36,7 @@ func StartServer() {
 }
 
 func HandleRequest(w http.ResponseWriter, r *http.Request) {
-	logging.Notice("SAKE", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
+	logging.Info("SAKE", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
 
 	switch r.URL.String() {
 	case "/SakeStorageServer/StorageServer.asmx":

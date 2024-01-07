@@ -12,4 +12,7 @@
     <!-- Database information-->
     <databaseAddress>127.0.0.1</databaseAddress>
     <databaseName>wwfc</databaseName>
+
+    <!-- Log verbosity -->
+    <logLevel>4</logLevel>
 </Config>

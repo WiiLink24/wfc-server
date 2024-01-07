@@ -83,7 +83,7 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 		return true
 	}
 
-	logging.Info(moduleName, "New player", aurora.BrightCyan(destination.Data["dwc_pid"]), "in group", aurora.Cyan(group.GroupName))
+	logging.Notice(moduleName, "New player", aurora.BrightCyan(destination.Data["dwc_pid"]), "in group", aurora.Cyan(group.GroupName))
 
 	group.LastJoinIndex++
 	destination.Data["+joinindex"] = strconv.Itoa(group.LastJoinIndex)
@@ -142,7 +142,7 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 
 	login, exists := logins[profileID]
 	if !exists || login == nil {
-		logging.Error(moduleName, "Received status update for non-existent profile ID", aurora.Cyan(profileID))
+		logging.Info(moduleName, "Received status update for non-existent profile ID", aurora.Cyan(profileID))
 		return
 	}
 

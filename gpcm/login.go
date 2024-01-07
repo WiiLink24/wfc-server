@@ -44,7 +44,7 @@ var msPublicKey = []byte{
 	0xF9, 0x5B, 0x4D, 0x11, 0x04, 0x44, 0x64, 0x35, 0xC0, 0xED, 0xA4, 0x2F,
 }
 
-func verifySignature(authToken string, signature string) uint32 {
+func verifySignature(moduleName string, authToken string, signature string) uint32 {
 	sigBytes, err := common.Base64DwcEncoding.DecodeString(signature)
 	if err != nil || len(sigBytes) != 0x144 {
 		return 0
@@ -75,10 +75,10 @@ func verifySignature(authToken string, signature string) uint32 {
 	ngCertBlobHash := sha1.Sum(ngCertBlob)
 
 	if !verifyECDSA(msPublicKey, msSignature, ngCertBlobHash[:]) {
-		logging.Error("GPCM", "NG cert verify failed")
+		logging.Error(moduleName, "NG cert verify failed")
 		return 0
 	}
-	logging.Info("GPCM", "NG cert verified")
+	logging.Info(moduleName, "NG cert verified")
 
 	apIssuer := ngIssuer + "-" + ngName
 	apName := fmt.Sprintf("AP%02x%02x%02x%02x%02x%02x%02x%02x", apId[0], apId[1], apId[2], apId[3], apId[4], apId[5], apId[6], apId[7])
@@ -94,17 +94,17 @@ func verifySignature(authToken string, signature string) uint32 {
 	apCertBlobHash := sha1.Sum(apCertBlob)
 
 	if !verifyECDSA(ngPublicKey, ngSignature, apCertBlobHash[:]) {
-		logging.Error("GPCM", "AP cert verify failed")
+		logging.Error(moduleName, "AP cert verify failed")
 		return 0
 	}
-	logging.Info("GPCM", "AP cert verified")
+	logging.Info(moduleName, "AP cert verified")
 
 	authTokenHash := sha1.Sum([]byte(authToken))
 	if !verifyECDSA(apPublicKey, apSignature, authTokenHash[:]) {
-		logging.Error("GPCM", "Auth token signature failed")
+		logging.Error(moduleName, "Auth token signature failed")
 		return 0
 	}
-	logging.Notice("GPCM", "Auth token signature verified; NG ID:", aurora.Cyan(fmt.Sprintf("%08x", ngId)))
+	logging.Notice(moduleName, "Auth token signature verified; NG ID:", aurora.Cyan(fmt.Sprintf("%08x", ngId)))
 
 	return binary.BigEndian.Uint32(ngId)
 }
@@ -161,7 +161,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 			return
 		}
 
-		if deviceId = verifySignature(authToken, signature); deviceId == 0 {
+		if deviceId = verifySignature(g.ModuleName, authToken, signature); deviceId == 0 {
 			g.replyError(GPError{
 				ErrorCode:   ErrLogin.ErrorCode,
 				ErrorString: "The authentication signature is invalid.",
@@ -295,7 +295,7 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 		return
 	}
 
-	if deviceId = verifySignature(g.AuthToken, signature); deviceId == 0 {
+	if deviceId = verifySignature(g.ModuleName, g.AuthToken, signature); deviceId == 0 {
 		g.replyError(GPError{
 			ErrorCode:   ErrLogin.ErrorCode,
 			ErrorString: "The authentication signature is invalid.",

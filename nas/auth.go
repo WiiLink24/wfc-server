@@ -240,6 +240,7 @@ func login(moduleName string, fields map[string]string, isLocalhost bool) map[st
 	}
 
 	authToken, challenge := common.MarshalNASAuthToken(gamecd, userId, gsbrcd, cfcInt, regionByte[0], langByte[0], fields["ingamesn"], isLocalhost)
+	logging.Notice(moduleName, "Login", aurora.Cyan(strconv.FormatUint(userId, 10)), aurora.Cyan(gsbrcd), "ingamesn:", aurora.Cyan(fields["ingamesn"]))
 
 	param["returncd"] = "001"
 	param["challenge"] = challenge

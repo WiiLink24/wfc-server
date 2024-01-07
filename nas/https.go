@@ -98,7 +98,7 @@ func startHTTPSProxy(address string, nasAddr string) {
 			panic(err)
 		}
 
-		logging.Notice("NAS-TLS", "Receiving HTTPS request from", aurora.BrightCyan(conn.RemoteAddr()))
+		logging.Info("NAS-TLS", "Receiving HTTPS request from", aurora.BrightCyan(conn.RemoteAddr()))
 		moduleName := "NAS-TLS:" + conn.RemoteAddr().String()
 
 		go func() {
@@ -124,7 +124,7 @@ func startHTTPSProxy(address string, nasAddr string) {
 					0x00, 0x35, 0x00, 0x00, 0x2F, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x09, 0x00,
 					0x00, 0x05, 0x00, 0x00, 0x04,
 				}, buf[:min(index, 0x1D)]) {
-					logging.Error(moduleName, "Invalid client hello:", aurora.Cyan(fmt.Sprintf("% X ", buf[:min(index, 0x1D)])))
+					logging.Info(moduleName, "Invalid client hello:", aurora.Cyan(fmt.Sprintf("% X ", buf[:min(index, 0x1D)])))
 					return
 				}
 

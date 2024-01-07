@@ -14,6 +14,7 @@ type Config struct {
 	Port            string `xml:"nasPort"`
 	PortHTTPS       string `xml:"nasPortHttps"`
 	EnableHTTPS     bool   `xml:"enableHttps"`
+	LogLevel        int    `xml:"logLevel"`
 }
 
 func GetConfig() Config {

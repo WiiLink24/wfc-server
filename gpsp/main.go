@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 	"io"
 	"net"
 	"strconv"
@@ -14,6 +12,9 @@ import (
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
@@ -72,7 +73,7 @@ func handleRequest(conn net.Conn) {
 		logging.Notice(moduleName, "Unable to set keepalive:", err.Error())
 	}
 
-	logging.Notice(moduleName, "Connection established from", aurora.BrightCyan(conn.RemoteAddr()))
+	logging.Info(moduleName, "Connection established from", aurora.BrightCyan(conn.RemoteAddr()))
 
 	// Here we go into the listening loop
 	for {
@@ -81,11 +82,11 @@ func handleRequest(conn net.Conn) {
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				// Client closed connection, terminate.
-				logging.Notice(moduleName, "Client closed connection")
+				logging.Info(moduleName, "Client closed connection")
 				return
 			}
 
-			logging.Notice(moduleName, "Connection lost")
+			logging.Error(moduleName, "Connection error:", err.Error())
 			return
 		}
 
@@ -96,7 +97,8 @@ func handleRequest(conn net.Conn) {
 		}
 
 		for _, command := range commands {
-			logging.Notice(moduleName, "Command:", aurora.Yellow(command.Command))
+			logging.Info(moduleName, "Command:", aurora.Yellow(command.Command))
+
 			switch command.Command {
 			case "ka":
 				conn.Write([]byte(`\ka\\final\`))
@@ -123,7 +125,7 @@ func handleRequest(conn net.Conn) {
 					logging.Warn(moduleName, "Mismatched profile ID in otherslist:", aurora.Cyan(strProfileId))
 				}
 
-				logging.Notice(moduleName, "Lookup otherslist for", aurora.Cyan(profileId))
+				logging.Info(moduleName, "Lookup otherslist for", aurora.Cyan(profileId))
 				conn.Write([]byte(handleOthersList(moduleName, uint32(profileId), command)))
 				break
 			}
@@ -188,7 +190,7 @@ func handleOthersList(moduleName string, _ uint32, command common.GameSpyCommand
 		// Also TODO: Check if the players are actually friends
 		user, ok := database.GetProfile(pool, ctx, uint32(otherId))
 		if !ok {
-			logging.Error(moduleName, "Other ID doesn't exist:", aurora.Cyan(strOtherId))
+			logging.Warn(moduleName, "Other ID doesn't exist:", aurora.Cyan(strOtherId))
 			// If the profile doesn't exist then skip adding it
 			continue
 		}
