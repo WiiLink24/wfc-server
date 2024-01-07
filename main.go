@@ -15,7 +15,7 @@ import (
 
 func main() {
 	config := common.GetConfig()
-	logging.SetLevel(config.LogLevel)
+	logging.SetLevel(*config.LogLevel)
 
 	wg := &sync.WaitGroup{}
 	actions := []func(){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, serverbrowser.StartServer, sake.StartServer, natneg.StartServer}

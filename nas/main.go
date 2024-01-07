@@ -38,10 +38,10 @@ func StartServer() {
 		panic(err)
 	}
 
-	address := config.Address + ":" + config.Port
+	address := *config.NASAddress + ":" + config.NASPort
 
 	if config.EnableHTTPS {
-		go startHTTPSProxy(config.Address+":"+config.PortHTTPS, "localhost:"+config.Port)
+		go startHTTPSProxy(config)
 	}
 
 	logging.Notice("NAS", "Starting HTTP server on", address)
@@ -85,9 +85,8 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Move this to its own server
 	// Check for /payload
-	if strings.HasPrefix(r.URL.String(), "/payload?") {
+	if strings.HasPrefix(r.URL.String(), "/payload") {
 		handlePayloadRequest(moduleName, w, r)
 		return
 	}

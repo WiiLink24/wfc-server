@@ -1,9 +1,24 @@
 <Config>
-    <!-- The address the server will bind to -->
-    <address>127.0.0.1</address>
+    <!-- The address the GameSpy services will bind to -->
+    <gsAddress>127.0.0.1</gsAddress>
+
+    <!-- The address the NAS HTTP server will bind to -->
+    <nasAddress>127.0.0.1</nasAddress>
     <nasPort>80</nasPort>
+
+    <!-- The address the NAS HTTPS proxy server will bind to -->
+    <nasAddressHttps>127.0.0.1</nasAddressHttps>
     <nasPortHttps>443</nasPortHttps>
     <enableHttps>false</enableHttps>
+    <enableHttpsExploit>false</enableHttpsExploit>
+
+    <!-- Path to the certificate and key used for modern web browser requests -->
+    <certPath>fullchain.pem</certPath>
+    <keyPath>privkey.pem</keyPath>
+
+    <!-- Path to the certificate and key used for the Wii DNS exploit -->
+    <certDerPathWii>naswii-cert.der</certDerPathWii>
+    <keyPathWii>naswii-key.pem</keyPathWii>
 
     <!-- Database Credentials -->
     <username>username</username>
