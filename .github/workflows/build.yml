@@ -1,0 +1,38 @@
+name: Build CI
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install dependencies
+        run: go mod download
+      - uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: build --clean --snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Delete unused files
+        run: |
+          cd dist
+          rm -rf *.json *.json *.yaml *.tar.gz
+      - name: Get short SHA
+        id: short-sha
+        run: echo "SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wfc-server-${{ steps.short-sha.outputs.SHA }}
+          path: ./dist/*/*
