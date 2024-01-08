@@ -30,9 +30,9 @@ jobs:
           rm -rf *.json *.json *.yaml *.tar.gz
       - name: Get short SHA
         id: short-sha
-        run: echo "::set-output name=sha::$(git rev-parse --short HEAD)"
+        run: echo "SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wfc-server-${{ steps.short-sha.outputs.sha }}
+          name: wfc-server-${{ steps.short-sha.outputs.SHA }}
           path: ./dist/*/*
