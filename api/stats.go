@@ -16,8 +16,6 @@ type Stats struct {
 }
 
 func HandleStats(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	u, err := url.Parse(r.URL.String())
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -85,6 +83,7 @@ func HandleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
 	w.Write(jsonData)
