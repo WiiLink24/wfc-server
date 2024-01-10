@@ -23,8 +23,6 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 			continue
 		}
 
-		logging.Info(moduleName, aurora.Cyan(values[i]).String()+":", aurora.Cyan(values[i+1]))
-
 		if values[i] == "unknown" {
 			unknowns = append(unknowns, values[i+1])
 			continue
