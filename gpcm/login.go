@@ -347,6 +347,8 @@ func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authTo
 					WWFCMessage: WWFCMsgUnknownLoginError,
 				})
 			}
+
+			return 0
 		}
 	}
 
