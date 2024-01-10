@@ -6,23 +6,25 @@ import (
 )
 
 type Config struct {
-	Username           string  `xml:"username"`
-	Password           string  `xml:"password"`
-	DatabaseAddress    string  `xml:"databaseAddress"`
-	DatabaseName       string  `xml:"databaseName"`
-	DefaultAddress     string  `xml:"address"`
-	GameSpyAddress     *string `xml:"gsAddress,omitempty"`
-	NASAddress         *string `xml:"nasAddress,omitempty"`
-	NASPort            string  `xml:"nasPort"`
-	NASAddressHTTPS    *string `xml:"nasAddressHttps,omitempty"`
-	NASPortHTTPS       string  `xml:"nasPortHttps"`
-	EnableHTTPS        bool    `xml:"enableHttps"`
-	EnableHTTPSExploit *bool   `xml:"enableHttpsExploit,omitempty"`
-	LogLevel           *int    `xml:"logLevel"`
-	CertPath           string  `xml:"certPath"`
-	KeyPath            string  `xml:"keyPath"`
-	CertPathWii        string  `xml:"certDerPathWii"`
-	KeyPathWii         string  `xml:"keyPathWii"`
+	Username                string  `xml:"username"`
+	Password                string  `xml:"password"`
+	DatabaseAddress         string  `xml:"databaseAddress"`
+	DatabaseName            string  `xml:"databaseName"`
+	DefaultAddress          string  `xml:"address"`
+	GameSpyAddress          *string `xml:"gsAddress,omitempty"`
+	NASAddress              *string `xml:"nasAddress,omitempty"`
+	NASPort                 string  `xml:"nasPort"`
+	NASAddressHTTPS         *string `xml:"nasAddressHttps,omitempty"`
+	NASPortHTTPS            string  `xml:"nasPortHttps"`
+	EnableHTTPS             bool    `xml:"enableHttps"`
+	EnableHTTPSExploit      *bool   `xml:"enableHttpsExploit,omitempty"`
+	LogLevel                *int    `xml:"logLevel"`
+	CertPath                string  `xml:"certPath"`
+	KeyPath                 string  `xml:"keyPath"`
+	CertPathWii             string  `xml:"certDerPathWii"`
+	KeyPathWii              string  `xml:"keyPathWii"`
+	APISecret               string  `xml:"apiSecret"`
+	AllowDefaultDolphinKeys bool    `xml:"allowDefaultDolphinKeys"`
 }
 
 func GetConfig() Config {
@@ -32,6 +34,8 @@ func GetConfig() Config {
 	}
 
 	var config Config
+	config.AllowDefaultDolphinKeys = true
+
 	err = xml.Unmarshal(data, &config)
 	if err != nil {
 		panic(err)

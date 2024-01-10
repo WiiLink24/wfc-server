@@ -8,12 +8,13 @@ type LoginInfo struct {
 	GPPublicIP          string
 	NeedsExploit        bool
 	DeviceAuthenticated bool
+	Restricted          bool
 	Session             *Session
 }
 
 var logins = map[uint32]*LoginInfo{}
 
-func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCode uint64, publicIP string, needsExploit bool, deviceAuthenticated bool) {
+func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCode uint64, publicIP string, needsExploit bool, deviceAuthenticated bool, restricted bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -25,6 +26,7 @@ func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCo
 		GPPublicIP:          publicIP,
 		NeedsExploit:        needsExploit,
 		DeviceAuthenticated: deviceAuthenticated,
+		Restricted:          restricted,
 		Session:             nil,
 	}
 }

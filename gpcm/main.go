@@ -27,12 +27,21 @@ type GameSpySession struct {
 	AuthToken           string
 	LoginTicket         string
 	SessionKey          int32
-	GameCode            string
-	InGameName          string
-	Status              string
-	LocString           string
-	FriendList          []uint32
-	AuthFriendList      []uint32
+
+	LoginInfoSet      bool
+	GameName          string
+	GameCode          string
+	Region            byte
+	Language          byte
+	InGameName        string
+	ConsoleFriendCode uint64
+	DeviceId          uint32
+	HostPlatform      string
+
+	Status         string
+	LocString      string
+	FriendList     []uint32
+	AuthFriendList []uint32
 
 	QR2IP          uint64
 	Reservation    common.MatchCommandData
@@ -47,6 +56,8 @@ var (
 	// I would use a sync.Map instead of the map mutex combo, but this performs better.
 	sessions = map[uint32]*GameSpySession{}
 	mutex    = deadlock.Mutex{}
+
+	allowDefaultDolphinKeys bool
 )
 
 func StartServer() {
@@ -64,6 +75,10 @@ func StartServer() {
 	if err != nil {
 		panic(err)
 	}
+
+	database.UpdateTables(pool, ctx)
+
+	allowDefaultDolphinKeys = config.AllowDefaultDolphinKeys
 
 	address := *config.GameSpyAddress + ":29900"
 	l, err := net.Listen("tcp", address)

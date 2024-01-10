@@ -44,6 +44,11 @@ var msPublicKey = []byte{
 	0xF9, 0x5B, 0x4D, 0x11, 0x04, 0x44, 0x64, 0x35, 0xC0, 0xED, 0xA4, 0x2F,
 }
 
+var commonDeviceIds = []uint32{
+	0x02000001,
+	0x0403ac68,
+}
+
 func verifySignature(moduleName string, authToken string, signature string) uint32 {
 	sigBytes, err := common.Base64DwcEncoding.DecodeString(signature)
 	if err != nil || len(sigBytes) != 0x144 {
@@ -51,6 +56,16 @@ func verifySignature(moduleName string, authToken string, signature string) uint
 	}
 
 	ngId := sigBytes[0x000:0x004]
+
+	if !allowDefaultDolphinKeys {
+		// Skip authentication signature verification for common device IDs (the caller should handle this)
+		for _, defaultDeviceId := range commonDeviceIds {
+			if binary.BigEndian.Uint32(ngId) == defaultDeviceId {
+				return defaultDeviceId
+			}
+		}
+	}
+
 	ngTimestamp := sigBytes[0x004:0x008]
 	caId := sigBytes[0x008:0x00C]
 	msId := sigBytes[0x00C:0x010]
@@ -122,7 +137,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		return
 	}
 
-	err, gamecd, issueTime, userId, gsbrcd, cfc, _, _, ingamesn, challenge, isLocalhost := common.UnmarshalNASAuthToken(authToken)
+	err, gamecd, issueTime, userId, gsbrcd, cfc, region, lang, ingamesn, challenge, isLocalhost := common.UnmarshalNASAuthToken(authToken)
 	if err != nil {
 		g.replyError(ErrLogin)
 		return
@@ -134,39 +149,32 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		return
 	}
 
-	payloadVer, payloadVerExists := command.OtherValues["payload_ver"]
-	signature, signatureExists := command.OtherValues["wwfc_sig"]
+	_, payloadVerExists := command.OtherValues["payload_ver"]
+	_, signatureExists := command.OtherValues["wwfc_sig"]
 	deviceId := uint32(0)
+
+	g.GameName = command.OtherValues["gamename"]
+	g.GameCode = gamecd
+	g.Region = region
+	g.Language = lang
+	g.ConsoleFriendCode = cfc
+	g.InGameName = ingamesn
+
+	if hostPlatform, exists := command.OtherValues["wwfc_host"]; exists {
+		g.HostPlatform = hostPlatform
+	} else {
+		g.HostPlatform = "Wii"
+	}
+
+	g.LoginInfoSet = true
 
 	if isLocalhost && !payloadVerExists && !signatureExists {
 		// Players using the DNS exploit, need patching using a QR2 exploit
 		// TODO: Check that the game is compatible with the DNS
 		g.NeedsExploit = true
 	} else {
-		if !payloadVerExists || payloadVer != "2" {
-			g.replyError(GPError{
-				ErrorCode:   ErrLogin.ErrorCode,
-				ErrorString: "The payload version is invalid.",
-				Fatal:       true,
-			})
-			return
-		}
-
-		if !signatureExists {
-			g.replyError(GPError{
-				ErrorCode:   ErrLogin.ErrorCode,
-				ErrorString: "Missing authentication signature.",
-				Fatal:       true,
-			})
-			return
-		}
-
-		if deviceId = verifySignature(g.ModuleName, authToken, signature); deviceId == 0 {
-			g.replyError(GPError{
-				ErrorCode:   ErrLogin.ErrorCode,
-				ErrorString: "The authentication signature is invalid.",
-				Fatal:       true,
-			})
+		deviceId = g.verifyExLoginInfo(command, authToken)
+		if deviceId == 0 {
 			return
 		}
 	}
@@ -187,6 +195,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 				ErrorCode:   ErrLogin.ErrorCode,
 				ErrorString: "The provided profile ID is invalid.",
 				Fatal:       true,
+				WWFCMessage: WWFCMsgUnknownLoginError,
 			})
 			return
 		}
@@ -194,14 +203,9 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		cmdProfileId = uint32(cmdProfileId2)
 	}
 
-	// Perform the login with the database.
-	user, ok := database.LoginUserToGPCM(pool, ctx, userId, gsbrcd, cmdProfileId, deviceId)
-	if !ok {
-		// There was an error logging in to the GP backend.
-		g.replyError(ErrLogin)
+	if !g.performLoginWithDatabase(userId, gsbrcd, cmdProfileId, deviceId) {
 		return
 	}
-	g.User = user
 
 	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10) + "*"
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ") + "*"
@@ -237,8 +241,6 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.AuthToken = authToken
 	g.LoginTicket = common.MarshalGPCMLoginTicket(g.User.ProfileId)
 	g.SessionKey = rand.Int31n(290000000) + 10000000
-	g.GameCode = gamecd
-	g.InGameName = ingamesn
 
 	g.DeviceAuthenticated = !g.NeedsExploit
 	g.LoggedIn = true
@@ -246,7 +248,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ")
 
 	// Notify QR2 of the login
-	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.Conn.RemoteAddr().String(), g.NeedsExploit, g.DeviceAuthenticated)
+	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.Conn.RemoteAddr().String(), g.NeedsExploit, g.DeviceAuthenticated, g.User.Restricted)
 
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
@@ -273,6 +275,20 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 		return
 	}
 
+	deviceId := g.verifyExLoginInfo(command, g.AuthToken)
+	if deviceId == 0 {
+		return
+	}
+
+	if !g.performLoginWithDatabase(g.User.UserId, g.User.GsbrCode, 0, deviceId) {
+		return
+	}
+
+	g.DeviceAuthenticated = true
+	qr2.SetDeviceAuthenticated(g.User.ProfileId)
+}
+
+func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authToken string) uint32 {
 	payloadVer, payloadVerExists := command.OtherValues["payload_ver"]
 	signature, signatureExists := command.OtherValues["wwfc_sig"]
 	deviceId := uint32(0)
@@ -282,8 +298,9 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 			ErrorCode:   ErrLogin.ErrorCode,
 			ErrorString: "The payload version is invalid.",
 			Fatal:       true,
+			WWFCMessage: WWFCMsgPayloadInvalid,
 		})
-		return
+		return 0
 	}
 
 	if !signatureExists {
@@ -291,21 +308,112 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 			ErrorCode:   ErrLogin.ErrorCode,
 			ErrorString: "Missing authentication signature.",
 			Fatal:       true,
+			WWFCMessage: WWFCMsgUnknownLoginError,
 		})
-		return
+		return 0
 	}
 
-	if deviceId = verifySignature(g.ModuleName, g.AuthToken, signature); deviceId == 0 {
+	if deviceId = verifySignature(g.ModuleName, authToken, signature); deviceId == 0 {
 		g.replyError(GPError{
 			ErrorCode:   ErrLogin.ErrorCode,
 			ErrorString: "The authentication signature is invalid.",
 			Fatal:       true,
+			WWFCMessage: WWFCMsgUnknownLoginError,
 		})
-		return
+		return 0
 	}
 
-	g.DeviceAuthenticated = true
-	qr2.SetDeviceAuthenticated(g.User.ProfileId)
+	g.DeviceId = deviceId
+
+	if !allowDefaultDolphinKeys {
+		// Check common device IDs
+		for _, defaultDeviceId := range commonDeviceIds {
+			if deviceId != defaultDeviceId {
+				continue
+			}
+
+			if strings.HasPrefix(g.HostPlatform, "Dolphin") {
+				g.replyError(GPError{
+					ErrorCode:   ErrLogin.ErrorCode,
+					ErrorString: "Prohibited device ID used in signature.",
+					Fatal:       true,
+					WWFCMessage: WWFCMsgDolphinSetupRequired,
+				})
+			} else {
+				g.replyError(GPError{
+					ErrorCode:   ErrLogin.ErrorCode,
+					ErrorString: "Prohibited device ID used in signature.",
+					Fatal:       true,
+					WWFCMessage: WWFCMsgUnknownLoginError,
+				})
+			}
+		}
+	}
+
+	return deviceId
+}
+
+func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string, profileId uint32, deviceId uint32) bool {
+	// Get IP address without port
+	ipAddress := g.Conn.RemoteAddr().String()
+	if strings.Contains(ipAddress, ":") {
+		ipAddress = ipAddress[:strings.Index(ipAddress, ":")]
+	}
+
+	user, err := database.LoginUserToGPCM(pool, ctx, userId, gsbrCode, profileId, deviceId, ipAddress, g.InGameName)
+	g.User = user
+
+	if err != nil {
+		if err == database.ErrProfileIDInUse {
+			g.replyError(GPError{
+				ErrorCode:   ErrLogin.ErrorCode,
+				ErrorString: "The profile ID is already in use.",
+				Fatal:       true,
+				WWFCMessage: WWFCMsgProfileIDInUse,
+			})
+		} else if err == database.ErrReservedProfileIDRange {
+			g.replyError(GPError{
+				ErrorCode:   ErrLogin.ErrorCode,
+				ErrorString: "The profile ID is in a reserved range.",
+				Fatal:       true,
+				WWFCMessage: WWFCMsgProfileIDInvalid,
+			})
+		} else if err == database.ErrDeviceIDMismatch {
+			if strings.HasPrefix(g.HostPlatform, "Dolphin") {
+				g.replyError(GPError{
+					ErrorCode:   ErrLogin.ErrorCode,
+					ErrorString: "The device ID does not match the one on record.",
+					Fatal:       true,
+					WWFCMessage: WWFCMsgConsoleMismatchDolphin,
+				})
+			} else {
+				g.replyError(GPError{
+					ErrorCode:   ErrLogin.ErrorCode,
+					ErrorString: "The device ID does not match the one on record.",
+					Fatal:       true,
+					WWFCMessage: WWFCMsgConsoleMismatch,
+				})
+			}
+		} else if err == database.ErrProfileBannedTOS {
+			g.replyError(GPError{
+				ErrorCode:   ErrLogin.ErrorCode,
+				ErrorString: "The profile is banned from the service.",
+				Fatal:       true,
+				WWFCMessage: WWFCMsgProfileBannedTOS,
+			})
+		} else {
+			g.replyError(GPError{
+				ErrorCode:   ErrLogin.ErrorCode,
+				ErrorString: "There was an error logging in to the GP backend.",
+				Fatal:       true,
+				WWFCMessage: WWFCMsgUnknownLoginError,
+			})
+		}
+
+		return false
+	}
+
+	return true
 }
 
 func IsLoggedIn(profileID uint32) bool {

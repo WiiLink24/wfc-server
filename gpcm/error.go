@@ -1,15 +1,39 @@
 package gpcm
 
 import (
+	"fmt"
 	"strconv"
 	"wwfc/common"
 	"wwfc/logging"
 )
 
+const (
+	LangJapanese    = 0x00
+	LangEnglish     = 0x01
+	LangGerman      = 0x02
+	LangFrench      = 0x03
+	LangSpanish     = 0x04
+	LangItalian     = 0x05
+	LangDutch       = 0x06
+	LangSimpChinese = 0x07
+	LangTradChinese = 0x08
+	LangKorean      = 0x09
+
+	LangEnglishEU = 0x81
+	LangFrenchEU  = 0x83
+	LangSpanishEU = 0x84
+)
+
+type WWFCErrorMessage struct {
+	ErrorCode  int
+	MessageRMC map[byte]string
+}
+
 type GPError struct {
 	ErrorCode   int
 	ErrorString string
 	Fatal       bool
+	WWFCMessage WWFCErrorMessage
 }
 
 func MakeGPError(errorCode int, errorString string, fatal bool) GPError {
@@ -139,6 +163,181 @@ var (
 	ErrRemoveBlockNotBlocked = MakeGPError(0x1301, "The profile specified was not a member of the blocked list.", false)
 )
 
+var (
+	// WWFC errors with custom messages
+	WWFCMsgUnknownLoginError = WWFCErrorMessage{
+		ErrorCode: 22000,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"An unknown error has occurred\n" +
+				"while logging in to WiiLink WFC.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
+
+	WWFCMsgDolphinSetupRequired = WWFCErrorMessage{
+		ErrorCode: 22001,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"Additional setup is required\n" +
+				"to use WiiLink WFC on Dolphin.\n" +
+				"Visit wfc.wiilink24.com/dolphin\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
+
+	WWFCMsgProfileBannedTOS = WWFCErrorMessage{
+		ErrorCode: 22002,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You are banned from WiiLink WFC\n" +
+				"due to a violation of the\n" +
+				"Terms of Service.\n" +
+				"Visit wfc.wiilink24.com/tos\n" +
+				"\n" +
+				"Error Code: %[1]d\n" +
+				"Support Info: NG%08[2]x",
+		},
+	}
+
+	WWFCMsgProfileBannedTOSNow = WWFCErrorMessage{
+		ErrorCode: 22002,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You have been banned from\n" +
+				"WiiLink WFC due to a violation\n" +
+				"of the Terms of Service.\n" +
+				"Visit wfc.wiilink24.com/tos\n" +
+				"\n" +
+				"Error Code: %[1]d\n" +
+				"Support Info: NG%08[2]x",
+		},
+	}
+
+	WWFCMsgProfileRestricted = WWFCErrorMessage{
+		ErrorCode: 22003,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You are banned from public\n" +
+				"matches due to a violation\n" +
+				"of the WiiLink WFC Rules.\n" +
+				"Visit wfc.wiilink24.com/rules\n" +
+				"\n" +
+				"Error Code: %[1]d\n" +
+				"Support Info: NG%08[2]x",
+		},
+	}
+
+	WWFCMsgProfileRestrictedNow = WWFCErrorMessage{
+		ErrorCode: 22003,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You have been banned from public\n" +
+				"matches due to a violation\n" +
+				"of the WiiLink WFC Rules.\n" +
+				"Visit wfc.wiilink24.com/rules\n" +
+				"\n" +
+				"Error Code: %[1]d\n" +
+				"Support Info: NG%08[2]x",
+		},
+	}
+
+	WWFCMsgKickedGeneric = WWFCErrorMessage{
+		ErrorCode: 22004,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You have been kicked from\n" +
+				"WiiLink WFC.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
+
+	WWFCMsgKickedModerator = WWFCErrorMessage{
+		ErrorCode: 22004,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You have been kicked from\n" +
+				"WiiLink WFC by a moderator.\n" +
+				"Visit wfc.wiilink24.com/rules\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
+
+	WWFCMsgKickedRoomHost = WWFCErrorMessage{
+		ErrorCode: 22004,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You have been kicked from the\n" +
+				"friend room by the room creator.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
+
+	WWFCMsgConsoleMismatch = WWFCErrorMessage{
+		ErrorCode: 22005,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"The console you are using is not\n" +
+				"the device used to register this\n" +
+				"profile.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
+
+	WWFCMsgConsoleMismatchDolphin = WWFCErrorMessage{
+		ErrorCode: 22005,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"The console you are using is not\n" +
+				"the device used to register this\n" +
+				"profile. Please make sure you've\n" +
+				"set up your NAND correctly.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
+
+	WWFCMsgProfileIDInvalid = WWFCErrorMessage{
+		ErrorCode: 22006,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"The profile ID you are trying to\n" +
+				"register is invalid.\n" +
+				"Please create a new license.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
+
+	WWFCMsgProfileIDInUse = WWFCErrorMessage{
+		ErrorCode: 22007,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"The friend code you are trying to\n" +
+				"register is already in use.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
+
+	WWFCMsgPayloadInvalid = WWFCErrorMessage{
+		ErrorCode: 22008,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"The WiiLink WFC payload is invalid.\n" +
+				"Try restarting your game.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
+)
+
 func (err GPError) GetMessage() string {
 	command := common.GameSpyCommand{
 		Command:      "error",
@@ -156,7 +355,53 @@ func (err GPError) GetMessage() string {
 	return common.CreateGameSpyMessage(command)
 }
 
+func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, cfc uint64, ngid uint32) string {
+	command := common.GameSpyCommand{
+		Command:      "error",
+		CommandValue: "",
+		OtherValues: map[string]string{
+			"err":    strconv.Itoa(err.ErrorCode),
+			"errmsg": err.ErrorString,
+		},
+	}
+
+	if err.Fatal {
+		command.OtherValues["fatal"] = ""
+	}
+
+	if err.Fatal && err.WWFCMessage.ErrorCode != 0 {
+		switch gameName {
+		case "mariokartwii":
+			errMsg := err.WWFCMessage.MessageRMC[lang]
+			if errMsg == "" {
+				errMsg = err.WWFCMessage.MessageRMC[LangEnglish]
+			}
+
+			errMsg = fmt.Sprintf(errMsg, err.WWFCMessage.ErrorCode, ngid)
+
+			command.OtherValues["wwfc_err"] = strconv.Itoa(err.WWFCMessage.ErrorCode)
+			command.OtherValues["wwfc_errmsg"] = errMsg
+		}
+	}
+
+	return common.CreateGameSpyMessage(command)
+}
+
 func (g *GameSpySession) replyError(err GPError) {
 	logging.Error(g.ModuleName, "Reply error:", err.ErrorString)
-	g.Conn.Write([]byte(err.GetMessage()))
+	if !g.LoginInfoSet {
+		msg := err.GetMessage()
+		// logging.Info(g.ModuleName, "Sending error message:", msg)
+		g.Conn.Write([]byte(msg))
+		return
+	}
+
+	deviceId := g.User.RestrictedDeviceId
+	if deviceId == 0 {
+		deviceId = g.User.NgDeviceId
+	}
+
+	msg := err.GetMessageTranslate(g.GameName, g.Region, g.Language, g.ConsoleFriendCode, deviceId)
+	// logging.Info(g.ModuleName, "Sending error message:", msg)
+	g.Conn.Write([]byte(msg))
 }

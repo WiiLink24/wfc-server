@@ -20,6 +20,9 @@
     <certDerPathWii>naswii-cert.der</certDerPathWii>
     <keyPathWii>naswii-key.pem</keyPathWii>
 
+    <!-- Allow default Dolphin device keys to be used -->
+    <allowDefaultDolphinKeys>true</allowDefaultDolphinKeys>
+
     <!-- Database Credentials -->
     <username>username</username>
     <password>password</password>
@@ -30,4 +33,7 @@
 
     <!-- Log verbosity -->
     <logLevel>4</logLevel>
+
+    <!-- API secret -->
+    <apiSecret>hQ3f57b3tW2WnjJH3v</apiSecret>
 </Config>

@@ -2,19 +2,27 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 	"wwfc/common"
 	"wwfc/logging"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/logrusorgru/aurora/v3"
 )
 
-func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsbrcd string, profileId uint32, ngDeviceId uint32) (User, bool) {
+var (
+	ErrDeviceIDMismatch = errors.New("NG device ID mismatch")
+	ErrProfileBannedTOS = errors.New("Profile is banned for violating the Terms of Service")
+)
+
+func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsbrcd string, profileId uint32, ngDeviceId uint32, ipAddress string, ingamesn string) (User, error) {
 	var exists bool
 	err := pool.QueryRow(ctx, DoesUserExist, userId, gsbrcd).Scan(&exists)
 	if err != nil {
-		return User{}, false
+		return User{}, err
 	}
 
 	user := User{
@@ -32,7 +40,7 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		err := user.CreateUser(pool, ctx)
 		if err != nil {
 			logging.Error("DATABASE", "Error creating user:", aurora.Cyan(userId), aurora.Cyan(gsbrcd), aurora.Cyan(user.ProfileId), "\nerror:", err.Error())
-			return User{}, false
+			return User{}, err
 		}
 
 		logging.Notice("DATABASE", "Created new GPCM user:", aurora.Cyan(userId), aurora.Cyan(gsbrcd), aurora.Cyan(user.ProfileId))
@@ -42,7 +50,7 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		var lastName *string
 		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &expectedNgId, &user.Email, &user.UniqueNick, &firstName, &lastName)
 		if err != nil {
-			panic(err)
+			return User{}, err
 		}
 
 		if firstName != nil {
@@ -53,17 +61,17 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 			user.LastName = *lastName
 		}
 
-		if expectedNgId != nil && user.NgDeviceId != 0 {
+		if expectedNgId != nil && *expectedNgId != 0 {
 			user.NgDeviceId = *expectedNgId
 			if ngDeviceId != 0 && user.NgDeviceId != ngDeviceId {
 				logging.Error("DATABASE", "NG device ID mismatch for profile", aurora.Cyan(user.ProfileId), "- expected", aurora.Cyan(fmt.Sprintf("%08x", user.NgDeviceId)), "but got", aurora.Cyan(fmt.Sprintf("%08x", ngDeviceId)))
-				return User{}, false
+				return User{}, ErrDeviceIDMismatch
 			}
 		} else if ngDeviceId != 0 {
 			user.NgDeviceId = ngDeviceId
 			_, err := pool.Exec(ctx, UpdateUserNGDeviceID, user.ProfileId, ngDeviceId)
 			if err != nil {
-				panic(err)
+				return User{}, err
 			}
 		}
 
@@ -86,5 +94,36 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		})
 	}
 
-	return user, true
+	// Update the user's last IP address and ingamesn
+	_, err = pool.Exec(ctx, UpdateUserLastIPAddress, user.ProfileId, ipAddress, ingamesn)
+	if err != nil {
+		return User{}, err
+	}
+
+	// Find ban from device ID or IP address
+	var banExists bool
+	var banTOS bool
+	var bannedDeviceId uint32
+	timeNow := time.Now()
+	err = pool.QueryRow(ctx, SearchUserBan, user.ProfileId, user.NgDeviceId, ipAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceId)
+	if err != nil {
+		if err != pgx.ErrNoRows {
+			return User{}, err
+		}
+
+		banExists = false
+	}
+
+	if banExists {
+		if banTOS {
+			logging.Warn("DATABASE", "Profile", aurora.Cyan(user.ProfileId), "is banned")
+			return User{RestrictedDeviceId: bannedDeviceId}, ErrProfileBannedTOS
+		}
+
+		logging.Warn("DATABASE", "Profile", aurora.Cyan(user.ProfileId), "is restricted")
+		user.Restricted = true
+		user.RestrictedDeviceId = bannedDeviceId
+	}
+
+	return user, nil
 }

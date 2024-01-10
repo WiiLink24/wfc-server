@@ -2,6 +2,7 @@ package main
 
 import (
 	"sync"
+	"wwfc/api"
 	"wwfc/common"
 	"wwfc/gpcm"
 	"wwfc/gpsp"
@@ -18,7 +19,7 @@ func main() {
 	logging.SetLevel(*config.LogLevel)
 
 	wg := &sync.WaitGroup{}
-	actions := []func(){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, serverbrowser.StartServer, sake.StartServer, natneg.StartServer}
+	actions := []func(){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, serverbrowser.StartServer, sake.StartServer, natneg.StartServer, api.StartServer}
 	wg.Add(5)
 	for _, action := range actions {
 		go func(ac func()) {

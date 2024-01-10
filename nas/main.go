@@ -59,6 +59,9 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logging.Info("NAS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
+	moduleName := "NAS:" + r.RemoteAddr
+
 	// Handle conntest server
 	if strings.HasPrefix(r.Host, "conntest.") {
 		handleConnectionTest(w)
@@ -77,8 +80,23 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logging.Info("NAS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
-	moduleName := "NAS:" + r.RemoteAddr
+	// Check for /api/ban
+	if r.URL.Path == "/api/ban" {
+		api.HandleBan(w, r)
+		return
+	}
+
+	// Check for /api/unban
+	if r.URL.Path == "/api/unban" {
+		api.HandleUnban(w, r)
+		return
+	}
+
+	// Check for /api/kick
+	if r.URL.Path == "/api/kick" {
+		api.HandleKick(w, r)
+		return
+	}
 
 	if r.URL.String() == "/ac" || r.URL.String() == "/pr" || r.URL.String() == "/download" {
 		handleAuthRequest(moduleName, w, r)
