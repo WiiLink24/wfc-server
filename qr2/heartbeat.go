@@ -3,6 +3,7 @@ package qr2
 import (
 	"encoding/binary"
 	"net"
+	"strconv"
 	"strings"
 	"wwfc/common"
 	"wwfc/logging"
@@ -62,6 +63,22 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		return
 	}
 
+	if ratingError := checkValidRating(moduleName, payload); ratingError != "ok" {
+		mutex.Lock()
+		session, sessionExists := sessions[lookupAddr]
+		if sessionExists && session.Login != nil {
+			callback := session.Login.GPErrorCallback
+			profileId := session.Login.ProfileID
+
+			mutex.Unlock()
+			callback(profileId, ratingError)
+			return
+		} else {
+			// Else don't return and move on, so we can return an error once logged in
+			mutex.Unlock()
+		}
+	}
+
 	session, ok := setSessionData(moduleName, addr, sessionId, payload)
 	if !ok {
 		return
@@ -100,4 +117,27 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		}
 	}
 	mutex.Unlock()
+}
+
+func checkValidRating(moduleName string, payload map[string]string) string {
+	if payload["gamename"] == "mariokartwii" {
+		// ev and eb values must be in range 1 to 9999
+		if ev := payload["ev"]; ev != "" {
+			evInt, err := strconv.ParseInt(ev, 10, 16)
+			if err != nil || evInt < 1 || evInt > 9999 {
+				logging.Error(moduleName, "Invalid ev value:", aurora.Cyan(ev))
+				return "invalid_elo"
+			}
+		}
+
+		if eb := payload["eb"]; eb != "" {
+			ebInt, err := strconv.ParseInt(eb, 10, 16)
+			if err != nil || ebInt < 1 || ebInt > 9999 {
+				logging.Error(moduleName, "Invalid eb value:", aurora.Cyan(eb))
+				return "invalid_elo"
+			}
+		}
+	}
+
+	return "ok"
 }

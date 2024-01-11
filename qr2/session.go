@@ -187,6 +187,16 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 		return false
 	}
 
+	if ratingError := checkValidRating(moduleName, session.Data); ratingError != "ok" {
+		callback := loginInfo.GPErrorCallback
+		profileId := loginInfo.ProfileID
+
+		mutex.Unlock()
+		callback(profileId, ratingError)
+		mutex.Lock()
+		return false
+	}
+
 	session.Login = loginInfo
 
 	// Constraint: only one session can exist with a given profile ID

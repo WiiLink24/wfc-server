@@ -336,6 +336,18 @@ var (
 				"Error Code: %[1]d",
 		},
 	}
+
+	WWFCMsgInvalidELO = WWFCErrorMessage{
+		ErrorCode: 22009,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You were disconnected from\n" +
+				"WiiLink WFC due to an invalid\n" +
+				"VR or BR value.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
 )
 
 func (err GPError) GetMessage() string {

@@ -19,11 +19,14 @@ func kickPlayer(profileID uint32, reason string) {
 
 		case "room_kick":
 			errorMessage = WWFCMsgKickedRoomHost
+
+		case "invalid_elo":
+			errorMessage = WWFCMsgInvalidELO
 		}
 
 		session.replyError(GPError{
 			ErrorCode:   ErrConnectionClosed.ErrorCode,
-			ErrorString: "The player was kicked from the game. Reason: " + reason,
+			ErrorString: "The player was kicked from the server. Reason: " + reason,
 			Fatal:       true,
 			WWFCMessage: errorMessage,
 		})
