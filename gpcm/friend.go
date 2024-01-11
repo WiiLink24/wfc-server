@@ -264,6 +264,12 @@ func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
 
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	if status == "3" && g.User.Restricted {
+		logging.Warn(g.ModuleName, "Restricted user searching for public rooms")
+		kickPlayer(g.User.ProfileId, "restricted_join")
+	}
+
 	g.LocString = locstring
 	g.Status = statusMsg
 
