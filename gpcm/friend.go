@@ -65,8 +65,11 @@ func (g *GameSpySession) getAuthorizedFriendIndex(profileId uint32) int {
 	return -1
 }
 
-const addFriendMessage = "\r\n\r\n|signed|00000000000000000000000000000000"
-const logOutMessage = "|s|0|ss|Offline|ls||ip|0|p|0|qm|0"
+const (
+	addFriendMessage  = "\r\n\r\n|signed|00000000000000000000000000000000"
+	authFriendMessage = "I have authorized your request to add me to your list"
+	logOutMessage     = "|s|0|ss|Offline|ls||ip|0|p|0|qm|0"
+)
 
 func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	strNewProfileId := command.OtherValues["newprofileid"]
@@ -115,6 +118,12 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 		return
 	}
 
+	if newSession.GameName != g.GameName {
+		logging.Error(g.ModuleName, "Destination is not playing the same game")
+		g.replyError(ErrAddFriendBadNew)
+		return
+	}
+
 	if !newSession.isFriendAdded(g.User.ProfileId) {
 		// Not an error, just ignore for now
 		logging.Info(g.ModuleName, "Destination has not added sender")
@@ -124,8 +133,35 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	// Friends are now mutual!
 	// TODO: Add a limit
 	g.AuthFriendList = append(g.AuthFriendList, uint32(newProfileId))
+	newSession.AuthFriendList = append(newSession.AuthFriendList, g.User.ProfileId)
 
-	sendMessageToProfileId("2", g.User.ProfileId, uint32(newProfileId), addFriendMessage)
+	// Send friend auth message
+	g.sendFriendAuthMessage(uint32(newProfileId))
+	newSession.sendFriendAuthMessage(g.User.ProfileId)
+
+	g.exchangeFriendStatus(uint32(newProfileId))
+}
+
+func (g *GameSpySession) sendFriendAuthMessage(newProfileId uint32) {
+	// Send both messages in one packet
+	message := common.CreateGameSpyMessage(common.GameSpyCommand{
+		Command:      "bm",
+		CommandValue: "2",
+		OtherValues: map[string]string{
+			"f":   strconv.FormatUint(uint64(newProfileId), 10),
+			"msg": addFriendMessage,
+		},
+	})
+	message += common.CreateGameSpyMessage(common.GameSpyCommand{
+		Command:      "bm",
+		CommandValue: "4",
+		OtherValues: map[string]string{
+			"f":   strconv.FormatUint(uint64(newProfileId), 10),
+			"msg": "",
+		},
+	})
+
+	g.Conn.Write([]byte(message))
 }
 
 func (g *GameSpySession) sendFriendRequests() {
@@ -197,8 +233,12 @@ func (g *GameSpySession) authAddFriend(command common.GameSpyCommand) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	sendMessageToProfileId("4", g.User.ProfileId, uint32(fromProfileId), "")
-	// Exchange statuses now
+	if !g.isFriendAuthorized(uint32(fromProfileId)) {
+		logging.Error(g.ModuleName, "Sender", aurora.Cyan(fromProfileId), "is not an authorized friend")
+		g.replyError(ErrAuthAddBadFrom)
+		return
+	}
+
 	g.exchangeFriendStatus(uint32(fromProfileId))
 }
 
@@ -408,6 +448,12 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not online")
 		// g.replyError(ErrMessageFriendOffline)
 		sendMessageToSession("1", uint32(toProfileId), g, resvDenyMsg)
+		return
+	}
+
+	if toSession.GameName != g.GameName {
+		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not playing the same game")
+		g.replyError(ErrMessage)
 		return
 	}
 
