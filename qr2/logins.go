@@ -9,12 +9,13 @@ type LoginInfo struct {
 	NeedsExploit        bool
 	DeviceAuthenticated bool
 	Restricted          bool
+	GPErrorCallback     func(uint32, string)
 	Session             *Session
 }
 
 var logins = map[uint32]*LoginInfo{}
 
-func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCode uint64, publicIP string, needsExploit bool, deviceAuthenticated bool, restricted bool) {
+func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCode uint64, publicIP string, needsExploit bool, deviceAuthenticated bool, restricted bool, gpErrorCallback func(uint32, string)) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -27,6 +28,7 @@ func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCo
 		NeedsExploit:        needsExploit,
 		DeviceAuthenticated: deviceAuthenticated,
 		Restricted:          restricted,
+		GPErrorCallback:     gpErrorCallback,
 		Session:             nil,
 	}
 }

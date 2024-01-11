@@ -185,6 +185,73 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 	}
 }
 
+func checkReservationAllowed(moduleName string, sender, destination *Session, joinType byte) string {
+	if sender.Login == nil || destination.Login == nil {
+		return ""
+	}
+
+	if !sender.Login.Restricted && !destination.Login.Restricted {
+		return "ok"
+	}
+
+	if joinType != 2 && joinType != 3 {
+		return "restricted_join"
+	}
+
+	// TODO: Once OpenHost is implemented, disallow joining public rooms
+
+	if destination.GroupPointer == nil {
+		// Destination is not in a group, check their dwc_mtype instead
+		if destination.Data["dwc_mtype"] != "2" && destination.Data["dwc_mtype"] != "3" {
+			return "restricted_join"
+		}
+
+		// This is fine
+		return "ok"
+	}
+
+	if destination.GroupPointer.MatchType != "private" {
+		return "restricted_join"
+	}
+
+	return "ok"
+}
+
+func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32, joinType byte) string {
+	senderPidStr := strconv.FormatUint(uint64(senderPid), 10)
+	destPidStr := strconv.FormatUint(uint64(destPid), 10)
+
+	moduleName := "QR2:CheckReservation:" + senderPidStr + "->" + destPidStr
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	from := sessions[senderIP]
+	if from == nil {
+		logging.Error(moduleName, "Sender IP does not exist:", aurora.Cyan(fmt.Sprintf("%012x", senderIP)))
+		return ""
+	}
+
+	toLogin := logins[destPid]
+	if toLogin == nil {
+		logging.Error(moduleName, "Destination profile ID does not exist:", aurora.Cyan(destPid))
+		return ""
+	}
+
+	to := toLogin.Session
+	if to == nil {
+		logging.Error(moduleName, "Destination profile ID does not have a session")
+		return ""
+	}
+
+	// Validate dwc_pid value
+	if !from.setProfileID(moduleName, senderPidStr) || from.Login == nil {
+		return ""
+	}
+
+	return checkReservationAllowed(moduleName, from, to, joinType)
+}
+
 // findNewServer attempts to find the new server/host in the group when the current server goes down.
 // If no server is found, the group's server pointer is set to nil.
 // Expects the mutex to be locked.

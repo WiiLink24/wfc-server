@@ -245,6 +245,31 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		common.LogMatchCommand(moduleName, destPid, cmd, matchData)
 
 		if cmd == common.MatchReservation {
+			resvError := checkReservationAllowed(moduleName, sender, receiver, matchData.Reservation.MatchType)
+			if resvError != "ok" {
+				if resvError == "restricted" || resvError == "restricted_join" {
+					logging.Error(moduleName, "RESERVATION: Restricted player attempted to join a public match")
+
+					if sender.Login != nil && sender.Login.Restricted {
+						callback := sender.Login.GPErrorCallback
+						profileId := sender.Login.ProfileID
+
+						mutex.Unlock()
+						callback(profileId, resvError)
+						mutex.Lock()
+					}
+					if receiver.Login != nil && receiver.Login.Restricted {
+						callback := receiver.Login.GPErrorCallback
+						profileId := receiver.Login.ProfileID
+
+						mutex.Unlock()
+						callback(profileId, resvError)
+						mutex.Lock()
+					}
+				}
+				return
+			}
+
 			sender.Reservation = matchData
 			sender.ReservationID = receiver.SearchID
 		} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {

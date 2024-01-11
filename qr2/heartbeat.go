@@ -12,8 +12,6 @@ import (
 
 func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []byte) {
 	sessionId := binary.BigEndian.Uint32(buffer[1:5])
-	logging.Info(moduleName, "Received heartbeat; session ID:", aurora.BrightCyan(sessionId))
-
 	values := strings.Split(string(buffer[5:]), "\u0000")
 
 	payload := map[string]string{}
@@ -29,6 +27,14 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		}
 
 		payload[values[i]] = values[i+1]
+	}
+
+	if payload["dwc_mtype"] != "" {
+		logging.Info(moduleName, "Match type:", aurora.Cyan(payload["dwc_mtype"]))
+	}
+
+	if payload["dwc_hoststate"] != "" {
+		logging.Info(moduleName, "Host state:", aurora.Cyan(payload["dwc_hoststate"]))
 	}
 
 	realIP, realPort := common.IPFormatToString(addr.String())
@@ -94,6 +100,4 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		}
 	}
 	mutex.Unlock()
-
-	logging.Info(moduleName, "Heartbeat ok")
 }

@@ -1,9 +1,6 @@
 package gpcm
 
-func KickPlayer(profileID uint32, reason string) {
-	mutex.Lock()
-	defer mutex.Unlock()
-
+func kickPlayer(profileID uint32, reason string) {
 	if session, exists := sessions[profileID]; exists {
 		errorMessage := WWFCMsgKickedGeneric
 
@@ -32,4 +29,11 @@ func KickPlayer(profileID uint32, reason string) {
 		})
 		session.Conn.Close()
 	}
+}
+
+func KickPlayer(profileID uint32, reason string) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	kickPlayer(profileID, reason)
 }

@@ -478,6 +478,26 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 			return
 		}
 
+		if g.User.Restricted || toSession.User.Restricted {
+			// Check with QR2 if the room is public or private
+			resvError := qr2.CheckGPReservationAllowed(g.QR2IP, g.User.ProfileId, uint32(toProfileId), msgMatchData.Reservation.MatchType)
+			if resvError != "ok" {
+				if resvError == "restricted" || resvError == "restricted_join" {
+					logging.Error(g.ModuleName, "RESERVATION: Restricted user tried to connect to public room")
+
+					// Kick the player(s)
+					if g.User.Restricted {
+						kickPlayer(toSession.User.ProfileId, resvError)
+					}
+					if toSession.User.Restricted {
+						kickPlayer(g.User.ProfileId, resvError)
+					}
+				}
+				// Otherwise generic error?
+				return
+			}
+		}
+
 		if !sameAddress {
 			searchId := qr2.GetSearchID(g.QR2IP)
 			msgMatchData.Reservation.PublicIP = uint32(searchId & 0xffffffff)
