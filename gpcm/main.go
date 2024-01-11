@@ -199,6 +199,7 @@ func handleRequest(conn net.Conn) {
 			return
 		}
 
+		commands = session.handleCommand("wwfc_report", commands, session.handleWWFCReport)
 		commands = session.handleCommand("updatepro", commands, session.updateProfile)
 		commands = session.handleCommand("status", commands, session.setStatus)
 		commands = session.handleCommand("addbuddy", commands, session.addFriend)

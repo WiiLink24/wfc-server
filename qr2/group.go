@@ -252,6 +252,10 @@ func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32
 	return checkReservationAllowed(moduleName, from, to, joinType)
 }
 
+func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
+	// TODO
+}
+
 // findNewServer attempts to find the new server/host in the group when the current server goes down.
 // If no server is found, the group's server pointer is set to nil.
 // Expects the mutex to be locked.
