@@ -66,9 +66,12 @@ func (g *GameSpySession) getAuthorizedFriendIndex(profileId uint32) int {
 }
 
 const (
-	addFriendMessage  = "\r\n\r\n|signed|00000000000000000000000000000000"
+	addFriendMessage = "\r\n\r\n|signed|00000000000000000000000000000000"
+
+	// TODO: Check if this is needed for any game, it sends via bm 1
 	authFriendMessage = "I have authorized your request to add me to your list"
-	logOutMessage     = "|s|0|ss|Offline|ls||ip|0|p|0|qm|0"
+
+	logOutMessage = "|s|0|ss|Offline|ls||ip|0|p|0|qm|0"
 )
 
 func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
@@ -136,56 +139,20 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	newSession.AuthFriendList = append(newSession.AuthFriendList, g.User.ProfileId)
 
 	// Send friend auth message
-	g.sendFriendAuthMessage(uint32(newProfileId))
-	newSession.sendFriendAuthMessage(g.User.ProfileId)
+	sendMessageToSessionBuffer("4", newSession.User.ProfileId, g, "")
+	sendMessageToSession("4", g.User.ProfileId, newSession, "")
 
 	g.exchangeFriendStatus(uint32(newProfileId))
-}
-
-func (g *GameSpySession) sendFriendAuthMessage(newProfileId uint32) {
-	// Send both messages in one packet
-	message := common.CreateGameSpyMessage(common.GameSpyCommand{
-		Command:      "bm",
-		CommandValue: "2",
-		OtherValues: map[string]string{
-			"f":   strconv.FormatUint(uint64(newProfileId), 10),
-			"msg": addFriendMessage,
-		},
-	})
-	message += common.CreateGameSpyMessage(common.GameSpyCommand{
-		Command:      "bm",
-		CommandValue: "4",
-		OtherValues: map[string]string{
-			"f":   strconv.FormatUint(uint64(newProfileId), 10),
-			"msg": "",
-		},
-	})
-
-	g.Conn.Write([]byte(message))
 }
 
 func (g *GameSpySession) sendFriendRequests() {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	// Condense all requests into one packet
-	var message string
-
 	for _, newSession := range sessions {
 		if newSession.isFriendAdded(g.User.ProfileId) {
-			message += common.CreateGameSpyMessage(common.GameSpyCommand{
-				Command:      "bm",
-				CommandValue: "2",
-				OtherValues: map[string]string{
-					"f":   strconv.FormatUint(uint64(newSession.User.ProfileId), 10),
-					"msg": addFriendMessage,
-				},
-			})
+			sendMessageToSessionBuffer("2", g.User.ProfileId, newSession, addFriendMessage)
 		}
-	}
-
-	if message != "" {
-		g.Conn.Write([]byte(message))
 	}
 }
 
@@ -607,6 +574,17 @@ func sendMessageToSession(msgType string, from uint32, session *GameSpySession, 
 	session.Conn.Write([]byte(message))
 }
 
+func sendMessageToSessionBuffer(msgType string, from uint32, session *GameSpySession, msg string) {
+	session.WriteBuffer += common.CreateGameSpyMessage(common.GameSpyCommand{
+		Command:      "bm",
+		CommandValue: msgType,
+		OtherValues: map[string]string{
+			"f":   strconv.FormatUint(uint64(from), 10),
+			"msg": msg,
+		},
+	})
+}
+
 func sendMessageToProfileId(msgType string, from uint32, to uint32, msg string) bool {
 	if session, ok := sessions[to]; ok && session.LoggedIn {
 		sendMessageToSession(msgType, from, session, msg)
@@ -635,7 +613,7 @@ func (g *GameSpySession) exchangeFriendStatus(profileId uint32) {
 	if g.isFriendAdded(profileId) {
 		if session, ok := sessions[profileId]; ok && session.LoggedIn && session.isFriendAdded(g.User.ProfileId) {
 			sendMessageToSession("100", g.User.ProfileId, session, g.Status)
-			sendMessageToSession("100", profileId, g, session.Status)
+			sendMessageToSessionBuffer("100", profileId, g, session.Status)
 		}
 	}
 }

@@ -405,6 +405,9 @@ func (g *GameSpySession) replyError(err GPError) {
 		msg := err.GetMessage()
 		// logging.Info(g.ModuleName, "Sending error message:", msg)
 		g.Conn.Write([]byte(msg))
+		if err.Fatal {
+			g.Conn.Close()
+		}
 		return
 	}
 
@@ -416,4 +419,7 @@ func (g *GameSpySession) replyError(err GPError) {
 	msg := err.GetMessageTranslate(g.GameName, g.Region, g.Language, g.ConsoleFriendCode, deviceId)
 	// logging.Info(g.ModuleName, "Sending error message:", msg)
 	g.Conn.Write([]byte(msg))
+	if err.Fatal {
+		g.Conn.Close()
+	}
 }

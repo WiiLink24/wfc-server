@@ -266,7 +266,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	g.Conn.Write([]byte(payload))
 
-	g.sendFriendRequests()
+	// g.sendFriendRequests()
 }
 
 func (g *GameSpySession) exLogin(command common.GameSpyCommand) {

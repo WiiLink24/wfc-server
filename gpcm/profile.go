@@ -38,29 +38,60 @@ func (g *GameSpySession) getProfile(command common.GameSpyCommand) {
 		}
 	}
 
-	response := common.CreateGameSpyMessage(common.GameSpyCommand{
-		Command:      "pi",
-		CommandValue: "",
-		OtherValues: map[string]string{
-			"profileid":  command.OtherValues["profileid"],
-			"nick":       user.UniqueNick,
-			"userid":     strconv.FormatUint(uint64(user.UserId), 10),
-			"email":      user.Email,
-			"sig":        common.RandomHexString(32),
-			"uniquenick": user.UniqueNick,
-			"firstname":  user.FirstName,
-			"lastname":   user.LastName,
-			"pid":        "11",
-			"lon":        "0.000000",
-			"lat":        "0.000000",
-			"loc":        locstring,
-			"id":         command.OtherValues["id"],
-		},
-	})
-
-	g.Conn.Write([]byte(response))
+	if user.ProfileId == g.User.ProfileId {
+		g.WriteBuffer += common.CreateGameSpyMessage(common.GameSpyCommand{
+			Command:      "pi",
+			CommandValue: "",
+			OtherValues: map[string]string{
+				"profileid":  command.OtherValues["profileid"],
+				"nick":       user.UniqueNick,
+				"userid":     strconv.FormatUint(uint64(user.UserId), 10),
+				"email":      user.Email,
+				"sig":        common.RandomHexString(32),
+				"uniquenick": user.UniqueNick,
+				"firstname":  user.FirstName,
+				"lastname":   user.LastName,
+				"pid":        "11",
+				"lon":        "0.000000",
+				"lat":        "0.000000",
+				"loc":        locstring,
+				"id":         command.OtherValues["id"],
+			},
+		})
+	} else {
+		g.WriteBuffer += common.CreateGameSpyMessage(common.GameSpyCommand{
+			Command:      "pi",
+			CommandValue: "",
+			OtherValues: map[string]string{
+				"profileid":  command.OtherValues["profileid"],
+				"nick":       "000000000" + user.GsbrCode[:4] + "0000000",
+				"userid":     "0",
+				"email":      "000000000" + user.GsbrCode[:4] + "0000000" + "@nds",
+				"sig":        common.RandomHexString(32),
+				"uniquenick": "000000000" + user.GsbrCode[:4] + "0000000",
+				"firstname":  user.FirstName,
+				"lastname":   "000000000" + user.GsbrCode[:4] + "0000000",
+				"pid":        "11",
+				"lon":        "0.000000",
+				"lat":        "0.000000",
+				"loc":        locstring,
+				"id":         command.OtherValues["id"],
+			},
+		})
+	}
 }
 
 func (g *GameSpySession) updateProfile(command common.GameSpyCommand) {
 	g.User.UpdateProfile(pool, ctx, command.OtherValues)
+}
+
+func VerifyPlayerSearch(profileId uint32, sessionKey int32, gameName string) (string, bool) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if session, ok := sessions[profileId]; ok && session.LoggedIn && session.SessionKey == sessionKey && session.GameName == gameName {
+		return "000000000" + session.User.GsbrCode[:4] + "0000000", true
+	}
+
+	return "", false
 }

@@ -19,6 +19,7 @@ import (
 
 type GameSpySession struct {
 	Conn                net.Conn
+	WriteBuffer         string
 	User                database.User
 	ModuleName          string
 	LoggedIn            bool
@@ -210,6 +211,11 @@ func handleRequest(conn net.Conn) {
 
 		for _, command := range commands {
 			logging.Error(session.ModuleName, "Unknown command:", aurora.Cyan(command.Command))
+		}
+
+		if session.WriteBuffer != "" {
+			conn.Write([]byte(session.WriteBuffer))
+			session.WriteBuffer = ""
 		}
 	}
 }
