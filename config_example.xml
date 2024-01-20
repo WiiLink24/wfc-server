@@ -10,7 +10,8 @@
     <nasAddressHttps>127.0.0.1</nasAddressHttps>
     <nasPortHttps>443</nasPortHttps>
     <enableHttps>false</enableHttps>
-    <enableHttpsExploit>false</enableHttpsExploit>
+    <enableHttpsExploitWii>false</enableHttpsExploitWii>
+    <enableHttpsExploitDS>false</enableHttpsExploitDS>
 
     <!-- Path to the certificate and key used for modern web browser requests -->
     <certPath>fullchain.pem</certPath>
@@ -19,6 +20,11 @@
     <!-- Path to the certificate and key used for the Wii DNS exploit -->
     <certDerPathWii>naswii-cert.der</certDerPathWii>
     <keyPathWii>naswii-key.pem</keyPathWii>
+
+    <!-- Path to the certificate, Wii client certificate and key used for the DS DNS exploit -->
+    <certDerPathDS>nas-cert.der</certDerPathDS>
+    <wiiCertDerPathDS>nwc.der</wiiCertDerPathDS>
+    <keyPathDS>nas-key.pem</keyPathDS>
 
     <!-- Allow default Dolphin device keys to be used -->
     <allowDefaultDolphinKeys>true</allowDefaultDolphinKeys>
