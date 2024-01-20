@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"wwfc/logging"
 
 	"github.com/logrusorgru/aurora/v3"
+	"gvisor.dev/gvisor/pkg/sleep"
 )
 
 func printHex(data []byte) string {
@@ -224,74 +226,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		logging.Error(moduleName, "Invalid message:", aurora.Cyan(printHex(message)))
 	}
 
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	destPid, ok := receiver.Data["dwc_pid"]
-	if !ok || destPid == "" {
-		destPid = "<UNKNOWN>"
-	}
-
-	destSessionID := receiver.SessionID
-	packetCount := receiver.PacketCount + 1
-	receiver.PacketCount = packetCount
-	destAddr := receiver.Addr
-
-	if isNatnegPacket {
-		cookie := binary.BigEndian.Uint32(message[0x2:0x6])
-		logging.Notice(moduleName, "Send NN cookie", aurora.Cyan(cookie), "to", aurora.BrightCyan(destPid))
-	} else {
-		cmd := message[8]
-		common.LogMatchCommand(moduleName, destPid, cmd, matchData)
-
-		if cmd == common.MatchReservation {
-			resvError := checkReservationAllowed(moduleName, sender, receiver, matchData.Reservation.MatchType)
-			if resvError != "ok" {
-				if resvError == "restricted" || resvError == "restricted_join" {
-					logging.Error(moduleName, "RESERVATION: Restricted player attempted to join a public match")
-
-					if sender.Login != nil && sender.Login.Restricted {
-						callback := sender.Login.GPErrorCallback
-						profileId := sender.Login.ProfileID
-
-						mutex.Unlock()
-						callback(profileId, resvError)
-						mutex.Lock()
-					}
-					if receiver.Login != nil && receiver.Login.Restricted {
-						callback := receiver.Login.GPErrorCallback
-						profileId := receiver.Login.ProfileID
-
-						mutex.Unlock()
-						callback(profileId, resvError)
-						mutex.Lock()
-					}
-				}
-				return
-			}
-
-			sender.Reservation = matchData
-			sender.ReservationID = receiver.SearchID
-		} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
-			if receiver.ReservationID != sender.SearchID || receiver.Reservation.Reservation == nil {
-				logging.Error(moduleName, "Destination has no reservation with the sender")
-				return
-			}
-
-			if receiver.Reservation.Version != matchData.Version {
-				logging.Error(moduleName, "Reservation version mismatch")
-				return
-			}
-
-			if cmd == common.MatchResvOK {
-				if !processResvOK(moduleName, matchData.Version, *receiver.Reservation.Reservation, *matchData.ResvOK, sender, receiver) {
-					return
-				}
-			} else {
-				receiver.ReservationID = 0
-			}
-		}
-	}
+	destSessionID, packetCount, destAddr := processClientMessage(moduleName, sender, receiver, message, isNatnegPacket, matchData)
 
 	payload := createResponseHeader(ClientMessageRequest, destSessionID)
 
@@ -299,10 +234,115 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	binary.BigEndian.PutUint32(payload[len(payload)-4:], packetCount)
 	payload = append(payload, message...)
 
-	_, err := masterConn.WriteTo(payload, destAddr)
-	if err != nil {
-		logging.Error(moduleName, "Error sending message:", err.Error())
+	receiver.MessageMutex.Lock()
+
+	s := sleep.Sleeper{}
+	s.AddWaker(&receiver.MessageAckWaker)
+	timeWaker := sleep.Waker{}
+	s.AddWaker(&timeWaker)
+
+	receiver.MessageAckWaker.Clear()
+	timeOutCount := 0
+	for {
+		time.AfterFunc(1*time.Second, func() {
+			timeWaker.Assert()
+		})
+
+		_, err := masterConn.WriteTo(payload, destAddr)
+		if err != nil {
+			logging.Error(moduleName, "Error sending message:", err.Error())
+		}
+
+		// Wait for an ack or timeout
+		switch s.Fetch(true) {
+		case &timeWaker:
+			timeOutCount++
+			if timeOutCount > 8 {
+				logging.Error(moduleName, "Timed out waiting for ack")
+				receiver.MessageMutex.Unlock()
+				return
+			}
+			break
+
+		default:
+			receiver.MessageMutex.Unlock()
+			return
+		}
 	}
+}
+
+func processClientMessage(moduleName string, sender, receiver *Session, message []byte, isNatnegPacket bool, matchData common.MatchCommandData) (destSessionID uint32, packetCount uint32, destAddr net.Addr) {
+	mutex.Lock()
+
+	destPid, ok := receiver.Data["dwc_pid"]
+	if !ok || destPid == "" {
+		destPid = "<UNKNOWN>"
+	}
+
+	destSessionID = receiver.SessionID
+	packetCount = receiver.PacketCount + 1
+	receiver.PacketCount = packetCount
+	destAddr = receiver.Addr
+
+	if isNatnegPacket {
+		mutex.Unlock()
+		cookie := binary.BigEndian.Uint32(message[0x2:0x6])
+		logging.Notice(moduleName, "Send NN cookie", aurora.Cyan(cookie), "to", aurora.BrightCyan(destPid))
+		return
+	}
+	defer mutex.Unlock()
+
+	cmd := message[8]
+	common.LogMatchCommand(moduleName, destPid, cmd, matchData)
+
+	if cmd == common.MatchReservation {
+		resvError := checkReservationAllowed(moduleName, sender, receiver, matchData.Reservation.MatchType)
+		if resvError != "ok" {
+			if resvError == "restricted" || resvError == "restricted_join" {
+				logging.Error(moduleName, "RESERVATION: Restricted player attempted to join a public match")
+
+				if sender.Login != nil && sender.Login.Restricted {
+					callback := sender.Login.GPErrorCallback
+					profileId := sender.Login.ProfileID
+
+					mutex.Unlock()
+					callback(profileId, resvError)
+					mutex.Lock()
+				}
+				if receiver.Login != nil && receiver.Login.Restricted {
+					callback := receiver.Login.GPErrorCallback
+					profileId := receiver.Login.ProfileID
+
+					mutex.Unlock()
+					callback(profileId, resvError)
+					mutex.Lock()
+				}
+			}
+			return
+		}
+
+		sender.Reservation = matchData
+		sender.ReservationID = receiver.SearchID
+	} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
+		if receiver.ReservationID != sender.SearchID || receiver.Reservation.Reservation == nil {
+			logging.Error(moduleName, "Destination has no reservation with the sender")
+			return
+		}
+
+		if receiver.Reservation.Version != matchData.Version {
+			logging.Error(moduleName, "Reservation version mismatch")
+			return
+		}
+
+		if cmd == common.MatchResvOK {
+			if !processResvOK(moduleName, matchData.Version, *receiver.Reservation.Reservation, *matchData.ResvOK, sender, receiver) {
+				return
+			}
+		} else {
+			receiver.ReservationID = 0
+		}
+	}
+	return
 }
 
 func sendClientExploit(moduleName string, sessionCopy Session) {

@@ -123,6 +123,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		// In case ClientExploitReply is lost, this can be checked as well
 		// This would be sent either after the payload is downloaded, or the client is already patched
 		session.ExploitReceived = true
+		session.MessageAckWaker.Assert()
 		return
 
 	case KeepAliveRequest:

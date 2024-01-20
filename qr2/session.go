@@ -11,6 +11,7 @@ import (
 
 	"github.com/logrusorgru/aurora/v3"
 	"github.com/sasha-s/go-deadlock"
+	"gvisor.dev/gvisor/pkg/sleep"
 )
 
 const (
@@ -31,8 +32,10 @@ type Session struct {
 	Endianness      byte // Some fields depend on the client's endianness
 	Data            map[string]string
 	PacketCount     uint32
-	ReservationID   uint64
 	Reservation     common.MatchCommandData
+	ReservationID   uint64
+	MessageMutex    deadlock.Mutex
+	MessageAckWaker sleep.Waker
 	GroupPointer    *Group
 }
 
@@ -103,16 +106,18 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 
 	if !sessionExists {
 		session = &Session{
-			SessionID:     sessionId,
-			Addr:          addr,
-			Challenge:     "",
-			Authenticated: false,
-			LastKeepAlive: time.Now().Unix(),
-			Endianness:    ClientNoEndian,
-			Data:          payload,
-			PacketCount:   0,
-			Reservation:   common.MatchCommandData{},
-			ReservationID: 0,
+			SessionID:       sessionId,
+			Addr:            addr,
+			Challenge:       "",
+			Authenticated:   false,
+			LastKeepAlive:   time.Now().Unix(),
+			Endianness:      ClientNoEndian,
+			Data:            payload,
+			PacketCount:     0,
+			Reservation:     common.MatchCommandData{},
+			ReservationID:   0,
+			MessageMutex:    deadlock.Mutex{},
+			MessageAckWaker: sleep.Waker{},
 		}
 	}
 

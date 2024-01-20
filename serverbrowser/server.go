@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/logrusorgru/aurora/v3"
 	"net"
 	"regexp"
 	"strconv"
@@ -12,6 +11,8 @@ import (
 	"wwfc/common"
 	"wwfc/logging"
 	"wwfc/qr2"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 const (
@@ -339,5 +340,5 @@ func handleSendMessageRequest(conn net.Conn, buffer []byte) {
 
 	logging.Notice(ModuleName, "Send message from", aurora.BrightCyan(conn.RemoteAddr()), "to", aurora.Cyan(fmt.Sprintf("%012x", searchID)))
 
-	qr2.SendClientMessage(conn.RemoteAddr().String(), searchID, buffer[9:])
+	go qr2.SendClientMessage(conn.RemoteAddr().String(), searchID, buffer[9:])
 }

@@ -1,6 +1,6 @@
 module wwfc
 
-go 1.21
+go 1.21.1
 
 require (
 	github.com/jackc/pgx/v4 v4.18.1
@@ -21,4 +21,5 @@ require (
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
+	gvisor.dev/gvisor v0.0.0-20240119232905-7b151e25d076
 )
