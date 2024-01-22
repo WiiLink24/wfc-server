@@ -17,12 +17,16 @@ type Config struct {
 	NASAddressHTTPS         *string `xml:"nasAddressHttps,omitempty"`
 	NASPortHTTPS            string  `xml:"nasPortHttps"`
 	EnableHTTPS             bool    `xml:"enableHttps"`
-	EnableHTTPSExploit      *bool   `xml:"enableHttpsExploit,omitempty"`
+	EnableHTTPSExploitWii   *bool   `xml:"enableHttpsExploitWii,omitempty"`
+	EnableHTTPSExploitDS    *bool   `xml:"enableHttpsExploitDS,omitempty"`
 	LogLevel                *int    `xml:"logLevel"`
 	CertPath                string  `xml:"certPath"`
 	KeyPath                 string  `xml:"keyPath"`
 	CertPathWii             string  `xml:"certDerPathWii"`
 	KeyPathWii              string  `xml:"keyPathWii"`
+	CertPathDS              string  `xml:"certDerPathDS"`
+	WiiCertPathDS           string  `xml:"wiiCertDerPathDS"`
+	KeyPathDS               string  `xml:"keyPathDS"`
 	APISecret               string  `xml:"apiSecret"`
 	AllowDefaultDolphinKeys bool    `xml:"allowDefaultDolphinKeys"`
 }
@@ -57,9 +61,14 @@ func GetConfig() Config {
 		}
 	}
 
-	if config.EnableHTTPSExploit == nil {
+	if config.EnableHTTPSExploitWii == nil {
 		enable := true
-		config.EnableHTTPSExploit = &enable
+		config.EnableHTTPSExploitWii = &enable
+	}
+	
+	if config.EnableHTTPSExploitDS == nil {
+		enable := true
+		config.EnableHTTPSExploitDS = &enable
 	}
 
 	if config.LogLevel == nil {
