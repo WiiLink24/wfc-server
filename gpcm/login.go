@@ -154,6 +154,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	deviceId := uint32(0)
 
 	g.GameName = command.OtherValues["gamename"]
+	logging.Info(g.ModuleName, "Game name:", aurora.Cyan(g.GameName))
 	g.GameCode = gamecd
 	g.Region = region
 	g.Language = lang

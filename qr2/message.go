@@ -235,6 +235,10 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	payload = append(payload, message...)
 
 	receiver.MessageMutex.Lock()
+	if receiver.Login == nil {
+		receiver.MessageMutex.Unlock()
+		return
+	}
 
 	s := sleep.Sleeper{}
 	s.AddWaker(&receiver.MessageAckWaker)
@@ -257,12 +261,19 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		switch s.Fetch(true) {
 		case &timeWaker:
 			timeOutCount++
-			if timeOutCount > 8 {
-				logging.Error(moduleName, "Timed out waiting for ack")
-				receiver.MessageMutex.Unlock()
-				return
+			if timeOutCount <= 8 {
+				break
 			}
-			break
+
+			logging.Error(moduleName, "Timed out waiting for ack")
+			// Kick the player
+			if login := receiver.Login; login != nil {
+				login.GPErrorCallback(login.ProfileID, "network_error")
+				receiver.Login = nil
+			}
+
+			receiver.MessageMutex.Unlock()
+			return
 
 		default:
 			receiver.MessageMutex.Unlock()

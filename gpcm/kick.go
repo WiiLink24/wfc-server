@@ -22,6 +22,11 @@ func kickPlayer(profileID uint32, reason string) {
 
 		case "invalid_elo":
 			errorMessage = WWFCMsgInvalidELO
+
+		case "network_error":
+			// No error message
+			session.Conn.Close()
+			return
 		}
 
 		session.replyError(GPError{
