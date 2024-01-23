@@ -1,11 +1,12 @@
 # Local configuration files
 config.xml
 salt.bin
-naswii-cert.der
-naswii-key.pem
+*.der
+*.pem
 
 # Payload data
 payload
 
 # Editor files
 .vscode
+
