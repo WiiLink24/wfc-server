@@ -104,9 +104,7 @@ func (user *User) UpdateDeviceID(pool *pgxpool.Pool, ctx context.Context, newDev
 
 func GetUniqueUserID() uint64 {
 	// Not guaranteed unique but doesn't matter in practice if multiple people have the same user ID.
-	// The maximum size here is 0x80000000000, but older DS games have a bug causing connection issues
-	// if the user ID is greater than the signed 32-bit limit.
-	return uint64(rand.Int63n(0x80000000))
+	return uint64(rand.Int63n(0x80000000000))
 }
 
 func (user *User) UpdateProfile(pool *pgxpool.Pool, ctx context.Context, data map[string]string) {
