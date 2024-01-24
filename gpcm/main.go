@@ -38,6 +38,7 @@ type GameSpySession struct {
 	ConsoleFriendCode uint64
 	DeviceId          uint32
 	HostPlatform      string
+	UnitCode          byte
 
 	Status         string
 	LocString      string

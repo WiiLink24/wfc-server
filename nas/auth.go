@@ -30,7 +30,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 		replyHTTPError(w, 400, "400 Bad Request")
 		return
 	}
-	
+
 	// Need to know this here to determine UTF-16 endianness (LE for DS, BE for Wii)
 	// unitcd 0 = DS, 1 = Wii
 	unitcdValues, ok := r.PostForm["unitcd"]
@@ -264,10 +264,10 @@ func login(moduleName string, fields map[string]string, isLocalhost bool) map[st
 		// Only later DS games send this
 		ingamesn, ok := fields["ingamesn"]
 		if ok {
-			authToken, challenge = common.MarshalNASAuthToken(gamecd, userId, gsbrcd, 0, 0, langByte[0], ingamesn, isLocalhost)
+			authToken, challenge = common.MarshalNASAuthToken(gamecd, userId, gsbrcd, 0, 0, langByte[0], ingamesn, 0, isLocalhost)
 			logging.Notice(moduleName, "Login (DS)", aurora.Cyan(strconv.FormatUint(userId, 10)), aurora.Cyan(gsbrcd), "devname:", aurora.Cyan(devname), "ingamesn:", aurora.Cyan(ingamesn))
 		} else {
-			authToken, challenge = common.MarshalNASAuthToken(gamecd, userId, gsbrcd, 0, 0, langByte[0], "", isLocalhost)
+			authToken, challenge = common.MarshalNASAuthToken(gamecd, userId, gsbrcd, 0, 0, langByte[0], "", 0, isLocalhost)
 			logging.Notice(moduleName, "Login (DS)", aurora.Cyan(strconv.FormatUint(userId, 10)), aurora.Cyan(gsbrcd), "devname:", aurora.Cyan(devname))
 		}
 
@@ -299,7 +299,7 @@ func login(moduleName string, fields map[string]string, isLocalhost bool) map[st
 			return param
 		}
 
-		authToken, challenge = common.MarshalNASAuthToken(gamecd, userId, gsbrcd, cfcInt, regionByte[0], langByte[0], fields["ingamesn"], isLocalhost)
+		authToken, challenge = common.MarshalNASAuthToken(gamecd, userId, gsbrcd, cfcInt, regionByte[0], langByte[0], fields["ingamesn"], 1, isLocalhost)
 		logging.Notice(moduleName, "Login (Wii)", aurora.Cyan(strconv.FormatUint(userId, 10)), aurora.Cyan(gsbrcd), "ingamesn:", aurora.Cyan(fields["ingamesn"]))
 	}
 

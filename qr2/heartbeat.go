@@ -40,17 +40,29 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 
 	realIP, realPort := common.IPFormatToString(addr.String())
 
+	noIP := false
 	if ip, ok := payload["publicip"]; !ok || ip == "0" {
-		// Set the public IP key to the real IP
-		payload["publicip"] = realIP
-		payload["publicport"] = realPort
+		noIP = true
 	}
 
-	// Client is mistaken about its public IP
-	if payload["publicip"] != realIP || payload["publicport"] != realPort {
-		logging.Error(moduleName, "Public IP mismatch")
-		return
+	clientEndianness := common.GetExpectedUnitCode(payload["gamename"])
+	if !noIP && clientEndianness == ClientBigEndian {
+		if payload["publicip"] != realIP || payload["publicport"] != realPort {
+			// Client is mistaken about its public IP
+			logging.Error(moduleName, "Public IP mismatch")
+			return
+		}
+	} else if !noIP && clientEndianness == ClientLittleEndian {
+		realIPLE, realPortLE := common.IPFormatToStringLE(addr.String())
+		if payload["publicip"] != realIPLE || payload["publicport"] != realPortLE {
+			// Client is mistaken about its public IP
+			logging.Error(moduleName, "Public IP mismatch")
+			return
+		}
 	}
+
+	payload["publicip"] = realIP
+	payload["publicport"] = realPort
 
 	lookupAddr := makeLookupAddr(addr.String())
 
@@ -100,7 +112,7 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		mutex.Unlock()
 	}
 
-	if !session.Authenticated {
+	if !session.Authenticated || noIP {
 		sendChallenge(conn, addr, session, lookupAddr)
 	} else if !session.ExploitReceived && session.Login != nil && session.Login.NeedsExploit && statechanged == "1" {
 		logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")

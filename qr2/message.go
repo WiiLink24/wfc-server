@@ -241,7 +241,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	}
 
 	s := sleep.Sleeper{}
-	s.AddWaker(&receiver.MessageAckWaker)
+	s.AddWaker(receiver.MessageAckWaker)
 	timeWaker := sleep.Waker{}
 	s.AddWaker(&timeWaker)
 

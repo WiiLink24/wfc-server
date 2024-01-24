@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -83,4 +84,21 @@ func ReadGameList() {
 		}
 		gameListNameLookup[entry[1]] = index
 	}
+}
+
+func GetExpectedUnitCode(gameName string) byte {
+	if strings.HasSuffix(gameName, "wii") || strings.HasSuffix(gameName, "wiiam") {
+		return 1
+	}
+
+	if gameName == "sneezieswiiw" || gameName == "wormswiiware" || gameName == "wormswiiwaream" {
+		return 1
+	}
+
+	// Games with weird other regions
+	if gameName == "jockracerna" || gameName == "jockracereu" || gameName == "sengo3wiijp" {
+		return 1
+	}
+
+	return 0
 }

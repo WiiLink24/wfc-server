@@ -29,7 +29,7 @@ func generateRandom(n int) []byte {
 var (
 	authTokenKey   = generateRandom(16)
 	authTokenIV    = generateRandom(16)
-	authTokenMagic = generateRandom(15)
+	authTokenMagic = generateRandom(14)
 
 	loginTicketKey   = generateRandom(16)
 	loginTicketIV    = generateRandom(16)
@@ -46,7 +46,7 @@ func appendString(blob []byte, value string, maxlen int) []byte {
 	return blob
 }
 
-func MarshalNASAuthToken(gamecd string, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, isLocalhost bool) (string, string) {
+func MarshalNASAuthToken(gamecd string, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, unitcd byte, isLocalhost bool) (string, string) {
 	blob := binary.LittleEndian.AppendUint64([]byte{}, uint64(time.Now().Unix()))
 
 	blob = appendString(blob, gamecd, 4)
@@ -65,6 +65,8 @@ func MarshalNASAuthToken(gamecd string, userid uint64, gsbrcd string, cfc uint64
 	challenge := RandomString(8)
 	blob = append(blob, []byte(challenge)...)
 
+	blob = append(blob, byte(unitcd))
+
 	if isLocalhost {
 		blob = append(blob, 0x01)
 	} else {
@@ -82,7 +84,7 @@ func MarshalNASAuthToken(gamecd string, userid uint64, gsbrcd string, cfc uint64
 	return "NDS" + Base64DwcEncoding.EncodeToString(blob), challenge
 }
 
-func UnmarshalNASAuthToken(token string) (err error, gamecd string, issuetime time.Time, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, challenge string, isLocalhost bool) {
+func UnmarshalNASAuthToken(token string) (err error, gamecd string, issuetime time.Time, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, challenge string, unitcd byte, isLocalhost bool) {
 	if !strings.HasPrefix(token, "NDS") {
 		err = errors.New("invalid auth token prefix")
 		return
@@ -119,7 +121,8 @@ func UnmarshalNASAuthToken(token string) (err error, gamecd string, issuetime ti
 	lang = blob[0x2B]
 	ingamesn = string(blob[0x2D : 0x2D+min(blob[0x2C], 75)])
 	challenge = string(blob[0x78:0x80])
-	isLocalhost = blob[0x80] == 0x01
+	unitcd = blob[0x80]
+	isLocalhost = blob[0x81] == 0x01
 	return
 }
 

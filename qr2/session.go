@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	ClientNoEndian = iota
-	ClientBigEndian
-	ClientLittleEndian
+	ClientLittleEndian = 0
+	ClientBigEndian    = 1
+	ClientNoEndian     = 2
 )
 
 type Session struct {
@@ -34,8 +34,8 @@ type Session struct {
 	PacketCount     uint32
 	Reservation     common.MatchCommandData
 	ReservationID   uint64
-	MessageMutex    deadlock.Mutex
-	MessageAckWaker sleep.Waker
+	MessageMutex    *deadlock.Mutex
+	MessageAckWaker *sleep.Waker
 	GroupPointer    *Group
 }
 
@@ -116,8 +116,8 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 			PacketCount:     0,
 			Reservation:     common.MatchCommandData{},
 			ReservationID:   0,
-			MessageMutex:    deadlock.Mutex{},
-			MessageAckWaker: sleep.Waker{},
+			MessageMutex:    &deadlock.Mutex{},
+			MessageAckWaker: &sleep.Waker{},
 		}
 	}
 

@@ -45,6 +45,14 @@ func IPFormatToString(ip string) (string, string) {
 	return strconv.FormatInt(int64(intIP), 10), strconv.FormatUint(uint64(intPort), 10)
 }
 
+func IPFormatToStringLE(ip string) (string, string) {
+	intIP, intPort := IPFormatToInt(ip)
+
+	// Convert to little endian and print as big endian int
+	intIP = int32((uint32(intIP) >> 24) | ((uint32(intIP) & 0x00FF0000) >> 8) | ((uint32(intIP) & 0x0000FF00) << 8) | ((uint32(intIP) & 0x000000FF) << 24))
+	return strconv.FormatInt(int64(intIP), 10), strconv.FormatUint(uint64(intPort), 10)
+}
+
 func IPFormatBytes(ip string) []byte {
 	if strings.Contains(ip, ":") {
 		ip = strings.Split(ip, ":")[0]

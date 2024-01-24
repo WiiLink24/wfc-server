@@ -75,6 +75,9 @@ func handleRequest(conn net.Conn) {
 			switch command.Command {
 			default:
 				logging.Error(moduleName, "Unknown command:", command.Command)
+				logging.Error(moduleName, "Raw data:", string(buffer))
+				replyError(moduleName, conn, gpcm.ErrParse)
+				break
 
 			case "ka":
 				conn.Write([]byte(`\ka\\final\`))
@@ -82,6 +85,10 @@ func handleRequest(conn net.Conn) {
 
 			case "otherslist":
 				conn.Write([]byte(handleOthersList(command)))
+				break
+
+			case "search":
+				conn.Write([]byte(handleSearch(command)))
 				break
 			}
 		}

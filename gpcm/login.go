@@ -18,6 +18,11 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 )
 
+const (
+	UnitCodeDS  = 0
+	UnitCodeWii = 1
+)
+
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(nasChallenge))
@@ -137,7 +142,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		return
 	}
 
-	err, gamecd, issueTime, userId, gsbrcd, cfc, region, lang, ingamesn, challenge, isLocalhost := common.UnmarshalNASAuthToken(authToken)
+	err, gamecd, issueTime, userId, gsbrcd, cfc, region, lang, ingamesn, challenge, unitcd, isLocalhost := common.UnmarshalNASAuthToken(authToken)
 	if err != nil {
 		g.replyError(ErrLogin)
 		return
@@ -149,10 +154,6 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		return
 	}
 
-	_, payloadVerExists := command.OtherValues["payload_ver"]
-	_, signatureExists := command.OtherValues["wwfc_sig"]
-	deviceId := uint32(0)
-
 	g.GameName = command.OtherValues["gamename"]
 	logging.Info(g.ModuleName, "Game name:", aurora.Cyan(g.GameName))
 	g.GameCode = gamecd
@@ -160,6 +161,11 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.Language = lang
 	g.ConsoleFriendCode = cfc
 	g.InGameName = ingamesn
+	g.UnitCode = unitcd
+
+	_, payloadVerExists := command.OtherValues["payload_ver"]
+	_, signatureExists := command.OtherValues["wwfc_sig"]
+	deviceId := uint32(0)
 
 	if hostPlatform, exists := command.OtherValues["wwfc_host"]; exists {
 		g.HostPlatform = hostPlatform
@@ -169,14 +175,22 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	g.LoginInfoSet = true
 
-	if isLocalhost && !payloadVerExists && !signatureExists {
-		// Players using the DNS exploit, need patching using a QR2 exploit
-		// TODO: Check that the game is compatible with the DNS
-		g.NeedsExploit = true
-	} else {
-		deviceId = g.verifyExLoginInfo(command, authToken)
-		if deviceId == 0 {
-			return
+	if g.GameName != "mahjongkcds" && common.GetExpectedUnitCode(g.GameName) != unitcd {
+		logging.Error(g.ModuleName, "Incorrect unit code specified:", aurora.Cyan(unitcd))
+		g.replyError(ErrLogin)
+		return
+	}
+
+	if g.UnitCode == UnitCodeWii {
+		if isLocalhost && !payloadVerExists && !signatureExists {
+			// Players using the DNS exploit, need patching using a QR2 exploit
+			// TODO: Check that the game is compatible with the DNS
+			g.NeedsExploit = true
+		} else {
+			deviceId = g.verifyExLoginInfo(command, authToken)
+			if deviceId == 0 {
+				return
+			}
 		}
 	}
 
@@ -251,13 +265,19 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	// Notify QR2 of the login
 	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.Conn.RemoteAddr().String(), g.NeedsExploit, g.DeviceAuthenticated, g.User.Restricted, KickPlayer)
 
+	replyUserId := g.User.UserId
+	if g.UnitCode == UnitCodeDS {
+		// Workaround for SDK bug
+		replyUserId = 0
+	}
+
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
 		CommandValue: "2",
 		OtherValues: map[string]string{
 			"sesskey":    strconv.FormatInt(int64(g.SessionKey), 10),
 			"proof":      proof,
-			"userid":     strconv.FormatUint(g.User.UserId, 10),
+			"userid":     strconv.FormatUint(replyUserId, 10),
 			"profileid":  strconv.FormatUint(uint64(g.User.ProfileId), 10),
 			"uniquenick": g.User.UniqueNick,
 			"lt":         g.LoginTicket,

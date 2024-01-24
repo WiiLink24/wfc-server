@@ -49,6 +49,7 @@ type MatchCommandData struct {
 	TellAddr          *MatchCommandDataTellAddr
 	ServerCloseClient *MatchCommandDataServerCloseClient
 	SuspendMatch      *MatchCommandDataSuspendMatch
+	Other             []byte
 }
 
 type MatchCommandDataReservation struct {
@@ -189,7 +190,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 
 	switch command {
 	case MatchReservation:
-		if version == 3 && len(buffer) < 0x0C {
+		if version == 3 && len(buffer) < 0x04 {
 			break
 		}
 
@@ -473,6 +474,25 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 			},
 		}, true
 
+	case MatchPollTimeout:
+		if len(buffer) != 0x00 {
+			break
+		}
+		return MatchCommandData{
+			Version: version,
+			Command: command,
+		}, true
+
+	case MatchPollToAck:
+		if len(buffer) != 0x04 {
+			break
+		}
+		return MatchCommandData{
+			Version: version,
+			Command: command,
+			Other:   buffer,
+		}, true
+
 	case MatchSuspendMatch:
 		if len(buffer) == 0x08 {
 			return MatchCommandData{
@@ -497,6 +517,13 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 				},
 			}, true
 		}
+
+	default:
+		return MatchCommandData{
+			Version: version,
+			Command: command,
+			Other:   buffer,
+		}, true
 	}
 
 	return MatchCommandData{}, false
@@ -640,6 +667,12 @@ func EncodeMatchCommand(command byte, data MatchCommandData) ([]byte, bool) {
 		}
 		return message, true
 
+	case MatchPollTimeout:
+		return []byte{}, true
+
+	case MatchPollToAck:
+		return data.Other, true
+
 	case MatchSuspendMatch:
 		message := binary.LittleEndian.AppendUint32([]byte{}, data.SuspendMatch.HostProfileID)
 		message = binary.LittleEndian.AppendUint32(message, data.SuspendMatch.IsHostFlag)
@@ -649,6 +682,10 @@ func EncodeMatchCommand(command byte, data MatchCommandData) ([]byte, bool) {
 			message = binary.LittleEndian.AppendUint32(message, data.SuspendMatch.ClientAIDValue)
 		}
 		return message, true
+
+	default:
+		logging.Info("Common", "Unknown match command:", aurora.Cyan(command), "data:", data.Other)
+		return data.Other, true
 	}
 
 	return []byte{}, false
