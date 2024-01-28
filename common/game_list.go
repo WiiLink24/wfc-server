@@ -102,3 +102,8 @@ func GetExpectedUnitCode(gameName string) byte {
 
 	return 0
 }
+
+func DoesGameNeedExploit(gameName string) bool {
+	// Exploit is only implemented for Mario Kart Wii and Mario Kart DS currently
+	return gameName == "mariokartwii" || gameName == "mariokartds"
+}

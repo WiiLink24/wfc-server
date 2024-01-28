@@ -183,8 +183,17 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	if g.UnitCode == UnitCodeWii {
 		if isLocalhost && !payloadVerExists && !signatureExists {
-			// Players using the DNS exploit, need patching using a QR2 exploit
-			// TODO: Check that the game is compatible with the DNS
+			// Players using the DNS, need patching using a QR2 exploit
+			if !common.DoesGameNeedExploit(g.GameName) {
+				logging.Error(g.ModuleName, "Using DNS for incompatible game:", aurora.Cyan(g.GameName))
+				g.replyError(GPError{
+					ErrorCode:   ErrLogin.ErrorCode,
+					ErrorString: "The client is not patched to use WiiLink WFC.",
+					Fatal:       true,
+				})
+				return
+			}
+
 			g.NeedsExploit = true
 		} else {
 			deviceId = g.verifyExLoginInfo(command, authToken)
@@ -192,6 +201,12 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 				return
 			}
 		}
+	} else if g.UnitCode == UnitCodeDS {
+		g.NeedsExploit = common.DoesGameNeedExploit(g.GameName)
+	} else {
+		logging.Error(g.ModuleName, "Invalid unit code specified:", aurora.Cyan(unitcd))
+		g.replyError(ErrLogin)
+		return
 	}
 
 	response := generateResponse(g.Challenge, challenge, authToken, command.OtherValues["challenge"])

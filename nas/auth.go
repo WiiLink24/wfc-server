@@ -113,6 +113,10 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			reply = svcloc(fields)
 			break
 
+		case "SVCLOC":
+			reply = svcloc(fields)
+			break
+
 		default:
 			logging.Error(moduleName, "Unknown action:", aurora.Cyan(action))
 			reply = map[string]string{

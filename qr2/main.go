@@ -123,6 +123,10 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		// In case ClientExploitReply is lost, this can be checked as well
 		// This would be sent either after the payload is downloaded, or the client is already patched
 		session.ExploitReceived = true
+		if login := session.Login; login != nil {
+			login.NeedsExploit = false
+		}
+
 		session.MessageAckWaker.Assert()
 		return
 

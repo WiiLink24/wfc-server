@@ -96,27 +96,33 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		return
 	}
 
-	if payload["gamename"] == "mariokartwii" && len(unknowns) > 0 {
+	if len(unknowns) > 0 {
 		// Try to login using the first unknown as a profile ID
 		// This makes it possible to execute the exploit on the client sooner
 
 		mutex.Lock()
-		session, sessionExists := sessions[lookupAddr]
+		sessionPtr, sessionExists := sessions[lookupAddr]
 		if !sessionExists {
 			logging.Error(moduleName, "Session not found")
-		} else if session.Login == nil {
+		} else if sessionPtr.Login == nil {
 			profileId := unknowns[0]
 			logging.Info(moduleName, "Attempting to use unknown as profile ID", aurora.Cyan(profileId))
-			session.setProfileID(moduleName, profileId)
+			sessionPtr.setProfileID(moduleName, profileId)
 		}
+		session = *sessionPtr
 		mutex.Unlock()
 	}
 
 	if !session.Authenticated || noIP {
 		sendChallenge(conn, addr, session, lookupAddr)
-	} else if !session.ExploitReceived && session.Login != nil && session.Login.NeedsExploit && statechanged == "1" {
-		logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")
-		sendClientExploit(moduleName, session)
+	}
+
+	if !session.ExploitReceived && session.Login != nil && session.Login.NeedsExploit {
+		// The version of DWC in Mario Kart DS doesn't check matching status
+		if (!noIP && statechanged == "1") || payload["gamename"] == "mariokartds" {
+			logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")
+			sendClientExploit(moduleName, session)
+		}
 	}
 
 	mutex.Lock()
