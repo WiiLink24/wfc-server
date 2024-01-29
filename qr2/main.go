@@ -132,6 +132,8 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	case KeepAliveRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
+		conn.WriteTo(createResponseHeader(KeepAliveRequest, 0), addr)
+
 		mutex.Lock()
 		session.LastKeepAlive = time.Now().Unix()
 		mutex.Unlock()
