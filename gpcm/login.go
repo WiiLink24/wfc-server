@@ -181,6 +181,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		return
 	}
 
+	deviceAuth := false
 	if g.UnitCode == UnitCodeWii {
 		if isLocalhost && !payloadVerExists && !signatureExists {
 			// Players using the DNS, need patching using a QR2 exploit
@@ -195,14 +196,17 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 			}
 
 			g.NeedsExploit = true
+			deviceAuth = false
 		} else {
 			deviceId = g.verifyExLoginInfo(command, authToken)
 			if deviceId == 0 {
 				return
 			}
+			deviceAuth = true
 		}
 	} else if g.UnitCode == UnitCodeDS {
 		g.NeedsExploit = common.DoesGameNeedExploit(g.GameName)
+		deviceAuth = true
 	} else {
 		logging.Error(g.ModuleName, "Invalid unit code specified:", aurora.Cyan(unitcd))
 		g.replyError(ErrLogin)
@@ -272,7 +276,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.LoginTicket = common.MarshalGPCMLoginTicket(g.User.ProfileId)
 	g.SessionKey = rand.Int31n(290000000) + 10000000
 
-	g.DeviceAuthenticated = !g.NeedsExploit
+	g.DeviceAuthenticated = deviceAuth
 	g.LoggedIn = true
 	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10)
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ")

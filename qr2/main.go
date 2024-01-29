@@ -150,6 +150,9 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_EXPLOIT_ACK"))
 
 		session.ExploitReceived = true
+		if login := session.Login; login != nil {
+			login.NeedsExploit = false
+		}
 		break
 
 	default:

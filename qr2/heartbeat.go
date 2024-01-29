@@ -117,9 +117,9 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		sendChallenge(conn, addr, session, lookupAddr)
 	}
 
-	if !session.ExploitReceived && session.Login != nil && session.Login.NeedsExploit {
+	if login := session.Login; !session.ExploitReceived && login != nil && session.Login.NeedsExploit {
 		// The version of DWC in Mario Kart DS doesn't check matching status
-		if (!noIP && statechanged == "1") || payload["gamename"] == "mariokartds" {
+		if (!noIP && statechanged == "1") || login.GameCode == "AMCE" || login.GameCode == "AMCP" || login.GameCode == "AMCJ" {
 			logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")
 			sendClientExploit(moduleName, session)
 		}
