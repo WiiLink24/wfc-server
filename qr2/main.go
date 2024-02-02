@@ -120,9 +120,6 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	case ClientMessageAckRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK"))
 
-		mutex.Lock()
-		defer mutex.Unlock()
-
 		// In case ClientExploitReply is lost, this can be checked as well
 		// This would be sent either after the payload is downloaded, or the client is already patched
 		session.ExploitReceived = true
@@ -130,15 +127,14 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 			login.NeedsExploit = false
 		}
 
+		session.MessageMutex.Lock()
 		session.MessageAckWaker.Assert()
+		session.MessageMutex.Unlock()
 		return
 
 	case KeepAliveRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
 		conn.WriteTo(createResponseHeader(KeepAliveRequest, 0), addr)
-
-		mutex.Lock()
-		defer mutex.Unlock()
 
 		session.LastKeepAlive = time.Now().Unix()
 		return
@@ -154,9 +150,6 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	case ClientExploitReply:
 		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_EXPLOIT_ACK"))
-
-		mutex.Lock()
-		defer mutex.Unlock()
 
 		session.ExploitReceived = true
 		if login := session.Login; login != nil {
