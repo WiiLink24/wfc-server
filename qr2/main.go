@@ -127,9 +127,6 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 			login.NeedsExploit = false
 		}
 
-		mutex.Lock()
-		defer mutex.Unlock()
-
 		session.MessageAckWaker.Assert()
 		return
 

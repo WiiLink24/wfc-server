@@ -235,17 +235,17 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	payload = append(payload, message...)
 
 	receiver.MessageMutex.Lock()
+	defer receiver.MessageMutex.Unlock()
+
 	if receiver.Login == nil {
-		receiver.MessageMutex.Unlock()
 		return
 	}
 
 	s := sleep.Sleeper{}
+	defer s.Done()
 
-	mutex.Lock()
 	receiver.MessageAckWaker.Clear()
 	s.AddWaker(receiver.MessageAckWaker)
-	mutex.Unlock()
 
 	timeWaker := sleep.Waker{}
 	s.AddWaker(&timeWaker)
@@ -275,12 +275,9 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 				login.GPErrorCallback(login.ProfileID, "network_error")
 				receiver.Login = nil
 			}
-
-			receiver.MessageMutex.Unlock()
 			return
 
 		default:
-			receiver.MessageMutex.Unlock()
 			return
 		}
 	}
