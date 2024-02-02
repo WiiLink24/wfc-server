@@ -101,7 +101,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		break
 
 	case HeartbeatRequest:
-		logging.Info(moduleName, "Command:", aurora.Yellow("HEARTBEAT"))
+		// logging.Info(moduleName, "Command:", aurora.Yellow("HEARTBEAT"))
 		heartbeat(moduleName, conn, addr, buffer)
 		break
 
@@ -118,7 +118,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		return
 
 	case ClientMessageAckRequest:
-		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK"))
+		// logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK"))
 
 		// In case ClientExploitReply is lost, this can be checked as well
 		// This would be sent either after the payload is downloaded, or the client is already patched
@@ -127,13 +127,14 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 			login.NeedsExploit = false
 		}
 
-		session.MessageMutex.Lock()
+		mutex.Lock()
+		defer mutex.Unlock()
+
 		session.MessageAckWaker.Assert()
-		session.MessageMutex.Unlock()
 		return
 
 	case KeepAliveRequest:
-		logging.Info(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
+		// logging.Info(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
 		conn.WriteTo(createResponseHeader(KeepAliveRequest, 0), addr)
 
 		session.LastKeepAlive = time.Now().Unix()

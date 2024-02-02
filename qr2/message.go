@@ -242,8 +242,10 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 
 	s := sleep.Sleeper{}
 
+	mutex.Lock()
 	receiver.MessageAckWaker.Clear()
 	s.AddWaker(receiver.MessageAckWaker)
+	mutex.Unlock()
 
 	timeWaker := sleep.Waker{}
 	s.AddWaker(&timeWaker)
