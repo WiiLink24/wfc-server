@@ -1,6 +1,7 @@
 package gpcm
 
 import (
+	"strconv"
 	"wwfc/common"
 	"wwfc/logging"
 	"wwfc/qr2"
@@ -31,6 +32,21 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			}
 
 			qr2.ProcessUSER(g.User.ProfileId, g.QR2IP, packet)
+			break
+
+		case "mkw_malicious_packet":
+			if g.GameName != "mariokartwii" {
+				logging.Warn(g.ModuleName, "Ignoring mkw_malicious_packet from wrong game")
+				continue
+			}
+
+			profileId, err := strconv.ParseUint(value, 10, 32)
+			if err != nil {
+				logging.Error(g.ModuleName, "Error decoding mkw_malicious_packet:", err.Error())
+				continue
+			}
+
+			logging.Warn(g.ModuleName, "Malicious packet from", aurora.BrightCyan(strconv.FormatUint(profileId, 10)))
 			break
 		}
 	}
