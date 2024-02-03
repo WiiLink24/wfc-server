@@ -298,8 +298,8 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 
 	if isNatnegPacket {
 		mutex.Unlock()
-		cookie := binary.BigEndian.Uint32(message[0x2:0x6])
-		logging.Notice(moduleName, "Send NN cookie", aurora.Cyan(cookie), "to", aurora.BrightCyan(destPid))
+		cookie := binary.BigEndian.Uint32(message[0x6:0xA])
+		logging.Notice(moduleName, "Send NN cookie", aurora.Cyan(strconv.FormatUint(uint64(cookie), 16)), "to", aurora.BrightCyan(destPid))
 		return
 	}
 	defer mutex.Unlock()

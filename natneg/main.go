@@ -56,6 +56,7 @@ const (
 )
 
 type NATNEGSession struct {
+	Open    bool
 	Version byte
 	Cookie  uint32
 	Mutex   sync.RWMutex
@@ -135,6 +136,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		if !exists {
 			logging.Info(moduleName, "Creating session")
 			session = &NATNEGSession{
+				Open:    true,
 				Version: version,
 				Cookie:  cookie,
 				Mutex:   sync.RWMutex{},
@@ -144,9 +146,28 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 			// Session has TTL of 30 seconds
 			time.AfterFunc(30*time.Second, func() {
+				session.Open = false
+
 				mutex.Lock()
 				delete(sessions, cookie)
 				mutex.Unlock()
+
+				session.Mutex.Lock()
+				defer session.Mutex.Unlock()
+
+				// Disconnect each client
+				for _, client := range session.Clients {
+					if client.ConnectingIndex == client.Index {
+						continue
+					}
+
+					logging.Info(moduleName, "Disconnecting client", aurora.Cyan(client.Index))
+					// Send report ack, which will cause the client to cancel
+					reportAck := createPacketHeader(version, NNReportReply, session.Cookie)
+					reportAck = append(reportAck, 0x00, client.Index, 0x00)
+					reportAck = append(reportAck, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00)
+					conn.WriteTo(reportAck, addr)
+				}
 
 				logging.Info(moduleName, "Deleted session")
 			})
@@ -379,6 +400,10 @@ func (session *NATNEGSession) sendConnectRequests(moduleName string) {
 
 			go func(session *NATNEGSession, sender *NATNEGClient, destination *NATNEGClient) {
 				for {
+					if !session.Open {
+						return
+					}
+
 					check := false
 
 					if !destination.ConnectAck && destination.ConnectingIndex == sender.Index {
@@ -392,11 +417,10 @@ func (session *NATNEGSession) sendConnectRequests(moduleName string) {
 					}
 
 					if !check {
-						logging.Notice(moduleName, "No connect requests to send")
 						return
 					}
 
-					time.Sleep(1 * time.Second)
+					time.Sleep(500 * time.Millisecond)
 				}
 			}(session, sender, destination)
 		}
@@ -424,9 +448,6 @@ func (session *NATNEGSession) handleConnectReply(conn net.PacketConn, addr net.A
 	// useGamePort := buffer[2]
 	// localIPBytes := buffer[3:7]
 
-	session.Mutex.Lock()
-	defer session.Mutex.Unlock()
-
 	if client, exists := session.Clients[clientIndex]; exists {
 		client.ConnectAck = true
 	}
@@ -446,10 +467,9 @@ func (session *NATNEGSession) handleReport(conn net.PacketConn, addr net.Addr, b
 	// gameName, err := common.GetString(buffer[11:])
 
 	moduleName := "NATNEG:" + fmt.Sprintf("%08x/", session.Cookie) + addr.String()
+	logging.Notice(moduleName, "Report from", aurora.BrightCyan(clientIndex), "result:", aurora.Cyan(result))
 
 	if client, exists := session.Clients[clientIndex]; exists {
-		logging.Notice(moduleName, "Report from", aurora.BrightCyan(clientIndex), "result:", aurora.Cyan(result))
-
 		client.Connected[client.ConnectingIndex] = true
 		client.ConnectingIndex = clientIndex
 		client.ConnectAck = false
