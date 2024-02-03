@@ -63,7 +63,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 				return
 			}
 
-			if key == "ingamesn" {
+			if key == "ingamesn" || key == "devname" {
 				// Special handling required for the UTF-16 string
 				var utf16String []uint16
 				if unitcdString == "0" {
@@ -99,7 +99,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		switch action {
+		switch strings.ToLower(action) {
 		case "acctcreate":
 			reply = acctcreate()
 			break
@@ -110,10 +110,6 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			break
 
 		case "svcloc":
-			reply = svcloc(fields)
-			break
-
-		case "SVCLOC":
 			reply = svcloc(fields)
 			break
 
@@ -149,7 +145,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		switch action {
+		switch strings.ToLower(action) {
 		case "count":
 			response = []byte(dlsCount(fields))
 			break
