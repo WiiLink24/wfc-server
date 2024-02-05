@@ -29,6 +29,7 @@ type Config struct {
 	KeyPathDS               string  `xml:"keyPathDS"`
 	APISecret               string  `xml:"apiSecret"`
 	AllowDefaultDolphinKeys bool    `xml:"allowDefaultDolphinKeys"`
+	ServerName              string  `xml:"serverName,omitempty"`
 }
 
 func GetConfig() Config {
@@ -39,6 +40,7 @@ func GetConfig() Config {
 
 	var config Config
 	config.AllowDefaultDolphinKeys = true
+	config.ServerName = "WiiLink"
 
 	err = xml.Unmarshal(data, &config)
 	if err != nil {
@@ -65,7 +67,7 @@ func GetConfig() Config {
 		enable := true
 		config.EnableHTTPSExploitWii = &enable
 	}
-	
+
 	if config.EnableHTTPSExploitDS == nil {
 		enable := true
 		config.EnableHTTPSExploitDS = &enable

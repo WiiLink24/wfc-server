@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 	"wwfc/common"
 	"wwfc/logging"
 
@@ -64,6 +65,15 @@ func startHTTPSProxy(config common.Config) {
 	if err != nil {
 		panic(err)
 	}
+
+	setupRealTLS(privKeyPath, certsPath)
+	// Reread the private key and certs on a regular interval
+	go func() {
+		for {
+			time.Sleep(24 * time.Hour)
+			setupRealTLS(privKeyPath, certsPath)
+		}
+	}()
 
 	if !(exploitWii || exploitDS) {
 		// Only handle real TLS requests
@@ -204,7 +214,7 @@ func startHTTPSProxy(config common.Config) {
 		}...)
 
 		serverCertsRecordDS = append(serverCertsRecordDS, certDS...)
-		
+
 		serverCertsRecordDS = append(serverCertsRecordDS, []byte{
 			byte(wiiCertLenDS >> 16),
 			byte(wiiCertLenDS >> 8),
@@ -224,7 +234,7 @@ func startHTTPSProxy(config common.Config) {
 			panic(err)
 		}
 
-		logging.Info("NAS-TLS", "Receiving HTTPS request from", aurora.BrightCyan(conn.RemoteAddr()))
+		// logging.Info("NAS-TLS", "Receiving HTTPS request from", aurora.BrightCyan(conn.RemoteAddr()))
 		moduleName := "NAS-TLS:" + conn.RemoteAddr().String()
 
 		go handleTLS(moduleName, conn, nasAddr, privKeyPath, certsPath, serverCertsRecordWii, rsaKeyWii, serverCertsRecordDS, rsaKeyDS)
@@ -262,10 +272,10 @@ func handleTLS(moduleName string, rawConn net.Conn, nasAddr string, privKeyPath 
 				0x00, 0x35, 0x00, 0x00, 0x2F, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x09, 0x00,
 				0x00, 0x05, 0x00, 0x00, 0x04,
 			}[index] {
-				break;
+				break
 			}
 		}
-		if (index == 0x1D) {
+		if index == 0x1D {
 			macFn, cipher, clientCipher := handleWiiTLSHandshake(moduleName, conn, serverCertsRecordWii, rsaKeyWii)
 			proxyConsoleTLS(moduleName, conn, nasAddr, VersionTLS10, macFn, cipher, clientCipher)
 			return
@@ -285,17 +295,17 @@ func handleTLS(moduleName string, rawConn net.Conn, nasAddr string, privKeyPath 
 			if helloBytes[index] != []byte{
 				0x16, 0x03, 0x00, 0x00, 0x2F, 0x01, 0x00, 0x00, 0x2B, 0x03, 0x00,
 			}[index] {
-				break;
+				break
 			}
 		}
-		if (index == 0x0B) {
+		if index == 0x0B {
 			macFn, cipher, clientCipher := handleDSSSLHandshake(moduleName, conn, serverCertsRecordDS, rsaKeyDS)
 			proxyConsoleTLS(moduleName, conn, nasAddr, VersionSSL30, macFn, cipher, clientCipher)
 			return
 		}
 	}
 
-	logging.Info(moduleName, "Forwarding client hello:", aurora.Cyan(fmt.Sprintf("% X ", helloBytes)))
+	// logging.Info(moduleName, "Forwarding client hello:", aurora.Cyan(fmt.Sprintf("% X ", helloBytes)))
 	handleRealTLS(moduleName, conn, nasAddr, privKeyPath, certsPath)
 }
 
@@ -486,7 +496,7 @@ func handleDSSSLHandshake(moduleName string, conn bufferedConn, serverCertsRecor
 	finishHash := newFinishedHash(VersionSSL30)
 	finishHash.Write(clientHello[0x5:0x34])
 
-	clientRandom := clientHello[0x0b:0x0b+0x20]
+	clientRandom := clientHello[0x0b : 0x0b+0x20]
 
 	serverHello := []byte{0x16, 0x03, 0x00, 0x00, 0x2A, 0x02, 0x00, 0x00, 0x26, 0x03, 0x00}
 
@@ -715,7 +725,7 @@ func proxyConsoleTLS(moduleName string, conn bufferedConn, nasAddr string, versi
 				return
 			}
 
-			if (buf[1] != 0x03 || (version == VersionTLS10 && buf[2] != 0x01) || (version == VersionSSL30 && buf[2] != 0x00)) {
+			if buf[1] != 0x03 || (version == VersionTLS10 && buf[2] != 0x01) || (version == VersionSSL30 && buf[2] != 0x00) {
 				logging.Error(moduleName, "Invalid TLS version")
 				return
 			}
@@ -758,6 +768,36 @@ func proxyConsoleTLS(moduleName string, conn bufferedConn, nasAddr string, versi
 	}
 }
 
+var realTLSConfig *tls.Config
+
+func setupRealTLS(privKeyPath string, certsPath string) {
+	// Read server key and certs
+
+	serverKey, err := os.ReadFile(privKeyPath)
+	if err != nil {
+		logging.Error("NAS-TLS", "Failed to read server key:", err)
+		return
+	}
+
+	serverCerts, err := os.ReadFile(certsPath)
+	if err != nil {
+		logging.Error("NAS-TLS", "Failed to read server certs:", err)
+		return
+	}
+
+	cert, err := tls.X509KeyPair(serverCerts, serverKey)
+	if err != nil {
+		logging.Error("NAS-TLS", "Failed to parse server certs:", err)
+		return
+	}
+
+	config := tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
+	realTLSConfig = &config
+}
+
 // handleRealTLS handles the TLS request legitimately using crypto/tls
 func handleRealTLS(moduleName string, conn net.Conn, nasAddr string, privKeyPath string, certsPath string) {
 	// Recover from panics
@@ -767,30 +807,13 @@ func handleRealTLS(moduleName string, conn net.Conn, nasAddr string, privKeyPath
 		}
 	}()
 
-	// Read server key and certs
-	// TODO: Cache this
-	serverKey, err := os.ReadFile(privKeyPath)
-	if err != nil {
-		panic(err)
+	if realTLSConfig == nil {
+		return
 	}
 
-	serverCerts, err := os.ReadFile(certsPath)
-	if err != nil {
-		panic(err)
-	}
+	tlsConn := tls.Server(conn, realTLSConfig)
 
-	cert, err := tls.X509KeyPair(serverCerts, serverKey)
-	if err != nil {
-		panic(err)
-	}
-
-	config := tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}
-
-	tlsConn := tls.Server(conn, &config)
-
-	err = tlsConn.Handshake()
+	err := tlsConn.Handshake()
 	if err != nil {
 		return
 	}
@@ -959,7 +982,7 @@ func keysFromMasterSecret(version uint16, masterSecret, clientRandom, serverRand
 	if version == VersionSSL30 {
 		prf = prf30
 	}
-	
+
 	seed := make([]byte, 0, len(serverRandom)+len(clientRandom))
 	seed = append(seed, serverRandom...)
 	seed = append(seed, clientRandom...)
@@ -1104,7 +1127,7 @@ func macMD5(version uint16, key []byte) macFunction {
 
 // tls10MAC implements the TLS 1.0 MAC function. RFC 2246, Section 6.2.3.
 type tls10MAC struct {
-	h   hash.Hash
+	h hash.Hash
 }
 
 func (s tls10MAC) MAC(out, seq, header, data, extra []byte) []byte {
@@ -1151,4 +1174,3 @@ func (s ssl30MAC) MAC(out, seq, header, data []byte, extra []byte) []byte {
 	s.h.Write(out)
 	return s.h.Sum(out[:0])
 }
-
