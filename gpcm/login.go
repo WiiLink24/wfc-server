@@ -333,7 +333,7 @@ func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authTo
 	signature, signatureExists := command.OtherValues["wwfc_sig"]
 	deviceId := uint32(0)
 
-	if !payloadVerExists || payloadVer != "3" {
+	if !payloadVerExists || payloadVer != "4" {
 		g.replyError(GPError{
 			ErrorCode:   ErrLogin.ErrorCode,
 			ErrorString: "The payload version is invalid.",
