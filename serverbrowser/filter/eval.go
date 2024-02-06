@@ -3,6 +3,7 @@ package filter
 
 import (
 	"errors"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -55,7 +56,7 @@ func (this *expression) switchOther(node *TreeNode) {
 
 func (this *expression) switchFunction(node *TreeNode) int64 {
 	val1 := node.Value.(*OperatorToken)
-	switch val1.Operator {
+	switch strings.ToLower(val1.Operator) {
 	case "=":
 		return this.evalEquals(node.Items())
 	case "==":
@@ -84,6 +85,9 @@ func (this *expression) switchFunction(node *TreeNode) int64 {
 		return this.evalAnd(node.Items())
 	case "||":
 		return this.evalOr(node.Items())
+
+	case "like":
+		return this.evalLike(node.Items())
 
 	default:
 		panic("function not supported: " + val1.Operator)
@@ -285,6 +289,68 @@ func (this *expression) evalMathLessOrEqual(val1, val2 int64) int64 {
 	if val1 <= val2 {
 		return 1
 	}
+	return 0
+}
+
+func (this *expression) evalLike(args []*TreeNode) int64 {
+	cnt := len(args)
+	switch {
+	case cnt < 2:
+		panic("operator missing arguments")
+	case cnt == 2:
+		return this.evalLikeSingle(args[0], args[1])
+	default:
+		panic("operator like does not support multiple arguments")
+	}
+}
+
+func (this *expression) evalLikeSingle(arg1, arg2 *TreeNode) int64 {
+	val1 := this.getString(arg1)
+	val2 := this.getString(arg2)
+
+	allowedCharacters := `abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_%\`
+
+	regexString := "^"
+
+	// Convert SQL like pattern to regex
+	for i, c := range val2 {
+		if strings.IndexRune(allowedCharacters, c) < 0 {
+			panic("invalid character in like pattern: " + string(c))
+		}
+
+		if i != 0 && val2[i-1] == '\\' {
+			if c == '\\' {
+				regexString += "\\\\"
+				continue
+			}
+
+			regexString += string(c)
+			continue
+		}
+
+		switch c {
+		case '%':
+			regexString += ".*"
+
+		case '_':
+			regexString += "."
+
+		case '\\':
+			// Do nothing
+
+		default:
+			regexString += string(c)
+		}
+	}
+
+	regexString += "$"
+
+	if matched, err := regexp.MatchString(regexString, val1); err != nil {
+		panic(err)
+	} else if matched {
+		return 1
+	}
+
 	return 0
 }
 

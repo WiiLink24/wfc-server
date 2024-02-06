@@ -153,7 +153,7 @@ type OperatorPrecedence [][]string
 func (this OperatorPrecedence) Level(operator string) int {
 	for level, operators := range this {
 		for _, op := range operators {
-			if op == operator {
+			if op == strings.ToLower(operator) {
 				return 5 - level
 			}
 		}
@@ -177,7 +177,7 @@ var operators = OperatorPrecedence{
 	{"+", "-"},
 	{"==", "=", "!=", ">=", "<=", ">", "<"},
 	{"&&", "and"},
-	{"||", "or"},
+	{"||", "or", "like"},
 }
 
 var operatorList = operators.All()

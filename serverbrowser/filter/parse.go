@@ -4,6 +4,8 @@ package filter
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"unicode"
 )
 
 type stateFn func(*parser) stateFn
@@ -93,8 +95,15 @@ func (this *parser) parseCloseBracket() stateFn {
 
 func (this *parser) AcceptOperator() bool {
 	scan := this.scan
+	state := scan.SaveState()
 	for _, op := range operatorList {
-		if scan.Prefix(op) {
+		if scan.Prefix(op) || scan.Prefix(strings.ToUpper(op)) {
+			p := scan.Peek()
+			if unicode.IsLetter(rune(op[0])) && (unicode.IsLetter(p) || unicode.IsNumber(p) || strings.IndexRune(charValidString, p) >= 0) {
+				// this is a prefix of a longer word
+				scan.LoadState(state)
+				continue
+			}
 			return true
 		}
 	}

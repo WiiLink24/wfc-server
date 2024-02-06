@@ -16,7 +16,7 @@ func (p Pos) Position() Pos {
 
 const eof = -1
 
-//Scanner, Iterates through a string.
+// Scanner, Iterates through a string.
 type Scanner struct {
 	input      string
 	start      Pos
@@ -52,7 +52,7 @@ func (this *Scanner) Commit() string {
 	return r1
 }
 
-//IsEOF check if the end of the current string has been reached.
+// IsEOF check if the end of the current string has been reached.
 func (this *Scanner) IsEOF() bool {
 	return int(this.pos) >= len(this.input)
 }
@@ -65,7 +65,7 @@ func (this *Scanner) MoveStart(pos int) {
 	this.start = this.start + Pos(pos)
 }
 
-//Next returns the next rune in the input.
+// Next returns the next rune in the input.
 func (this *Scanner) Next() rune {
 	this.safebackup = true
 	if this.IsEOF() {
