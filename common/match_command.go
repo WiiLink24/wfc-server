@@ -348,7 +348,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		}
 
 		// Version 90
-		if len(buffer) != 0x34 {
+		if len(buffer) < 0x34 {
 			break
 		}
 
@@ -361,6 +361,10 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		if localPort > 0xffff {
 			break
 		}
+
+		// TODO: Fortune Street Wii seems to have ClientCount removed and two more values added after ResvCheckValue
+		// It also seems to have a broken LocalPlayerCount field, despite the code handling it the same as other games?
+		// As is, it works fine, but it might break something in the server that checks those values
 
 		return MatchCommandData{
 			Version: version,
@@ -389,26 +393,24 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		}
 
 		reason := binary.LittleEndian.Uint32(buffer[0x00:0x04])
-		reasonString := "Unknown"
-		switch reason {
-		case 0x10:
-			reasonString = "Room is full"
-			break
-		case 0x11:
-			reasonString = "Room has already started"
-			break
-		case 0x12:
-			reasonString = "Room is suspended"
-			break
-		}
 
 		return MatchCommandData{
 			Version: version,
 			Command: command,
 			ResvDeny: &MatchCommandDataResvDeny{
-				Reason:       reason,
-				ReasonString: reasonString,
-				UserData:     buffer[0x4:],
+				Reason: reason,
+				ReasonString: map[uint32]string{
+					0x10: "Game server is fully occupied.",
+					0x11: "This Domain is already closed.",
+					0x12: "The condition was not satisfied.",
+					0x13: "This Domain is already locked.",
+					0x14: "It tried to go to the client for the reservation.",
+					0x15: "It is a reservation to the friend who doesn't exist in the list.",
+					0x16: "It was rejected by the attempt callback.",
+					0x17: "The reservation came from a different other host.",
+					0x18: "Illegal mesh reservation.",
+				}[reason],
+				UserData: buffer[0x4:],
 			},
 		}, true
 
