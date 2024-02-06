@@ -3,22 +3,23 @@ package gamestats
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"wwfc/common"
-	"wwfc/logging"
 
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
 	ctx  = context.Background()
 	pool *pgxpool.Pool
+
+	serverName string
 )
 
 func StartServer() {
 	// Get config
 	config := common.GetConfig()
+
+	serverName = config.ServerName
 
 	common.ReadGameList()
 
@@ -33,8 +34,4 @@ func StartServer() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func HandleRequest(w http.ResponseWriter, r *http.Request) {
-	logging.Info("GSTATS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
 }

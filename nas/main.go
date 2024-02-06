@@ -68,7 +68,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	// Check for *.gamestats(2).gs.* or gamestats(2).gs.*
 	if regexGamestatsHost.MatchString(r.Host) {
 		// Redirect to the gamestats server
-		gamestats.HandleRequest(w, r)
+		gamestats.HandleHTTPRequest(w, r)
 		return
 	}
 

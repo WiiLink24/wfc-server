@@ -9,10 +9,12 @@ import (
 )
 
 type GameInfo struct {
-	GameID      int
-	Name        string
-	SecretKey   string
-	Description string
+	GameID           int
+	Name             string
+	SecretKey        string
+	GameStatsVersion int
+	GameStatsKey     string
+	Description      string
 }
 
 var (
@@ -71,11 +73,22 @@ func ReadGameList() {
 			}
 		}
 
+		gameStatsVer := -1
+
+		if entry[4] != "" {
+			gameStatsVer, err = strconv.Atoi(entry[4])
+			if err != nil {
+				panic(err)
+			}
+		}
+
 		gameList = append(gameList, GameInfo{
-			GameID:      gameId,
-			Name:        entry[1],
-			SecretKey:   entry[3],
-			Description: entry[0],
+			GameID:           gameId,
+			Name:             entry[1],
+			SecretKey:        entry[3],
+			GameStatsVersion: gameStatsVer,
+			GameStatsKey:     entry[5],
+			Description:      entry[0],
 		})
 
 		// Create lookup tables
