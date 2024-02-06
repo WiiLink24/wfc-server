@@ -13,6 +13,8 @@ var (
 	pool *pgxpool.Pool
 
 	serverName string
+	webSalt    string
+	webHashPad string
 )
 
 func StartServer() {
@@ -20,6 +22,8 @@ func StartServer() {
 	config := common.GetConfig()
 
 	serverName = config.ServerName
+	webSalt = common.RandomString(32)
+	webHashPad = common.RandomString(8)
 
 	common.ReadGameList()
 

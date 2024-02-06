@@ -2,7 +2,9 @@ package gamestats
 
 import (
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"net/http"
 	"net/url"
@@ -14,7 +16,7 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 )
 
-func HandleHTTPRequest(w http.ResponseWriter, r *http.Request) {
+func HandleWebRequest(w http.ResponseWriter, r *http.Request) {
 	logging.Info("GSTATS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
 
 	u, err := url.Parse(r.URL.String())
@@ -48,24 +50,45 @@ func HandleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var response []byte
+
 	hash := query.Get("hash")
-	var data string
+	token := calculateToken(r.URL, r.Host)
 
 	if hash == "" {
 		// No hash, just return token
-		data = common.RandomString(32)
+		response = []byte(token)
 	} else {
-		// TODO: Handle subPath to get data here
-		common.UNUSED(subPath)
-		data = ""
+		// Check hash supplied by client
+		hasher := sha1.New()
+		hasher.Write([]byte(game.GameStatsKey))
+		hasher.Write([]byte(token))
+		expectedHash := hex.EncodeToString(hasher.Sum(nil))
+
+		if hash != expectedHash {
+			logging.Error("GSTATS", "Invalid hash")
+			replyHTTPError(w, http.StatusUnauthorized, "401 Unauthorized")
+			return
+		}
+
+		switch subPath {
+		case "/web/client/get2.asp":
+			response = handleGet2(game, query)
+
+		default:
+			logging.Warn("GSTATS", "Unhandled path:", aurora.Cyan(subPath))
+		}
+
+		// Padding to appease DWC
+		response = append(response, make([]byte, 13)...)
 
 		if game.GameStatsVersion > 1 {
 			// SHA-1 hash GamestatsKey + base64(data) + GameStatsKey
-			hashData := game.GameStatsKey + base64.URLEncoding.EncodeToString([]byte(data)) + game.GameStatsKey
+			hashData := game.GameStatsKey + base64.URLEncoding.EncodeToString([]byte(response)) + game.GameStatsKey
 			hasher := sha1.New()
 			hasher.Write([]byte(hashData))
 			// Append the hash sum as a hex string
-			data += hex.EncodeToString(hasher.Sum(nil))
+			response = append(response, []byte(hex.EncodeToString(hasher.Sum(nil)))...)
 		}
 	}
 
@@ -73,9 +96,27 @@ func HandleHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Server", "Microsoft-IIS/6.0")
 	w.Header().Add("Server", "GSTPRDSTATSWEB2")
 	w.Header().Set("X-Powered-By", "ASP.NET")
-	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	w.WriteHeader(200)
-	w.Write([]byte(data))
+	w.Write(response)
+}
+
+func calculateToken(u *url.URL, host string) string {
+	newURL := *u
+	newURL.RawQuery = url.Values{
+		"pid": {u.Query().Get("pid")},
+	}.Encode()
+
+	hasher := sha256.New()
+	hasher.Write([]byte(host + newURL.String()))
+	hasher.Write([]byte(webSalt))
+	return base64.URLEncoding.EncodeToString(hasher.Sum(nil))[:32]
+}
+
+func handleGet2(game *common.GameInfo, query url.Values) []byte {
+	data := binary.LittleEndian.AppendUint32([]byte{}, 1) // RNK_GET
+	data = binary.LittleEndian.AppendUint32(data, 0)      // count
+	return data
 }
 
 func replyHTTPError(w http.ResponseWriter, errorCode int, errorString string) {
