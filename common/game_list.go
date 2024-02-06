@@ -19,6 +19,7 @@ type GameInfo struct {
 
 var (
 	gameList           []GameInfo
+	readGameList       = false
 	gameListIDLookup   = map[int]int{}
 	gameListNameLookup = map[string]int{}
 	mutex              = sync.RWMutex{}
@@ -47,6 +48,13 @@ func GetGameInfoByName(name string) *GameInfo {
 }
 
 func ReadGameList() {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if readGameList {
+		return
+	}
+
 	file, err := os.Open("game_list.tsv")
 	if err != nil {
 		panic(err)
@@ -97,6 +105,8 @@ func ReadGameList() {
 		}
 		gameListNameLookup[entry[1]] = index
 	}
+
+	readGameList = true
 }
 
 func GetExpectedUnitCode(gameName string) byte {
