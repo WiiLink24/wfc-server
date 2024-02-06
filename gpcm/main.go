@@ -166,7 +166,7 @@ func handleRequest(conn net.Conn) {
 	for {
 		// TODO: Handle split packets
 		buffer := make([]byte, 1024)
-		_, err := bufio.NewReader(conn).Read(buffer)
+		n, err := bufio.NewReader(conn).Read(buffer)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				// Client closed connection, terminate.
@@ -178,10 +178,10 @@ func handleRequest(conn net.Conn) {
 			return
 		}
 
-		commands, err := common.ParseGameSpyMessage(string(buffer))
+		commands, err := common.ParseGameSpyMessage(string(buffer[:n]))
 		if err != nil {
 			logging.Error(session.ModuleName, "Error parsing message:", err.Error())
-			logging.Error(session.ModuleName, "Raw data:", string(buffer))
+			logging.Error(session.ModuleName, "Raw data:", string(buffer[:n]))
 			session.replyError(ErrParse)
 			return
 		}
@@ -196,7 +196,7 @@ func handleRequest(conn net.Conn) {
 		commands = session.ignoreCommand("logout", commands)
 
 		if len(commands) != 0 && session.LoggedIn == false {
-			logging.Error(session.ModuleName, "Attempt to run command before login!")
+			logging.Error(session.ModuleName, "Attempt to run command before login:", aurora.Cyan(commands[0]))
 			session.replyError(ErrNotLoggedIn)
 			return
 		}
@@ -211,7 +211,7 @@ func handleRequest(conn net.Conn) {
 		commands = session.handleCommand("getprofile", commands, session.getProfile)
 
 		for _, command := range commands {
-			logging.Error(session.ModuleName, "Unknown command:", aurora.Cyan(command.Command))
+			logging.Error(session.ModuleName, "Unknown command:", aurora.Cyan(command))
 		}
 
 		if session.WriteBuffer != "" {

@@ -127,3 +127,28 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 
 	return user, nil
 }
+
+func LoginUserToGameStats(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsbrcd string) (User, error) {
+	user := User{
+		UserId:   userId,
+		GsbrCode: gsbrcd,
+	}
+
+	var expectedNgId *uint32
+	var firstName *string
+	var lastName *string
+	err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &expectedNgId, &user.Email, &user.UniqueNick, &firstName, &lastName)
+	if err != nil {
+		return User{}, err
+	}
+
+	if firstName != nil {
+		user.FirstName = *firstName
+	}
+
+	if lastName != nil {
+		user.LastName = *lastName
+	}
+
+	return user, nil
+}

@@ -45,6 +45,8 @@ func MakeGPError(errorCode int, errorString string, fatal bool) GPError {
 }
 
 var (
+	ErrNone = MakeGPError(0xFFFF, "No error.", false)
+
 	// General errors
 	ErrGeneral          = MakeGPError(0x0000, "There was an unknown error.", true)
 	ErrParse            = MakeGPError(0x0001, "There was an error parsing an incoming request.", true)
