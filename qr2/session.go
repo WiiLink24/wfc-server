@@ -4,7 +4,6 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
@@ -187,10 +186,7 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 		return false
 	}
 
-	if strings.Split(gpPublicIP, ":")[0] != strings.Split(session.Addr.String(), ":")[0] {
-		logging.Error(moduleName, "Caller public IP does not match GPCM session")
-		return false
-	}
+	// TODO: Some kind of authentication
 
 	if ratingError := checkValidRating(moduleName, session.Data); ratingError != "ok" {
 		callback := loginInfo.GPErrorCallback
@@ -217,6 +213,8 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 	} else {
 		session.Data["+deviceauth"] = "0"
 	}
+
+	session.Data["+gppublicip"], _ = common.IPFormatToString(gpPublicIP)
 
 	session.Data["dwc_pid"] = newPID
 	logging.Notice(moduleName, "Opened session with PID", aurora.Cyan(newPID))

@@ -205,7 +205,7 @@ func handleServerListRequest(conn net.Conn, buffer []byte) {
 			continue
 		}
 
-		if publicip == callerPublicIP {
+		if publicip == callerPublicIP || server["+gppublicip"] == callerPublicIP {
 			// Use the real public IP if it matches the caller's
 			ip, err := strconv.ParseInt(publicip, 10, 32)
 			if err != nil {
