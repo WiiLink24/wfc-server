@@ -122,6 +122,7 @@ func (g *GameSpySession) closeSession() {
 
 	g.Conn.Close()
 	if g.LoggedIn {
+		g.LoggedIn = false
 		delete(sessions, g.User.ProfileId)
 	}
 }

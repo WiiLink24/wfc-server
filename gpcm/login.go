@@ -306,7 +306,17 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	g.Conn.Write([]byte(payload))
 
-	// g.sendFriendRequests()
+	// Now start sending keep alive packets every 5 minutes
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			if !g.LoggedIn {
+				return
+			}
+
+			g.Conn.Write([]byte(`\ka\\final\`))
+		}
+	}()
 }
 
 func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
