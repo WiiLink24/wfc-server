@@ -96,11 +96,9 @@ func handleRequest(conn net.Conn) {
 
 	defer conn.Close()
 
-	moduleName := "GSTATS"
-
 	err := conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
-		logging.Notice(moduleName, "Unable to set keepalive:", err.Error())
+		logging.Notice(session.ModuleName, "Unable to set keepalive:", err.Error())
 	}
 
 	// Send challenge
@@ -115,12 +113,15 @@ func handleRequest(conn net.Conn) {
 	conn.Write(session.WriteBuffer)
 	session.WriteBuffer = []byte{}
 
+	logging.Notice(session.ModuleName, "Connection established from", conn.RemoteAddr())
+
 	// Here we go into the listening loop
 	for {
 		// TODO: Handle split packets
 		buffer := make([]byte, 1024)
 		n, err := bufio.NewReader(conn).Read(buffer)
 		if err != nil {
+			logging.Notice(session.ModuleName, "Connection lost:", err.Error())
 			return
 		}
 
@@ -136,8 +137,8 @@ func handleRequest(conn net.Conn) {
 
 		commands, err := common.ParseGameSpyMessage(string(buffer[:n]))
 		if err != nil {
-			logging.Error(moduleName, "Error parsing message:", err.Error())
-			logging.Error(moduleName, "Raw data:", string(buffer[:n]))
+			logging.Error(session.ModuleName, "Error parsing message:", err.Error())
+			logging.Error(session.ModuleName, "Raw data:", string(buffer[:n]))
 			session.replyError(gpcm.ErrParse)
 			return
 		}
