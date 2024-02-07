@@ -18,6 +18,7 @@ import (
 
 func HandleWebRequest(w http.ResponseWriter, r *http.Request) {
 	logging.Info("GSTATS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
+	moduleName := "GSTATS:" + r.RemoteAddr
 
 	u, err := url.Parse(r.URL.String())
 	if err != nil {
@@ -66,9 +67,7 @@ func HandleWebRequest(w http.ResponseWriter, r *http.Request) {
 		expectedHash := hex.EncodeToString(hasher.Sum(nil))
 
 		if hash != expectedHash {
-			logging.Error("GSTATS", "Invalid hash")
-			replyHTTPError(w, http.StatusUnauthorized, "401 Unauthorized")
-			return
+			logging.Warn(moduleName, "Invalid hash")
 		}
 
 		switch subPath {
@@ -76,7 +75,7 @@ func HandleWebRequest(w http.ResponseWriter, r *http.Request) {
 			response = handleGet2(game, query)
 
 		default:
-			logging.Warn("GSTATS", "Unhandled path:", aurora.Cyan(subPath))
+			logging.Warn(moduleName, "Unhandled path:", aurora.Cyan(subPath))
 		}
 
 		// Padding to appease DWC
