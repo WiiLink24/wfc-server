@@ -49,6 +49,8 @@ func StartServer() {
 		go startHTTPSProxy(config)
 	}
 
+	CacheProfanityFile()
+
 	logging.Notice("NAS", "Starting HTTP server on", address)
 	panic(nhttp.ListenAndServe(address, http.HandlerFunc(handleRequest)))
 }
