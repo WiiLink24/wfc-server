@@ -63,7 +63,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 				return
 			}
 
-			if key == "ingamesn" || key == "devname" {
+			if key == "ingamesn" || key == "devname" || key == "words" {
 				// Special handling required for the UTF-16 string
 				var utf16String []uint16
 				if unitcdString == "0" {
@@ -249,8 +249,15 @@ func login(moduleName string, fields map[string]string, isLocalhost bool) map[st
 		return param
 	}
 
-	var authToken, challenge string
+	hasProfaneName := false
+	ingamesn, ok := fields["ingamesn"]
+	if ok {
+		if hasProfaneName, _ = IsBadWord(ingamesn); hasProfaneName {
+			logging.Info(moduleName, aurora.Cyan(strconv.FormatUint(userId, 10)), "has a profane name ("+aurora.Red(ingamesn).String()+")")
+		}
+	}
 
+	var authToken, challenge string
 	switch unitcdInt {
 	// ds
 	case 0:
@@ -303,7 +310,11 @@ func login(moduleName string, fields map[string]string, isLocalhost bool) map[st
 		logging.Notice(moduleName, "Login (Wii)", aurora.Cyan(strconv.FormatUint(userId, 10)), aurora.Cyan(gsbrcd), "ingamesn:", aurora.Cyan(fields["ingamesn"]))
 	}
 
-	param["returncd"] = "001"
+	if hasProfaneName {
+		param["returncd"] = "040"
+	} else {
+		param["returncd"] = "001"
+	}
 	param["challenge"] = challenge
 	param["token"] = authToken
 
@@ -341,14 +352,24 @@ func svcloc(fields map[string]string) map[string]string {
 }
 
 func handleProfanity(fields map[string]string) map[string]string {
-	prwords := ""
-	wordCount := strings.Count(fields["words"], "\t") + 1
-	for i := 0; i < wordCount; i++ {
-		prwords += "0"
+	var prwords string
+	for _, word := range strings.Split(fields["words"], "\t") {
+		if isBadWord, _ := IsBadWord(word); isBadWord {
+			prwords += "1"
+		} else {
+			prwords += "0"
+		}
+	}
+
+	var returncd string
+	if strings.Contains(prwords, "1") {
+		returncd = "040"
+	} else {
+		returncd = "000"
 	}
 
 	return map[string]string{
-		"returncd": "000",
+		"returncd": returncd,
 		"prwords":  prwords,
 	}
 }
