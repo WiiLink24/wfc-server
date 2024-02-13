@@ -1,8 +1,10 @@
 package common
 
-// CalculateMiiCRC
-// https://github.com/kiwi515/ogws/blob/ee72b2a329c50b773fcdce5c302e5674e5f2cf11/src/RVLFaceLib/RFL_Database.c#L640
-func CalculateMiiCRC(data []byte) uint16 {
+// References:
+// https://wiibrew.org/wiki/Mii_Data
+// https://github.com/kiwi515/ogws/tree/master/src/RVLFaceLib
+
+func RFLCalculateCRC(data []byte) uint16 {
 	crc := uint16(0)
 
 	for _, val := range data {
@@ -23,4 +25,23 @@ func CalculateMiiCRC(data []byte) uint16 {
 	}
 
 	return crc
+}
+
+var officialMiiList = []uint64{
+	0x80000000ECFF82D2,
+	0x80000001ECFF82D2,
+	0x80000002ECFF82D2,
+	0x80000003ECFF82D2,
+	0x80000004ECFF82D2,
+	0x80000005ECFF82D2,
+}
+
+func RFLSearchOfficialData(id uint64) (bool, int) {
+	for i, v := range officialMiiList {
+		if v == id {
+			return true, i
+		}
+	}
+
+	return false, -1
 }

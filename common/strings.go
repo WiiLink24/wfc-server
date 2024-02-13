@@ -2,8 +2,10 @@ package common
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"math/rand"
+	"unicode/utf16"
 )
 
 var letterRunes = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -34,6 +36,18 @@ func GetString(buf []byte) (string, error) {
 	}
 
 	return string(buf[:nullTerminator]), nil
+}
+
+func GetWideString(buf []byte, byteOrder binary.ByteOrder) (string, error) {
+	var utf16String []uint16
+	for i := 0; i < len(buf)/2; i++ {
+		if buf[i*2] == 0 && buf[i*2+1] == 0 {
+			break
+		}
+
+		utf16String = append(utf16String, byteOrder.Uint16(buf[i*2:i*2+2]))
+	}
+	return string(utf16.Decode(utf16String)), nil
 }
 
 // IsUppercaseAlphanumeric checks if the given string is composed exclusively of uppercase alphanumeric characters.

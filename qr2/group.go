@@ -1,6 +1,8 @@
 package qr2
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"strconv"
 	"strings"
@@ -253,7 +255,75 @@ func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32
 }
 
 func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
-	// TODO
+	moduleName := "QR2:ProcessUSER/" + strconv.FormatUint(uint64(senderPid), 10)
+
+	mutex.Lock()
+	login := logins[senderPid]
+	if login == nil {
+		mutex.Unlock()
+		logging.Warn(moduleName, "Received USER packet from non-existent profile ID", aurora.Cyan(senderPid))
+		return
+	}
+
+	gpErrorCallback := login.GPErrorCallback
+
+	session := login.Session
+	if session == nil {
+		mutex.Unlock()
+		logging.Warn(moduleName, "Received USER packet from profile ID", aurora.Cyan(senderPid), "but no session exists")
+		return
+	}
+	mutex.Unlock()
+
+	miiGroupCount := binary.BigEndian.Uint16(packet[0x04:0x06])
+	if miiGroupCount != 2 {
+		logging.Error(moduleName, "Received USER packet with unexpected Mii group count", aurora.Cyan(miiGroupCount))
+		// Kick the client
+		gpErrorCallback(senderPid, "malpacket")
+		return
+	}
+
+	miiGroupBitflags := binary.BigEndian.Uint32(packet[0x00:0x04])
+
+	var miiData []string
+	var miiName []string
+	for i := 0; i < int(miiGroupCount); i++ {
+		if miiGroupBitflags&(1<<uint(i)) == 0 {
+			continue
+		}
+
+		index := 0x08 + i*0x4C
+		if common.RFLCalculateCRC(packet[index:index+0x4C]) != 0x0000 {
+			logging.Error(moduleName, "Received USER packet with invalid Mii data CRC")
+			gpErrorCallback(senderPid, "malpacket")
+			return
+		}
+
+		createId := binary.BigEndian.Uint64(packet[index+0x18 : index+0x20])
+		official, _ := common.RFLSearchOfficialData(createId)
+		if official {
+			miiName = append(miiName, "Player")
+		} else {
+			decodedName, err := common.GetWideString(packet[index+0x2:index+0x2+20], binary.BigEndian)
+			if err != nil {
+				logging.Error(moduleName, "Failed to parse Mii name:", err)
+				gpErrorCallback(senderPid, "malpacket")
+				return
+			}
+
+			miiName = append(miiName, decodedName)
+		}
+
+		miiData = append(miiData, base64.StdEncoding.EncodeToString(packet[index:index+0x4A]))
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	for i, name := range miiName {
+		session.Data["+mii"+strconv.Itoa(i)] = miiData[i]
+		session.Data["+mii_name"+strconv.Itoa(i)] = name
+	}
 }
 
 // findNewServer attempts to find the new server/host in the group when the current server goes down.
@@ -292,6 +362,23 @@ func (g *Group) updateMatchType() {
 	g.MatchType = g.Server.Data["dwc_mtype"]
 }
 
+type MiiInfo struct {
+	MiiData string `json:"data"`
+	MiiName string `json:"name"`
+}
+
+type PlayerInfo struct {
+	Count      string `json:"count"`
+	ProfileID  string `json:"pid"`
+	InGameName string `json:"name"`
+
+	// Mario Kart Wii-specific fields
+	FriendCode string    `json:"fc,omitempty"`
+	VersusELO  string    `json:"ev,omitempty"`
+	BattleELO  string    `json:"eb,omitempty"`
+	Mii        []MiiInfo `json:"mii,omitempty"`
+}
+
 type GroupInfo struct {
 	GroupName   string                       `json:"id"`
 	GameName    string                       `json:"game"`
@@ -299,11 +386,11 @@ type GroupInfo struct {
 	Suspend     bool                         `json:"suspend"`
 	ServerIndex string                       `json:"host,omitempty"`
 	MKWRegion   string                       `json:"rk,omitempty"`
-	Players     map[string]map[string]string `json:"players"`
+	PlayersRaw  map[string]map[string]string `json:"-"`
+	Players     []PlayerInfo                 `json:"players"`
 }
 
-// GetGroups returns an unsorted copy of all online rooms
-func GetGroups(gameNames []string, groupNames []string) []GroupInfo {
+func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 	var groupsCopy []GroupInfo
 
 	mutex.Lock()
@@ -325,7 +412,7 @@ func GetGroups(gameNames []string, groupNames []string) []GroupInfo {
 			Suspend:     true,
 			ServerIndex: "",
 			MKWRegion:   "",
-			Players:     map[string]map[string]string{},
+			PlayersRaw:  map[string]map[string]string{},
 		}
 
 		if group.MatchType == "0" || group.MatchType == "1" {
@@ -356,7 +443,7 @@ func GetGroups(gameNames []string, groupNames []string) []GroupInfo {
 				mapData["+ingamesn"] = ""
 			}
 
-			groupInfo.Players[mapData["+joinindex"]] = mapData
+			groupInfo.PlayersRaw[mapData["+joinindex"]] = mapData
 
 			if mapData["dwc_hoststate"] == "2" && mapData["dwc_suspend"] == "0" {
 				groupInfo.Suspend = false
@@ -364,6 +451,47 @@ func GetGroups(gameNames []string, groupNames []string) []GroupInfo {
 		}
 
 		groupsCopy = append(groupsCopy, groupInfo)
+	}
+
+	return groupsCopy
+}
+
+// GetGroups returns an unsorted copy of all online rooms
+func GetGroups(gameNames []string, groupNames []string) []GroupInfo {
+	groupsCopy := getGroupsRaw(gameNames, groupNames)
+
+	for i, group := range groupsCopy {
+		for _, rawPlayer := range group.PlayersRaw {
+			playerInfo := PlayerInfo{
+				Count:      rawPlayer["+localplayers"],
+				ProfileID:  rawPlayer["dwc_pid"],
+				InGameName: rawPlayer["+ingamesn"],
+			}
+
+			if rawPlayer["gamename"] == "mariokartwii" {
+				playerInfo.VersusELO = rawPlayer["ev"]
+				playerInfo.BattleELO = rawPlayer["eb"]
+
+				pid, err := strconv.ParseUint(rawPlayer["dwc_pid"], 10, 32)
+				if err == nil {
+					playerInfo.FriendCode = common.CalcFriendCodeString(uint32(pid), "RMCJ")
+				}
+			}
+
+			for i := 0; i < 32; i++ {
+				miiData := rawPlayer["+mii"+strconv.Itoa(i)]
+				if miiData == "" {
+					continue
+				}
+
+				playerInfo.Mii = append(playerInfo.Mii, MiiInfo{
+					MiiData: miiData,
+					MiiName: rawPlayer["+mii_name"+strconv.Itoa(i)],
+				})
+			}
+
+			groupsCopy[i].Players = append(groupsCopy[i].Players, playerInfo)
+		}
 	}
 
 	return groupsCopy

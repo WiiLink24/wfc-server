@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"wwfc/common"
 	"wwfc/qr2"
 )
 
@@ -23,27 +22,6 @@ func HandleGroups(w http.ResponseWriter, r *http.Request) {
 	}
 
 	groups := qr2.GetGroups(query["game"], query["id"])
-
-	for _, group := range groups {
-		for i, player := range group.Players {
-			filtered := map[string]string{}
-
-			filtered["count"] = player["+localplayers"]
-			filtered["pid"] = player["dwc_pid"]
-			filtered["name"] = player["+ingamesn"]
-
-			if player["gamename"] == "mariokartwii" {
-				filtered["ev"] = player["ev"]
-				filtered["eb"] = player["eb"]
-				pid, err := strconv.ParseUint(player["dwc_pid"], 10, 32)
-				if err == nil {
-					filtered["fc"] = common.CalcFriendCodeString(uint32(pid), "RMCJ")
-				}
-			}
-
-			group.Players[i] = filtered
-		}
-	}
 
 	var jsonData []byte
 	if len(groups) == 0 {
