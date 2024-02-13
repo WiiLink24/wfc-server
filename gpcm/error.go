@@ -3,6 +3,7 @@ package gpcm
 import (
 	"fmt"
 	"strconv"
+	"unicode/utf16"
 	"wwfc/common"
 	"wwfc/logging"
 )
@@ -392,9 +393,11 @@ func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, 
 			}
 
 			errMsg = fmt.Sprintf(errMsg, err.WWFCMessage.ErrorCode, ngid)
+			errMsgUTF16 := utf16.Encode([]rune(errMsg))
+			errMsgByteArray := common.UTF16ToByteArray(errMsgUTF16)
 
 			command.OtherValues["wwfc_err"] = strconv.Itoa(err.WWFCMessage.ErrorCode)
-			command.OtherValues["wwfc_errmsg"] = errMsg
+			command.OtherValues["wwfc_errmsg"] = common.Base64DwcEncoding.EncodeToString(errMsgByteArray)
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf16"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -303,18 +304,28 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		replyUserId = 0
 	}
 
+	otherValues := map[string]string{
+		"sesskey":    strconv.FormatInt(int64(g.SessionKey), 10),
+		"proof":      proof,
+		"userid":     strconv.FormatUint(replyUserId, 10),
+		"profileid":  strconv.FormatUint(uint64(g.User.ProfileId), 10),
+		"uniquenick": g.User.UniqueNick,
+		"lt":         g.LoginTicket,
+		"id":         command.OtherValues["id"],
+	}
+
+	if g.GameName == "mariokartwii" {
+		if motd, err := GetMessageOfTheDay(); err == nil {
+			motdUTF16 := utf16.Encode([]rune(motd))
+			motdByteArray := common.UTF16ToByteArray(motdUTF16)
+			otherValues["wwfc_motd"] = common.Base64DwcEncoding.EncodeToString(motdByteArray)
+		}
+	}
+
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
 		CommandValue: "2",
-		OtherValues: map[string]string{
-			"sesskey":    strconv.FormatInt(int64(g.SessionKey), 10),
-			"proof":      proof,
-			"userid":     strconv.FormatUint(replyUserId, 10),
-			"profileid":  strconv.FormatUint(uint64(g.User.ProfileId), 10),
-			"uniquenick": g.User.UniqueNick,
-			"lt":         g.LoginTicket,
-			"id":         command.OtherValues["id"],
-		},
+		OtherValues:  otherValues,
 	})
 
 	g.Conn.Write([]byte(payload))

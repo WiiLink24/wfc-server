@@ -28,6 +28,15 @@ func RandomHexString(n int) string {
 	return string(b)
 }
 
+func UTF16ToByteArray(wideString []uint16) []byte {
+	byteArray := make([]byte, len(wideString)*2)
+	for i, b := range wideString {
+		byteArray[(i*2)+0] = byte(b >> 8)
+		byteArray[(i*2)+1] = byte(b >> 0)
+	}
+	return byteArray
+}
+
 func GetString(buf []byte) (string, error) {
 	nullTerminator := bytes.IndexByte(buf, 0)
 
