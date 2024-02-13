@@ -4,8 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"wwfc/common"
 	"wwfc/logging"
 
@@ -15,6 +17,7 @@ import (
 type Group struct {
 	GroupID       uint32
 	GroupName     string
+	CreateTime    time.Time
 	GameName      string
 	MatchType     string
 	MKWRegion     string
@@ -36,6 +39,7 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 		group = &Group{
 			GroupID:       resvOK.GroupID,
 			GroupName:     "",
+			CreateTime:    time.Now(),
 			GameName:      sender.Data["gamename"],
 			MatchType:     sender.Data["dwc_mtype"],
 			MKWRegion:     "",
@@ -382,12 +386,13 @@ type PlayerInfo struct {
 type GroupInfo struct {
 	GroupName   string                       `json:"id"`
 	GameName    string                       `json:"game"`
+	CreateTime  time.Time                    `json:"created"`
 	MatchType   string                       `json:"type"`
 	Suspend     bool                         `json:"suspend"`
 	ServerIndex string                       `json:"host,omitempty"`
 	MKWRegion   string                       `json:"rk,omitempty"`
 	PlayersRaw  map[string]map[string]string `json:"-"`
-	Players     []PlayerInfo                 `json:"players"`
+	Players     map[string]PlayerInfo        `json:"players"`
 }
 
 func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
@@ -408,11 +413,13 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 		groupInfo := GroupInfo{
 			GroupName:   group.GroupName,
 			GameName:    group.GameName,
+			CreateTime:  group.CreateTime,
 			MatchType:   "",
 			Suspend:     true,
 			ServerIndex: "",
 			MKWRegion:   "",
 			PlayersRaw:  map[string]map[string]string{},
+			Players:     map[string]PlayerInfo{},
 		}
 
 		if group.MatchType == "0" || group.MatchType == "1" {
@@ -456,12 +463,12 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 	return groupsCopy
 }
 
-// GetGroups returns an unsorted copy of all online rooms
-func GetGroups(gameNames []string, groupNames []string) []GroupInfo {
+// GetGroups returns a copy of all online rooms
+func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo {
 	groupsCopy := getGroupsRaw(gameNames, groupNames)
 
 	for i, group := range groupsCopy {
-		for _, rawPlayer := range group.PlayersRaw {
+		for joinIndex, rawPlayer := range group.PlayersRaw {
 			playerInfo := PlayerInfo{
 				Count:      rawPlayer["+localplayers"],
 				ProfileID:  rawPlayer["dwc_pid"],
@@ -490,8 +497,18 @@ func GetGroups(gameNames []string, groupNames []string) []GroupInfo {
 				})
 			}
 
-			groupsCopy[i].Players = append(groupsCopy[i].Players, playerInfo)
+			groupsCopy[i].Players[joinIndex] = playerInfo
 		}
+	}
+
+	if sorted {
+		sort.Slice(groupsCopy, func(i, j int) bool {
+			if groupsCopy[i].CreateTime.Equal(groupsCopy[j].CreateTime) {
+				return groupsCopy[i].GroupName < groupsCopy[j].GroupName
+			}
+
+			return groupsCopy[i].CreateTime.Before(groupsCopy[j].CreateTime)
+		})
 	}
 
 	return groupsCopy

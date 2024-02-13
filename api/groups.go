@@ -21,7 +21,7 @@ func HandleGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	groups := qr2.GetGroups(query["game"], query["id"])
+	groups := qr2.GetGroups(query["game"], query["id"], true)
 
 	var jsonData []byte
 	if len(groups) == 0 {
