@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
@@ -120,7 +121,7 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 		}
 	}
 
-	if newPIDValid && !session.setProfileID(moduleName, newPID) {
+	if newPIDValid && !session.setProfileID(moduleName, newPID, "") {
 		return Session{}, false
 	}
 
@@ -158,7 +159,7 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 // Set the session's profile ID if it doesn't already exists.
 // Returns false if the profile ID is invalid.
 // Expects the global mutex to already be locked.
-func (session *Session) setProfileID(moduleName string, newPID string) bool {
+func (session *Session) setProfileID(moduleName string, newPID string, gpcmIP string) bool {
 	if oldPID, oldPIDValid := session.Data["dwc_pid"]; oldPIDValid && oldPID != "" {
 		if newPID != oldPID {
 			logging.Error(moduleName, "New dwc_pid mismatch: new:", aurora.Cyan(newPID), "old:", aurora.Cyan(oldPID))
@@ -180,13 +181,17 @@ func (session *Session) setProfileID(moduleName string, newPID string) bool {
 	var loginInfo *LoginInfo
 	var ok bool
 	if loginInfo, ok = logins[uint32(profileID)]; ok {
-		gpPublicIP = loginInfo.GPPublicIP
+		gpPublicIP = strings.Split(loginInfo.GPPublicIP, ":")[0]
 	} else {
 		logging.Error(moduleName, "Provided dwc_pid is not logged in:", aurora.Cyan(newPID))
 		return false
 	}
 
 	// TODO: Some kind of authentication
+	if gpcmIP != "" && gpcmIP != gpPublicIP {
+		logging.Error(moduleName, "TCP public IP mismatch: SB:", aurora.Cyan(gpcmIP), "GP:", aurora.Cyan(gpPublicIP))
+		return false
+	}
 
 	if ratingError := checkValidRating(moduleName, session.Data); ratingError != "ok" {
 		callback := loginInfo.GPErrorCallback

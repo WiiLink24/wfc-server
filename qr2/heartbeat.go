@@ -107,7 +107,7 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		} else if sessionPtr.Login == nil {
 			profileId := unknowns[0]
 			logging.Info(moduleName, "Attempting to use unknown as profile ID", aurora.Cyan(profileId))
-			sessionPtr.setProfileID(moduleName, profileId)
+			sessionPtr.setProfileID(moduleName, profileId, "")
 		}
 		session = *sessionPtr
 		mutex.Unlock()

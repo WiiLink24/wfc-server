@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
@@ -33,7 +34,6 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	var matchData common.MatchCommandData
 	var sender *Session
 	var receiver *Session
-	senderIPInt, _ := common.IPFormatToInt(senderIP)
 
 	useSearchID := destSearchID < (1 << 24)
 	if useSearchID {
@@ -93,18 +93,13 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		qr2IP := binary.BigEndian.Uint32(message[0x0C:0x10])
 		qr2Port := binary.LittleEndian.Uint16(message[0x0A:0x0C])
 
-		if senderIPInt != int32(qr2IP) {
-			logging.Error(moduleName, "Wrong QR2 IP in match command packet header")
-			return
-		}
-
 		sender = sessions[(uint64(qr2Port)<<32)|uint64(qr2IP)]
 		if sender == nil || !sender.Authenticated {
 			logging.Error(moduleName, "Session does not exist with QR2 IP and port")
 			return
 		}
 
-		if !sender.setProfileID(moduleName, strconv.FormatUint(uint64(senderProfileID), 10)) {
+		if !sender.setProfileID(moduleName, strconv.FormatUint(uint64(senderProfileID), 10), strings.Split(senderIP, ":")[0]) {
 			// Error already logged
 			return
 		}

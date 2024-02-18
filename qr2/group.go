@@ -129,11 +129,11 @@ func ProcessGPResvOK(matchVersion int, reservation common.MatchCommandDataReserv
 	}
 
 	// Validate dwc_pid values
-	if !from.setProfileID(moduleName, senderPidStr) {
+	if !from.setProfileID(moduleName, senderPidStr, "") {
 		return false
 	}
 
-	if !to.setProfileID(moduleName, destPidStr) {
+	if !to.setProfileID(moduleName, destPidStr, "") {
 		return false
 	}
 
@@ -166,7 +166,7 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 			return
 		}
 
-		if !session.setProfileID(moduleName, strconv.FormatUint(uint64(profileID), 10)) {
+		if !session.setProfileID(moduleName, strconv.FormatUint(uint64(profileID), 10), "") {
 			return
 		}
 	}
@@ -251,7 +251,7 @@ func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32
 	}
 
 	// Validate dwc_pid value
-	if !from.setProfileID(moduleName, senderPidStr) || from.Login == nil {
+	if !from.setProfileID(moduleName, senderPidStr, "") || from.Login == nil {
 		return ""
 	}
 
