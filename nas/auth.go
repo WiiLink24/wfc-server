@@ -33,19 +33,16 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 
 	// Need to know this here to determine UTF-16 endianness (LE for DS, BE for Wii)
 	// unitcd 0 = DS, 1 = Wii
-	unitcdValues, ok := r.PostForm["unitcd"]
-	if !ok {
-		logging.Error(moduleName, "No unitcd in form")
-		replyHTTPError(w, 400, "400 Bad Request")
-		return
+	unitcd := "1"
+	if unitcdValues, ok := r.PostForm["unitcd"]; ok {
+		unitcdDecoded, err := common.Base64DwcEncoding.DecodeString(unitcdValues[0])
+		if err != nil {
+			logging.Error(moduleName, "Invalid unitcd string in form")
+			replyHTTPError(w, 400, "400 Bad Request")
+			return
+		}
+		unitcd = string(unitcdDecoded)
 	}
-	unitcdDecoded, err := common.Base64DwcEncoding.DecodeString(unitcdValues[0])
-	if err != nil {
-		logging.Error(moduleName, "Invalid unitcd string in form")
-		replyHTTPError(w, 400, "400 Bad Request")
-		return
-	}
-	unitcdString := string(unitcdDecoded)
 
 	fields := map[string]string{}
 	for key, values := range r.PostForm {
@@ -66,7 +63,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			if key == "ingamesn" || key == "devname" || key == "words" {
 				// Special handling required for the UTF-16 string
 				var utf16String []uint16
-				if unitcdString == "0" {
+				if unitcd == "0" {
 					for i := 0; i < len(parsed)/2; i++ {
 						utf16String = append(utf16String, binary.LittleEndian.Uint16(parsed[i*2:i*2+2]))
 					}
