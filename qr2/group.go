@@ -104,7 +104,18 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 	group.Players[destination] = true
 	destination.GroupPointer = group
 
+	sender.Data["+conn_"+destination.Data["+joinindex"]] = "1"
+	destination.Data["+conn_"+sender.Data["+joinindex"]] = "1"
+
 	return true
+}
+
+func processTellAddr(moduleName string, sender *Session, destination *Session) {
+	if sender.GroupPointer != nil && sender.GroupPointer == destination.GroupPointer {
+		// Just assume the connection is successful if TELL_ADDR is used
+		sender.Data["+conn_"+destination.Data["+joinindex"]] = "1"
+		destination.Data["+conn_"+sender.Data["+joinindex"]] = "1"
+	}
 }
 
 func ProcessGPResvOK(matchVersion int, reservation common.MatchCommandDataReservation, resvOK common.MatchCommandDataResvOK, senderIP uint64, senderPid uint32, destIP uint64, destPid uint32) bool {
@@ -138,6 +149,39 @@ func ProcessGPResvOK(matchVersion int, reservation common.MatchCommandDataReserv
 	}
 
 	return processResvOK(moduleName, matchVersion, reservation, resvOK, from, to)
+}
+
+func ProcessGPTellAddr(senderPid uint32, senderIP uint64, destPid uint32, destIP uint64) {
+	senderPidStr := strconv.FormatUint(uint64(senderPid), 10)
+	destPidStr := strconv.FormatUint(uint64(destPid), 10)
+
+	moduleName := "QR2:GPMsg:" + senderPidStr + "->" + destPidStr
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	from := sessions[senderIP]
+	if from == nil {
+		logging.Error(moduleName, "Sender IP does not exist:", aurora.Cyan(fmt.Sprintf("%012x", senderIP)))
+		return
+	}
+
+	to := sessions[destIP]
+	if to == nil {
+		logging.Error(moduleName, "Destination IP does not exist:", aurora.Cyan(fmt.Sprintf("%012x", destIP)))
+		return
+	}
+
+	// Validate dwc_pid values
+	if !from.setProfileID(moduleName, senderPidStr, "") {
+		return
+	}
+
+	if !to.setProfileID(moduleName, destPidStr, "") {
+		return
+	}
+
+	processTellAddr(moduleName, from, to)
 }
 
 func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
@@ -291,6 +335,16 @@ func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {
 
 	session1.Data["+conn_"+session2.Data["+joinindex"]] = resultString
 	session2.Data["+conn_"+session1.Data["+joinindex"]] = resultString
+
+	if result != 1 {
+		// Increment +conn_fail
+		connFail1, _ := strconv.Atoi(session1.Data["+conn_fail"])
+		connFail2, _ := strconv.Atoi(session2.Data["+conn_fail"])
+		connFail1++
+		connFail2++
+		session1.Data["+conn_fail"] = strconv.Itoa(connFail1)
+		session2.Data["+conn_fail"] = strconv.Itoa(connFail2)
+	}
 }
 
 func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
@@ -410,6 +464,9 @@ type PlayerInfo struct {
 	Count      string `json:"count"`
 	ProfileID  string `json:"pid"`
 	InGameName string `json:"name"`
+	ConnMap    string `json:"conn_map"`
+	ConnFail   string `json:"conn_fail"`
+	Suspend    string `json:"suspend"`
 
 	// Mario Kart Wii-specific fields
 	FriendCode string    `json:"fc,omitempty"`
@@ -419,15 +476,17 @@ type PlayerInfo struct {
 }
 
 type GroupInfo struct {
-	GroupName   string                       `json:"id"`
-	GameName    string                       `json:"game"`
-	CreateTime  time.Time                    `json:"created"`
-	MatchType   string                       `json:"type"`
-	Suspend     bool                         `json:"suspend"`
-	ServerIndex string                       `json:"host,omitempty"`
-	MKWRegion   string                       `json:"rk,omitempty"`
-	PlayersRaw  map[string]map[string]string `json:"-"`
-	Players     map[string]PlayerInfo        `json:"players"`
+	GroupName   string                `json:"id"`
+	GameName    string                `json:"game"`
+	CreateTime  time.Time             `json:"created"`
+	MatchType   string                `json:"type"`
+	Suspend     bool                  `json:"suspend"`
+	ServerIndex string                `json:"host,omitempty"`
+	MKWRegion   string                `json:"rk,omitempty"`
+	Players     map[string]PlayerInfo `json:"players"`
+
+	PlayersRaw      map[string]map[string]string `json:"-"`
+	SortedJoinIndex []string                     `json:"-"`
 }
 
 func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
@@ -473,6 +532,8 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 			groupInfo.MKWRegion = group.MKWRegion
 		}
 
+		sortedJoinIndexes := []string{}
+
 		for session := range group.Players {
 			mapData := map[string]string{}
 			for k, v := range session.Data {
@@ -489,6 +550,21 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 
 			if mapData["dwc_hoststate"] == "2" && mapData["dwc_suspend"] == "0" {
 				groupInfo.Suspend = false
+			}
+
+			// Add the join index to the sorted list
+			for i, joinIndex := range sortedJoinIndexes {
+				if joinIndex > mapData["+joinindex"] {
+					sortedJoinIndexes = append(sortedJoinIndexes, "")
+					copy(sortedJoinIndexes[i+1:], sortedJoinIndexes[i:])
+					sortedJoinIndexes[i] = mapData["+joinindex"]
+					break
+				}
+
+				if i == len(sortedJoinIndexes)-1 {
+					sortedJoinIndexes = append(sortedJoinIndexes, mapData["+joinindex"])
+					break
+				}
 			}
 		}
 
@@ -530,6 +606,19 @@ func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo
 					MiiData: miiData,
 					MiiName: rawPlayer["+mii_name"+strconv.Itoa(i)],
 				})
+			}
+
+			for _, newIndex := range group.SortedJoinIndex {
+				if newIndex == joinIndex {
+					continue
+				}
+
+				if rawPlayer["+conn_"+newIndex] == "" {
+					playerInfo.ConnMap += "0"
+					continue
+				}
+
+				playerInfo.ConnMap += rawPlayer["+conn_"+newIndex]
 			}
 
 			groupsCopy[i].Players[joinIndex] = playerInfo

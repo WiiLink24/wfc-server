@@ -353,7 +353,10 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 		} else {
 			receiver.ReservationID = 0
 		}
+	} else if cmd == common.MatchTellAddr {
+		processTellAddr(moduleName, sender, receiver)
 	}
+
 	return
 }
 

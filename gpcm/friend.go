@@ -503,6 +503,14 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 				msgMatchData.ResvOK.PublicPort = uint16(searchId >> 32)
 			}
 		}
+	} else if cmd == common.MatchTellAddr {
+		if g.QR2IP == 0 || toSession.QR2IP == 0 {
+			logging.Error(g.ModuleName, "Missing QR2 IP")
+			g.replyError(ErrMessage)
+			return
+		}
+
+		qr2.ProcessGPTellAddr(g.User.ProfileId, g.QR2IP, toSession.User.ProfileId, toSession.QR2IP)
 	}
 
 	newMsg, ok := common.EncodeMatchCommand(cmd, msgMatchData)
