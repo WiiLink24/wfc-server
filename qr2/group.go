@@ -621,6 +621,8 @@ func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo
 				playerInfo.ConnMap += rawPlayer["+conn_"+newIndex]
 			}
 
+			playerInfo.ConnFail = rawPlayer["+conn_fail"]
+
 			groupsCopy[i].Players[joinIndex] = playerInfo
 		}
 	}
