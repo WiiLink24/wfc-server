@@ -505,15 +505,16 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 		}
 
 		groupInfo := GroupInfo{
-			GroupName:   group.GroupName,
-			GameName:    group.GameName,
-			CreateTime:  group.CreateTime,
-			MatchType:   "",
-			Suspend:     true,
-			ServerIndex: "",
-			MKWRegion:   "",
-			PlayersRaw:  map[string]map[string]string{},
-			Players:     map[string]PlayerInfo{},
+			GroupName:       group.GroupName,
+			GameName:        group.GameName,
+			CreateTime:      group.CreateTime,
+			MatchType:       "",
+			Suspend:         true,
+			ServerIndex:     "",
+			MKWRegion:       "",
+			Players:         map[string]PlayerInfo{},
+			PlayersRaw:      map[string]map[string]string{},
+			SortedJoinIndex: []string{},
 		}
 
 		if group.MatchType == "0" || group.MatchType == "1" {
@@ -531,8 +532,6 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 		if groupInfo.GameName == "mariokartwii" {
 			groupInfo.MKWRegion = group.MKWRegion
 		}
-
-		sortedJoinIndexes := []string{}
 
 		for session := range group.Players {
 			mapData := map[string]string{}
@@ -553,18 +552,27 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 			}
 
 			// Add the join index to the sorted list
-			for i, joinIndex := range sortedJoinIndexes {
-				if joinIndex > mapData["+joinindex"] {
-					sortedJoinIndexes = append(sortedJoinIndexes, "")
-					copy(sortedJoinIndexes[i+1:], sortedJoinIndexes[i:])
-					sortedJoinIndexes[i] = mapData["+joinindex"]
+			myJoinIndex, _ := strconv.Atoi(mapData["+joinindex"])
+			added := false
+
+			for i, joinIndex := range groupInfo.SortedJoinIndex {
+				if joinIndex == mapData["+joinindex"] {
+					added = true
 					break
 				}
 
-				if i == len(sortedJoinIndexes)-1 {
-					sortedJoinIndexes = append(sortedJoinIndexes, mapData["+joinindex"])
+				intJoinIndex, _ := strconv.Atoi(joinIndex)
+				if intJoinIndex > myJoinIndex {
+					groupInfo.SortedJoinIndex = append(groupInfo.SortedJoinIndex, "")
+					copy(groupInfo.SortedJoinIndex[i+1:], groupInfo.SortedJoinIndex[i:])
+					groupInfo.SortedJoinIndex[i] = mapData["+joinindex"]
+					added = true
 					break
 				}
+			}
+
+			if !added {
+				groupInfo.SortedJoinIndex = append(groupInfo.SortedJoinIndex, mapData["+joinindex"])
 			}
 		}
 
@@ -622,6 +630,11 @@ func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo
 			}
 
 			playerInfo.ConnFail = rawPlayer["+conn_fail"]
+			if playerInfo.ConnFail == "" {
+				playerInfo.ConnFail = "0"
+			}
+
+			playerInfo.Suspend = rawPlayer["dwc_suspend"]
 
 			groupsCopy[i].Players[joinIndex] = playerInfo
 		}
