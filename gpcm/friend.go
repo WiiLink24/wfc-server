@@ -502,6 +502,8 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 				msgMatchData.ResvOK.PublicIP = uint32(searchId & 0xffffffff)
 				msgMatchData.ResvOK.PublicPort = uint16(searchId >> 32)
 			}
+		} else if toSession.ReservationPID == g.User.ProfileId {
+			toSession.ReservationPID = 0
 		}
 	} else if cmd == common.MatchTellAddr {
 		if g.QR2IP == 0 || toSession.QR2IP == 0 {

@@ -350,7 +350,7 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 			if !processResvOK(moduleName, matchData.Version, *receiver.Reservation.Reservation, *matchData.ResvOK, sender, receiver) {
 				return
 			}
-		} else {
+		} else if receiver.ReservationID == sender.SearchID {
 			receiver.ReservationID = 0
 		}
 	} else if cmd == common.MatchTellAddr {

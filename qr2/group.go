@@ -84,6 +84,10 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 	// Keep group ID updated
 	group.GroupID = resvOK.GroupID
 
+	// Set connecting
+	sender.Data["+conn_"+destination.Data["+joinindex"]] = "1"
+	destination.Data["+conn_"+sender.Data["+joinindex"]] = "1"
+
 	if group.Players[destination] {
 		// Player is already in the group
 		return true
@@ -104,17 +108,14 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 	group.Players[destination] = true
 	destination.GroupPointer = group
 
-	sender.Data["+conn_"+destination.Data["+joinindex"]] = "1"
-	destination.Data["+conn_"+sender.Data["+joinindex"]] = "1"
-
 	return true
 }
 
 func processTellAddr(moduleName string, sender *Session, destination *Session) {
 	if sender.GroupPointer != nil && sender.GroupPointer == destination.GroupPointer {
 		// Just assume the connection is successful if TELL_ADDR is used
-		sender.Data["+conn_"+destination.Data["+joinindex"]] = "1"
-		destination.Data["+conn_"+sender.Data["+joinindex"]] = "1"
+		sender.Data["+conn_"+destination.Data["+joinindex"]] = "2"
+		destination.Data["+conn_"+sender.Data["+joinindex"]] = "2"
 	}
 }
 
@@ -328,9 +329,10 @@ func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {
 		return
 	}
 
-	resultString := "2"
+	resultString := "3"
 	if result == 1 {
-		resultString = "1"
+		// Success
+		resultString = "2"
 	}
 
 	session1.Data["+conn_"+session2.Data["+joinindex"]] = resultString

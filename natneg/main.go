@@ -69,7 +69,7 @@ type NATNEGClient struct {
 	Index           byte
 	ConnectingIndex byte
 	ConnectAck      bool
-	Connected       map[byte]bool
+	Result          map[byte]byte
 	NegotiateIP     string
 	LocalIP         string
 	ServerIP        string
@@ -321,7 +321,7 @@ func (session *NATNEGSession) handleInit(conn net.PacketConn, addr net.Addr, buf
 			Cookie:          session.Cookie,
 			Index:           clientIndex,
 			ConnectingIndex: clientIndex,
-			Connected:       map[byte]bool{},
+			Result:          map[byte]byte{},
 			NegotiateIP:     "",
 			LocalIP:         "",
 			ServerIP:        "",
@@ -371,7 +371,11 @@ func (session *NATNEGSession) sendConnectRequests(moduleName string) {
 		}
 
 		for destID, destination := range session.Clients {
-			if id == destID || !destination.isMapped() || destination.ConnectingIndex != destID || destination.Connected[id] {
+			if id == destID || !destination.isMapped() || destination.ConnectingIndex != destID {
+				continue
+			}
+
+			if _, hasResult := destination.Result[id]; hasResult {
 				continue
 			}
 
@@ -453,12 +457,17 @@ func (session *NATNEGSession) handleReport(conn net.PacketConn, addr net.Addr, b
 	logging.Notice(moduleName, "Report from", aurora.BrightCyan(clientIndex), "result:", aurora.Cyan(result))
 
 	if client, exists := session.Clients[clientIndex]; exists {
-		client.Connected[client.ConnectingIndex] = true
+		client.Result[client.ConnectingIndex] = result
 		connecting := session.Clients[client.ConnectingIndex]
 		client.ConnectingIndex = clientIndex
 		client.ConnectAck = false
 
-		qr2.ProcessNATNEGReport(result, client.ServerIP, connecting.ServerIP)
+		if otherResult, hasResult := connecting.Result[clientIndex]; hasResult {
+			if otherResult != 1 {
+				result = otherResult
+			}
+			qr2.ProcessNATNEGReport(result, client.ServerIP, connecting.ServerIP)
+		}
 	}
 
 	// Send remaining requests
