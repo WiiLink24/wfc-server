@@ -79,7 +79,6 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	switch packetType {
 	case QueryRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("QUERY"))
-		break
 
 	case ChallengeRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("CHALLENGE"))
@@ -94,24 +93,19 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		} else {
 			mutex.Unlock()
 		}
-		break
 
 	case EchoRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("ECHO"))
-		break
 
 	case HeartbeatRequest:
 		// logging.Info(moduleName, "Command:", aurora.Yellow("HEARTBEAT"))
 		heartbeat(moduleName, conn, addr, buffer)
-		break
 
 	case AddErrorRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("ADDERROR"))
-		break
 
 	case EchoResponseRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("ECHO_RESPONSE"))
-		break
 
 	case ClientMessageRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE"))
@@ -144,7 +138,6 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	case ClientRegisteredReply:
 		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_REGISTERED"))
-		break
 
 	case ClientExploitReply:
 		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_EXPLOIT_ACK"))
@@ -153,7 +146,6 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		if login := session.Login; login != nil {
 			login.NeedsExploit = false
 		}
-		break
 
 	default:
 		logging.Error(moduleName, "Unknown command:", aurora.Yellow(buffer[0]))

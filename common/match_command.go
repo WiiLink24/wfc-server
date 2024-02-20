@@ -689,8 +689,6 @@ func EncodeMatchCommand(command byte, data MatchCommandData) ([]byte, bool) {
 		logging.Info("Common", "Unknown match command:", aurora.Cyan(command), "data:", data.Other)
 		return data.Other, true
 	}
-
-	return []byte{}, false
 }
 
 func LogMatchCommand(moduleName string, dest string, command byte, data MatchCommandData) {

@@ -42,6 +42,5 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 	case "/SakeStorageServer/StorageServer.asmx":
 		moduleName := "SAKE:Storage:" + r.RemoteAddr
 		handleStorageRequest(moduleName, w, r)
-		break
 	}
 }

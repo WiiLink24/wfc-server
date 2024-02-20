@@ -13,12 +13,12 @@ type GameSpyCommand struct {
 }
 
 var (
-	InvalidGameSpyCommand = errors.New("invalid GameSpy command received")
+	ErrInvalidGameSpyCommand = errors.New("invalid GameSpy command received")
 )
 
 func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {
 	if !strings.Contains(msg, `\final\`) {
-		return nil, InvalidGameSpyCommand
+		return nil, ErrInvalidGameSpyCommand
 	}
 
 	var commands []GameSpyCommand
@@ -31,7 +31,7 @@ func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {
 		for len(msg) > 0 && string(msg[0]) == `\` {
 			keyEnd := strings.Index(msg[1:], `\`) + 1
 			if keyEnd < 2 {
-				return nil, InvalidGameSpyCommand
+				return nil, ErrInvalidGameSpyCommand
 			}
 
 			key := msg[1:keyEnd]

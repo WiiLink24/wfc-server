@@ -196,7 +196,7 @@ func handleRequest(conn net.Conn) {
 		commands = session.handleCommand("wwfc_exlogin", commands, session.exLogin)
 		commands = session.ignoreCommand("logout", commands)
 
-		if len(commands) != 0 && session.LoggedIn == false {
+		if len(commands) != 0 && !session.LoggedIn {
 			logging.Error(session.ModuleName, "Attempt to run command before login:", aurora.Cyan(commands[0]))
 			session.replyError(ErrNotLoggedIn)
 			return

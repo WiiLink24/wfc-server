@@ -258,6 +258,41 @@ func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32
 	return checkReservationAllowed(moduleName, from, to, joinType)
 }
 
+func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {
+	moduleName := "QR2:NATNEGReport"
+
+	ip1Lookup := makeLookupAddr(ip1)
+	ip2Lookup := makeLookupAddr(ip2)
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	session1 := sessions[ip1Lookup]
+	if session1 == nil {
+		logging.Warn(moduleName, "Received NATNEG report for non-existent IP", aurora.Cyan(ip1))
+		return
+	}
+
+	session2 := sessions[ip2Lookup]
+	if session2 == nil {
+		logging.Warn(moduleName, "Received NATNEG report for non-existent IP", aurora.Cyan(ip2))
+		return
+	}
+
+	if session1.GroupPointer == nil || session1.GroupPointer != session2.GroupPointer {
+		logging.Warn(moduleName, "Received NATNEG report for two IPs in different groups")
+		return
+	}
+
+	resultString := "2"
+	if result == 1 {
+		resultString = "1"
+	}
+
+	session1.Data["+conn_"+session2.Data["+joinindex"]] = resultString
+	session2.Data["+conn_"+session1.Data["+joinindex"]] = resultString
+}
+
 func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
 	moduleName := "QR2:ProcessUSER/" + strconv.FormatUint(uint64(senderPid), 10)
 

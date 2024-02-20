@@ -32,7 +32,6 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			}
 
 			qr2.ProcessUSER(g.User.ProfileId, g.QR2IP, packet)
-			break
 
 		case "mkw_malicious_packet":
 			if g.GameName != "mariokartwii" {
@@ -47,7 +46,6 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			}
 
 			logging.Warn(g.ModuleName, "Malicious packet from", aurora.BrightCyan(strconv.FormatUint(profileId, 10)))
-			break
 		}
 	}
 }

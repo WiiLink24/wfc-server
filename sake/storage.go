@@ -147,19 +147,15 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 			switch xmlName {
 			case SakeNamespace + "/GetMyRecords":
 				response.Body.GetMyRecordsResponse = getMyRecords(moduleName, profileId, gameInfo, soap.Body.Data)
-				break
 
 			case SakeNamespace + "/UpdateRecord":
 				response.Body.UpdateRecordResponse = updateRecord(moduleName, profileId, gameInfo, soap.Body.Data)
-				break
 
 			case SakeNamespace + "/SearchForRecords":
 				response.Body.SearchForRecordsResponse = searchForRecords(moduleName, gameInfo, soap.Body.Data)
-				break
 
 			default:
 				logging.Error(moduleName, "Unknown SOAPAction:", aurora.Cyan(xmlName))
-				break
 			}
 		}
 	} else {
@@ -190,7 +186,7 @@ func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, 
 		return 0, common.GameInfo{}, false
 	}
 
-	err, profileId, _ := common.UnmarshalGPCMLoginTicket(request.LoginTicket)
+	profileId, _, err := common.UnmarshalGPCMLoginTicket(request.LoginTicket)
 	if err != nil {
 		logging.Error(moduleName, err)
 		return 0, common.GameInfo{}, false
@@ -237,7 +233,7 @@ func getMyRecords(moduleName string, profileId uint32, gameInfo common.GameInfo,
 		GetMyRecordsResult: "Error",
 	}
 
-	values := map[string]StorageValue{}
+	var values map[string]StorageValue
 
 	switch gameInfo.Name + "/" + request.TableID {
 	default:
@@ -254,7 +250,6 @@ func getMyRecords(moduleName string, profileId uint32, gameInfo common.GameInfo,
 			"recordid": intValue(int32(profileId)),
 			"info":     binaryDataValueBase64(database.GetMKWFriendInfo(pool, ctx, profileId)),
 		}
-		break
 	}
 
 	response := StorageGetMyRecordsResponse{
@@ -299,7 +294,6 @@ func updateRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 		// TODO: Validate record data
 		database.UpdateMKWFriendInfo(pool, ctx, profileId, request.Values.RecordFields[0].Value.Value.Value)
 		logging.Notice(moduleName, "Updated Mario Kart Wii friend info")
-		break
 	}
 
 	return &StorageUpdateRecordResponse{
@@ -343,14 +337,13 @@ func searchForRecords(moduleName string, gameInfo common.GameInfo, request Stora
 				"info":     binaryDataValueBase64(database.GetMKWFriendInfo(pool, ctx, uint32(ownerId))),
 			},
 		}
-		break
 	}
 
 	// Sort the values now
 	sort.Slice(values, func(l, r int) bool {
 		lVal, lExists := values[l][request.Sort]
 		rVal, rExists := values[r][request.Sort]
-		if lExists == false || rExists == false {
+		if !lExists || !rExists {
 			// Prioritises the one that exists or goes left if both false
 			return rExists
 		}

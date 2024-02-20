@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 	"wwfc/common"
 )
 
@@ -40,5 +41,20 @@ func sendChallenge(conn net.PacketConn, addr net.Addr, session Session, lookupAd
 	response = append(response, []byte(challenge)...)
 	response = append(response, 0)
 
-	conn.WriteTo(response, addr)
+	go func() {
+		for {
+			conn.WriteTo(response, addr)
+
+			time.Sleep(1 * time.Second)
+
+			mutex.Lock()
+			session, ok := sessions[lookupAddr]
+			if !ok || session.Authenticated || session.LastKeepAlive < time.Now().Unix()-60 {
+				mutex.Unlock()
+				return
+			}
+			addr = session.Addr
+			mutex.Unlock()
+		}
+	}()
 }

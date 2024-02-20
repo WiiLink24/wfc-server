@@ -52,6 +52,8 @@ func removeSession(addr uint64) {
 		return
 	}
 
+	session.MessageAckWaker.Assert()
+
 	if session.GroupPointer != nil {
 		session.removeFromGroup()
 	}
@@ -82,6 +84,16 @@ func (session *Session) removeFromGroup() {
 		logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupName))
 		session.GroupPointer.Server = nil
 		session.GroupPointer.findNewServer()
+	}
+
+	for player := range session.GroupPointer.Players {
+		delete(player.Data, "+conn_"+session.Data["+joinindex"])
+	}
+
+	for field := range session.Data {
+		if strings.HasPrefix(field, "+conn_") {
+			delete(session.Data, field)
+		}
 	}
 
 	session.GroupPointer = nil

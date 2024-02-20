@@ -9,6 +9,7 @@ import (
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
+	"wwfc/qr2"
 
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -186,78 +187,60 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 	switch command {
 	default:
 		logging.Error(moduleName, "Received unknown command type:", aurora.Cyan(command))
-		break
 
 	case NNInitRequest:
 		// logging.Info(moduleName, "Command:", aurora.Yellow("NN_INIT"))
 		session.handleInit(conn, addr, buffer[12:], moduleName, version)
-		break
 
 	case NNInitReply:
 		logging.Warn(moduleName, "Received server command:", aurora.Yellow("NN_INITACK"))
-		break
 
 	case NNErtTestRequest:
 		logging.Warn(moduleName, "Received server command:", aurora.Yellow("NN_ERTTEST"))
-		break
 
 	case NNErtTestReply:
 		logging.Info(moduleName, "Command:", aurora.Yellow("NN_ERTACK"))
-		break
 
 	case NNStateUpdate:
 		logging.Info(moduleName, "Command:", aurora.Yellow("NN_STATEUPDATE"))
-		break
 
 	case NNConnectRequest:
 		logging.Warn(moduleName, "Received server command:", aurora.Yellow("NN_CONNECT"))
-		break
 
 	case NNConnectReply:
 		// logging.Info(moduleName, "Command:", aurora.Yellow("NN_CONNECT_ACK"))
 		session.handleConnectReply(conn, addr, buffer[12:], moduleName, version)
-		break
 
 	case NNConnectPing:
 		logging.Info(moduleName, "Command:", aurora.Yellow("NN_CONNECT_PING"))
-		break
 
 	case NNBackupTestRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("NN_BACKUP_TEST"))
-		break
 
 	case NNBackupTestReply:
 		logging.Warn(moduleName, "Received server command:", aurora.Yellow("NN_BACKUP_ACK"))
-		break
 
 	case NNAddressCheckRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("NN_ADDRESS_CHECK"))
-		break
 
 	case NNAddressCheckReply:
 		logging.Warn(moduleName, "Received server command:", aurora.Yellow("NN_ADDRESS_REPLY"))
-		break
 
 	case NNNatifyRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("NN_NATIFY_REQUEST"))
-		break
 
 	case NNReportRequest:
 		// logging.Info(moduleName, "Command:", aurora.Yellow("NN_REPORT"))
 		session.handleReport(conn, addr, buffer[12:], moduleName, version)
-		break
 
 	case NNReportReply:
 		logging.Warn(moduleName, "Received server command:", aurora.Yellow("NN_REPORT_ACK"))
-		break
 
 	case NNPreInitRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("NN_PREINIT"))
-		break
 
 	case NNPreInitReply:
 		logging.Warn(moduleName, "Received server command:", aurora.Yellow("NN_PREINIT_ACK"))
-		break
 	}
 }
 
@@ -471,8 +454,11 @@ func (session *NATNEGSession) handleReport(conn net.PacketConn, addr net.Addr, b
 
 	if client, exists := session.Clients[clientIndex]; exists {
 		client.Connected[client.ConnectingIndex] = true
+		connecting := session.Clients[client.ConnectingIndex]
 		client.ConnectingIndex = clientIndex
 		client.ConnectAck = false
+
+		qr2.ProcessNATNEGReport(result, client.ServerIP, connecting.ServerIP)
 	}
 
 	// Send remaining requests

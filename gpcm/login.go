@@ -156,7 +156,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		return
 	}
 
-	err, gamecd, issueTime, userId, gsbrcd, cfc, region, lang, ingamesn, challenge, unitcd, isLocalhost := common.UnmarshalNASAuthToken(authToken)
+	gamecd, issueTime, userId, gsbrcd, cfc, region, lang, ingamesn, challenge, unitcd, isLocalhost, err := common.UnmarshalNASAuthToken(authToken)
 	if err != nil {
 		g.replyError(ErrLogin)
 		return

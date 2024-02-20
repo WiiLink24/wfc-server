@@ -260,7 +260,9 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		switch s.Fetch(true) {
 		case &timeWaker:
 			timeOutCount++
-			if timeOutCount <= 8 {
+
+			// Enforce a 10 second timeout
+			if timeOutCount <= 10 {
 				break
 			}
 
@@ -332,8 +334,11 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 		sender.ReservationID = receiver.SearchID
 	} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
 		if receiver.ReservationID != sender.SearchID || receiver.Reservation.Reservation == nil {
-			logging.Error(moduleName, "Destination has no reservation with the sender")
-			return
+			logging.Warn(moduleName, "Destination has no reservation with the sender")
+			if receiver.GroupPointer == nil || receiver.GroupPointer != sender.GroupPointer {
+				return
+			}
+			// Allow the message through anyway to avoid a room deadlock
 		}
 
 		if receiver.Reservation.Version != matchData.Version {

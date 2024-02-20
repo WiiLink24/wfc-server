@@ -62,7 +62,7 @@ func (g *GameStatsSession) authp(command common.GameSpyCommand) {
 		return
 	}
 
-	err, _, issueTime, userId, gsbrcd, _, _, _, _, _, _, _ := common.UnmarshalNASAuthToken(authToken)
+	_, issueTime, userId, gsbrcd, _, _, _, _, _, _, _, err := common.UnmarshalNASAuthToken(authToken)
 	if err != nil {
 		logging.Error(g.ModuleName, "Error unmarshalling authtoken:", err.Error())
 		g.Write(errorCmd)

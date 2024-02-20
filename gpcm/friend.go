@@ -66,10 +66,10 @@ func (g *GameSpySession) getAuthorizedFriendIndex(profileId uint32) int {
 }
 
 const (
-	addFriendMessage = "\r\n\r\n|signed|00000000000000000000000000000000"
+	// addFriendMessage = "\r\n\r\n|signed|00000000000000000000000000000000"
 
 	// TODO: Check if this is needed for any game, it sends via bm 1
-	authFriendMessage = "I have authorized your request to add me to your list"
+	// authFriendMessage = "I have authorized your request to add me to your list"
 
 	logOutMessage = "|s|0|ss|Offline|ls||ip|0|p|0|qm|0"
 )
@@ -143,17 +143,6 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	sendMessageToSession("4", g.User.ProfileId, newSession, "")
 
 	g.exchangeFriendStatus(uint32(newProfileId))
-}
-
-func (g *GameSpySession) sendFriendRequests() {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	for _, newSession := range sessions {
-		if newSession.isFriendAdded(g.User.ProfileId) {
-			sendMessageToSessionBuffer("2", g.User.ProfileId, newSession, addFriendMessage)
-		}
-	}
 }
 
 func (g *GameSpySession) removeFriend(command common.GameSpyCommand) {
@@ -481,8 +470,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
 		if toSession.ReservationPID != g.User.ProfileId || toSession.Reservation.Reservation == nil {
 			logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "has no reservation with the sender")
-			g.replyError(ErrMessage)
-			return
+			// Allow the message through anyway to avoid a room deadlock
 		}
 
 		if toSession.Reservation.Version != msgMatchData.Version {
