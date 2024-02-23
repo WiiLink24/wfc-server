@@ -315,7 +315,9 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	}
 
 	if g.GameName == "mariokartwii" {
-		if motd, err := GetMessageOfTheDay(); err == nil {
+		if motd, err := GetMessageOfTheDay(); err != nil {
+			logging.Info(g.ModuleName, err)
+		} else {
 			motdUTF16 := utf16.Encode([]rune(motd))
 			motdByteArray := common.UTF16ToByteArray(motdUTF16)
 			otherValues["wwfc_motd"] = common.Base64DwcEncoding.EncodeToString(motdByteArray)

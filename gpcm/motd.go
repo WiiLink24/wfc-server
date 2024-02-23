@@ -2,7 +2,6 @@ package gpcm
 
 import (
 	"os"
-	"strings"
 )
 
 var motdFilepath = "./motd.txt"
@@ -13,8 +12,5 @@ func GetMessageOfTheDay() (string, error) {
 		return "", err
 	}
 
-	strContents := string(contents)
-	strContents = strings.TrimSpace(strContents)
-
-	return strContents, nil
+	return string(contents), nil
 }
