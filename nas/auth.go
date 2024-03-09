@@ -220,6 +220,12 @@ func login(moduleName string, fields map[string]string, isLocalhost bool) map[st
 		return param
 	}
 
+	if len(gsbrcd) < 4 || strings.ContainsRune(gsbrcd, 0) {
+		logging.Error(moduleName, "Invalid gsbrcd string in form")
+		param["returncd"] = "103"
+		return param
+	}
+
 	lang, ok := fields["lang"]
 	if !ok {
 		lang = "ff"

@@ -596,14 +596,16 @@ func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo
 				InGameName: rawPlayer["+ingamesn"],
 			}
 
+			pid, err := strconv.ParseUint(rawPlayer["dwc_pid"], 10, 32)
+			if err == nil {
+				if fcGame := rawPlayer["+fcgameid"]; len(fcGame) == 4 {
+					playerInfo.FriendCode = common.CalcFriendCodeString(uint32(pid), fcGame)
+				}
+			}
+
 			if rawPlayer["gamename"] == "mariokartwii" {
 				playerInfo.VersusELO = rawPlayer["ev"]
 				playerInfo.BattleELO = rawPlayer["eb"]
-
-				pid, err := strconv.ParseUint(rawPlayer["dwc_pid"], 10, 32)
-				if err == nil {
-					playerInfo.FriendCode = common.CalcFriendCodeString(uint32(pid), "RMCJ")
-				}
 			}
 
 			for i := 0; i < 32; i++ {

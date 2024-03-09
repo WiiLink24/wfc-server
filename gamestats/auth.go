@@ -84,7 +84,6 @@ func (g *GameStatsSession) authp(command common.GameSpyCommand) {
 	}
 
 	g.ModuleName = "GSTATS:" + strconv.FormatInt(int64(g.User.ProfileId), 10)
-	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ")
 	g.Authenticated = true
 
 	logging.Notice(g.ModuleName, "Authenticated, game name:", aurora.Cyan(g.GameInfo.Name))

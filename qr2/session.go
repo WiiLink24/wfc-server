@@ -232,6 +232,7 @@ func (session *Session) setProfileID(moduleName string, newPID string, gpcmIP st
 	}
 
 	session.Data["+gppublicip"], _ = common.IPFormatToString(gpPublicIP)
+	session.Data["+fcgameid"] = loginInfo.FriendKeyGame
 
 	session.Data["dwc_pid"] = newPID
 	logging.Notice(moduleName, "Opened session with PID", aurora.Cyan(newPID))

@@ -82,20 +82,13 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 		return
 	}
 
-	// Required for a friend auth
-	if g.User.LastName == "" {
-		logging.Error(g.ModuleName, "Add friend without last name")
-		g.replyError(ErrAddFriendBadFrom)
-		return
-	}
-
 	if newProfileId == uint64(g.User.ProfileId) {
 		logging.Error(g.ModuleName, "Attempt to add self as friend")
 		g.replyError(ErrAddFriendBadNew)
 		return
 	}
 
-	fc := common.CalcFriendCodeString(uint32(newProfileId), "RMCJ")
+	fc := common.CalcFriendCodeString(uint32(newProfileId), g.User.GsbrCode[:4])
 	logging.Info(g.ModuleName, "Add friend:", aurora.Cyan(strNewProfileId), aurora.Cyan(fc))
 
 	if g.isFriendAuthorized(uint32(newProfileId)) {
@@ -123,7 +116,7 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 
 	if newSession.GameName != g.GameName {
 		logging.Error(g.ModuleName, "Destination is not playing the same game")
-		g.replyError(ErrAddFriendBadNew)
+		// g.replyError(ErrAddFriendBadNew)
 		return
 	}
 

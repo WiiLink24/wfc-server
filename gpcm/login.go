@@ -256,7 +256,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	}
 
 	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10) + "*"
-	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ") + "*"
+	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, g.User.GsbrCode[:4]) + "*"
 
 	// Check to see if a session is already open with this profile ID
 	mutex.Lock()
@@ -293,10 +293,10 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.DeviceAuthenticated = deviceAuth
 	g.LoggedIn = true
 	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10)
-	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, "RMCJ")
+	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, g.User.GsbrCode[:4])
 
 	// Notify QR2 of the login
-	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.Conn.RemoteAddr().String(), g.NeedsExploit, g.DeviceAuthenticated, g.User.Restricted, KickPlayer)
+	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.User.GsbrCode[:4], g.Conn.RemoteAddr().String(), g.NeedsExploit, g.DeviceAuthenticated, g.User.Restricted, KickPlayer)
 
 	replyUserId := g.User.UserId
 	if g.UnitCode == UnitCodeDS {
