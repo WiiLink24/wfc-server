@@ -1,6 +1,7 @@
 package nas
 
 import (
+	"bufio"
 	"errors"
 	"os"
 	"strings"
@@ -9,15 +10,29 @@ import (
 var profanityFilePath = "./profanity.txt"
 var profanityFileLines []string = nil
 
-func CacheProfanityFile() bool {
-	contents, err := os.ReadFile(profanityFilePath)
+func CacheProfanityFile() error {
+	file, err := os.Open(profanityFilePath)
 	if err != nil {
-		return false
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if line == "" {
+			continue
+		}
+
+		profanityFileLines = append(profanityFileLines, line)
 	}
 
-	lines := strings.Split(string(contents), "\n")
-	profanityFileLines = lines
-	return true
+	if profanityFileLines == nil {
+		return errors.New("the file '" + profanityFilePath + "' is empty")
+	}
+
+	return nil
 }
 
 func IsBadWord(word string) (bool, error) {
