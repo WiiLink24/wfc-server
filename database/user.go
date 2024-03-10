@@ -111,7 +111,7 @@ func GetUniqueUserID() uint64 {
 func (user *User) UpdateProfile(pool *pgxpool.Pool, ctx context.Context, data map[string]string) {
 	firstName, firstNameExists := data["firstname"]
 	lastName, lastNameExists := data["lastname"]
-	openHost, openHostExists := data["open_host"]
+	openHost, openHostExists := data["wwfc_openhost"]
 	openHostBool := false
 	if openHostExists && openHost != "0" {
 		openHostBool = true

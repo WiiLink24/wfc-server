@@ -82,7 +82,7 @@ func (g *GameSpySession) getProfile(command common.GameSpyCommand) {
 }
 
 func (g *GameSpySession) updateProfile(command common.GameSpyCommand) {
-	if openHost, ok := command.OtherValues["open_host"]; ok {
+	if openHost, ok := command.OtherValues["wwfc_openhost"]; ok {
 		enabled := openHost != "0"
 		if !g.User.OpenHost && enabled {
 			g.openHostEnabled()
