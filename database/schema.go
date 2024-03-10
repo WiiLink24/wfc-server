@@ -18,5 +18,6 @@ ALTER TABLE ONLY public.users
 	ADD IF NOT EXISTS ban_reason_hidden character varying,
 	ADD IF NOT EXISTS ban_moderator character varying,
 	ADD IF NOT EXISTS ban_tos boolean
+	ADD IF NOT EXISTS open_host boolean DEFAULT false
 `)
 }
