@@ -188,7 +188,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	if toSession, ok = sessions[uint32(toProfileId)]; !ok || !toSession.LoggedIn {
 		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not online")
 		// g.replyError(ErrMessageFriendOffline)
-		sendMessageToSession("1", uint32(toProfileId), g, resvDenyMsg)
+		sendMessageToSessionBuffer("1", uint32(toProfileId), g, resvDenyMsg)
 		return
 	}
 
@@ -200,7 +200,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 
 	if !toSession.DeviceAuthenticated {
 		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not device authenticated")
-		sendMessageToSession("1", uint32(toProfileId), g, resvDenyMsg)
+		sendMessageToSessionBuffer("1", uint32(toProfileId), g, resvDenyMsg)
 		return
 	}
 

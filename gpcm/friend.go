@@ -320,6 +320,7 @@ func (g *GameSpySession) openHostEnabled() {
 		if session.LoggedIn && session.isFriendAdded(g.User.ProfileId) && !session.isFriendAuthorized(g.User.ProfileId) {
 			session.AuthFriendList = append(session.AuthFriendList, g.User.ProfileId)
 			g.AuthFriendList = append(g.AuthFriendList, session.User.ProfileId)
+			sendMessageToSession("4", g.User.ProfileId, session, "")
 			session.exchangeFriendStatus(g.User.ProfileId)
 		}
 	}
