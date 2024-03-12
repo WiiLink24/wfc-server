@@ -4,6 +4,9 @@ salt.bin
 *.der
 *.pem
 
+# Logs
+logs
+
 # Payload data
 payload
 

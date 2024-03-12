@@ -20,6 +20,7 @@ type Config struct {
 	EnableHTTPSExploitWii   *bool   `xml:"enableHttpsExploitWii,omitempty"`
 	EnableHTTPSExploitDS    *bool   `xml:"enableHttpsExploitDS,omitempty"`
 	LogLevel                *int    `xml:"logLevel"`
+	LogOutput               *int    `xml:"logOutput"`
 	CertPath                string  `xml:"certPath"`
 	KeyPath                 string  `xml:"keyPath"`
 	CertPathWii             string  `xml:"certDerPathWii"`

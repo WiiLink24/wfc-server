@@ -39,6 +39,7 @@
 
     <!-- Log verbosity -->
     <logLevel>4</logLevel>
+    <logOutput>2</logOutput>
 
     <!-- API secret -->
     <apiSecret>hQ3f57b3tW2WnjJH3v</apiSecret>

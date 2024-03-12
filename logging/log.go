@@ -1,16 +1,51 @@
 package logging
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"log"
+	"os"
+	"time"
 
 	"github.com/logrusorgru/aurora/v3"
 )
 
+var logDir = "./logs"
 var logLevel = 0
 
 func SetLevel(level int) {
 	logLevel = level
+}
+
+func SetOutput(output int) error {
+	switch output {
+	// None
+	case 0:
+		log.SetOutput(io.Discard)
+	// Standard output
+	case 1:
+		log.SetOutput(io.MultiWriter(os.Stdout))
+	// Standard output, file
+	case 2:
+		if err := os.MkdirAll(logDir, 0700); err != nil {
+			return err
+		}
+
+		time := time.Now()
+		logFilePath := time.Format("./logs/2006-01-02-15-04-05.log")
+
+		file, err := os.OpenFile(logFilePath, os.O_WRONLY|os.O_CREATE, 0400)
+		if err != nil {
+			return err
+		}
+
+		log.SetOutput(io.MultiWriter(os.Stdout, file))
+	default:
+		return errors.New("invalid output value provided")
+	}
+
+	return nil
 }
 
 func Notice(module string, arguments ...any) {
