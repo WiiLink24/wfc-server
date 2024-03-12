@@ -228,6 +228,8 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 						kickPlayer(g.User.ProfileId, resvError)
 					}
 				}
+
+				logging.Warn(g.ModuleName, "RESERVATION: Not allowed:", resvError)
 				// Otherwise generic error?
 				return
 			}

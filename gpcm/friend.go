@@ -136,7 +136,7 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 		g.sendFriendStatus(newSession.User.ProfileId)
 	}
 
-	g.sendFriendStatus(g.User.ProfileId)
+	newSession.sendFriendStatus(g.User.ProfileId)
 }
 
 func (g *GameSpySession) removeFriend(command common.GameSpyCommand) {
