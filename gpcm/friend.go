@@ -222,7 +222,7 @@ func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
 	g.Status = statusMsg
 
 	if !g.StatusSet && g.User.OpenHost {
-		g.openHostEnabled(false)
+		g.openHostEnabled(false, false)
 	}
 
 	g.StatusSet = true
@@ -318,9 +318,11 @@ func (g *GameSpySession) sendLogoutStatus() {
 	}
 }
 
-func (g *GameSpySession) openHostEnabled(sendStatus bool) {
-	mutex.Lock()
-	defer mutex.Unlock()
+func (g *GameSpySession) openHostEnabled(sendStatus bool, lock bool) {
+	if lock {
+		mutex.Lock()
+		defer mutex.Unlock()
+	}
 
 	for _, session := range sessions {
 		if session.LoggedIn && session.isFriendAdded(g.User.ProfileId) && !session.isFriendAuthorized(g.User.ProfileId) {
