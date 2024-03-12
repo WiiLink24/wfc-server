@@ -85,7 +85,7 @@ func (g *GameSpySession) updateProfile(command common.GameSpyCommand) {
 	if openHost, ok := command.OtherValues["wwfc_openhost"]; ok {
 		enabled := openHost != "0"
 		if !g.User.OpenHost && enabled {
-			g.openHostEnabled()
+			g.openHostEnabled(true)
 		} else if g.User.OpenHost && !enabled {
 			g.openHostDisabled()
 		}

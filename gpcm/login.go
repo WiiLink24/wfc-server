@@ -332,10 +332,6 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	g.Conn.Write([]byte(payload))
 
-	if g.User.OpenHost {
-		g.openHostEnabled()
-	}
-
 	// Now start sending keep alive packets every 5 minutes
 	go func() {
 		for {

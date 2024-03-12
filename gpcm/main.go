@@ -40,6 +40,7 @@ type GameSpySession struct {
 	HostPlatform      string
 	UnitCode          byte
 
+	StatusSet      bool
 	Status         string
 	LocString      string
 	FriendList     []uint32
@@ -135,6 +136,7 @@ func handleRequest(conn net.Conn) {
 		ModuleName:     "GPCM:" + conn.RemoteAddr().String(),
 		LoggedIn:       false,
 		Challenge:      "",
+		StatusSet:      false,
 		Status:         "",
 		LocString:      "",
 		FriendList:     []uint32{},

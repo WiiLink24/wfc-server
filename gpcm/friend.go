@@ -88,16 +88,16 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	fc := common.CalcFriendCodeString(uint32(newProfileId), g.User.GsbrCode[:4])
 	logging.Info(g.ModuleName, "Add friend:", aurora.Cyan(strNewProfileId), aurora.Cyan(fc))
 
-	if g.isFriendAuthorized(uint32(newProfileId)) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if !g.User.OpenHost && g.isFriendAuthorized(uint32(newProfileId)) {
 		logging.Info(g.ModuleName, "Attempt to add a friend who is already authorized")
 		// This seems to always happen, do we need to return an error?
 		// DWC vocally ignores the error anyway, so let's not bother
 		// g.replyError(ErrAddFriendAlreadyFriends)
 		return
 	}
-
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	// TODO: Add a limit
 	if !g.isFriendAdded(uint32(newProfileId)) {
@@ -130,11 +130,13 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 
 	// Send friend auth message
 	sendMessageToSessionBuffer("4", newSession.User.ProfileId, g, "")
-	if newSession.isFriendAdded(g.User.ProfileId) {
+	if newSession.isFriendAdded(g.User.ProfileId) && !g.User.OpenHost {
+		// If we're open host then this would've been sent already
 		sendMessageToSession("4", g.User.ProfileId, newSession, "")
+		g.sendFriendStatus(newSession.User.ProfileId)
 	}
 
-	g.exchangeFriendStatus(uint32(newProfileId))
+	g.sendFriendStatus(g.User.ProfileId)
 }
 
 func (g *GameSpySession) removeFriend(command common.GameSpyCommand) {
@@ -219,7 +221,13 @@ func (g *GameSpySession) setStatus(command common.GameSpyCommand) {
 	g.LocString = locstring
 	g.Status = statusMsg
 
-	for _, storedPid := range g.FriendList {
+	if !g.StatusSet && g.User.OpenHost {
+		g.openHostEnabled(false)
+	}
+
+	g.StatusSet = true
+
+	for _, storedPid := range g.AuthFriendList {
 		g.sendFriendStatus(storedPid)
 	}
 }
@@ -260,7 +268,7 @@ func sendMessageToProfileId(msgType string, from uint32, to uint32, msg string) 
 func (g *GameSpySession) sendFriendStatus(profileId uint32) {
 	common.UNUSED(sendMessageToProfileId)
 
-	if !g.isFriendAdded(profileId) {
+	if !g.isFriendAuthorized(profileId) {
 		return
 	}
 
@@ -276,12 +284,8 @@ func (g *GameSpySession) sendFriendStatus(profileId uint32) {
 }
 
 func (g *GameSpySession) exchangeFriendStatus(profileId uint32) {
-	if !g.isFriendAdded(profileId) {
-		return
-	}
-
 	if session, ok := sessions[profileId]; ok && session.LoggedIn {
-		if session.isFriendAdded(g.User.ProfileId) {
+		if session.isFriendAdded(g.User.ProfileId) && session.isFriendAuthorized(g.User.ProfileId) {
 			if session.NeedsExploit && strings.HasPrefix(session.GameCode, "RMC") && len(g.LocString) > 0x14 {
 				logging.Warn("GPCM", "Blocked message from", aurora.Cyan(g.User.ProfileId), "to", aurora.Cyan(session.User.ProfileId), "due to a stack overflow exploit")
 				return
@@ -290,12 +294,14 @@ func (g *GameSpySession) exchangeFriendStatus(profileId uint32) {
 			sendMessageToSession("100", g.User.ProfileId, session, g.Status)
 		}
 
-		if g.NeedsExploit && strings.HasPrefix(g.GameCode, "RMC") && len(session.LocString) > 0x14 {
-			logging.Warn("GPCM", "Blocked message from", aurora.Cyan(session.User.ProfileId), "to", aurora.Cyan(g.User.ProfileId), "due to a stack overflow exploit")
-			return
-		}
+		if g.isFriendAdded(profileId) && g.isFriendAuthorized(profileId) {
+			if g.NeedsExploit && strings.HasPrefix(g.GameCode, "RMC") && len(session.LocString) > 0x14 {
+				logging.Warn("GPCM", "Blocked message from", aurora.Cyan(session.User.ProfileId), "to", aurora.Cyan(g.User.ProfileId), "due to a stack overflow exploit")
+				return
+			}
 
-		sendMessageToSessionBuffer("100", profileId, g, session.Status)
+			sendMessageToSessionBuffer("100", profileId, g, session.Status)
+		}
 	}
 }
 
@@ -312,7 +318,7 @@ func (g *GameSpySession) sendLogoutStatus() {
 	}
 }
 
-func (g *GameSpySession) openHostEnabled() {
+func (g *GameSpySession) openHostEnabled(sendStatus bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -321,7 +327,9 @@ func (g *GameSpySession) openHostEnabled() {
 			session.AuthFriendList = append(session.AuthFriendList, g.User.ProfileId)
 			g.AuthFriendList = append(g.AuthFriendList, session.User.ProfileId)
 			sendMessageToSession("4", g.User.ProfileId, session, "")
-			session.exchangeFriendStatus(g.User.ProfileId)
+			if sendStatus {
+				session.sendFriendStatus(g.User.ProfileId)
+			}
 		}
 	}
 }
