@@ -332,5 +332,37 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		newMsgStr = "GPCM90vMAT" + string(cmd) + common.Base64DwcEncoding.EncodeToString(newMsg)
 	}
 
-	sendMessageToSession("1", g.User.ProfileId, toSession, newMsgStr)
+	// Check if this session is on the destination's RecvStatusFromList
+	for _, friend := range toSession.RecvStatusFromList {
+		if friend == g.User.ProfileId {
+			// The destination has already received a status message from the sender, so we can just send the message
+			sendMessageToSession("1", g.User.ProfileId, toSession, newMsgStr)
+			return
+		}
+	}
+
+	// Send a dummy status message so the destination will accept a message from the sender
+	message := common.CreateGameSpyMessage(common.GameSpyCommand{
+		Command:      "bm",
+		CommandValue: "100",
+		OtherValues: map[string]string{
+			"f":   strconv.FormatUint(uint64(g.User.ProfileId), 10),
+			"msg": "|s|0|ss||ls||ip|0|p|0|qm|0",
+		},
+	})
+
+	message += common.CreateGameSpyMessage(common.GameSpyCommand{
+		Command:      "bm",
+		CommandValue: "1",
+		OtherValues: map[string]string{
+			"f":   strconv.FormatUint(uint64(g.User.ProfileId), 10),
+			"msg": newMsgStr,
+		},
+	})
+
+	toSession.Conn.Write([]byte(message))
+
+	// Append sender's profile ID to dest's RecvStatusFromList
+	toSession.RecvStatusFromList = append(toSession.RecvStatusFromList, g.User.ProfileId)
+
 }

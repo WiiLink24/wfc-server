@@ -45,6 +45,8 @@ type GameSpySession struct {
 	LocString      string
 	FriendList     []uint32
 	AuthFriendList []uint32
+	// For syncing with local GS SDK buddy list
+	RecvStatusFromList []uint32
 
 	QR2IP          uint64
 	Reservation    common.MatchCommandData

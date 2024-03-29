@@ -279,6 +279,7 @@ func (g *GameSpySession) sendFriendStatus(profileId uint32) {
 			return
 		}
 
+		session.recordStatusSent(g.User.ProfileId)
 		sendMessageToSession("100", g.User.ProfileId, session, g.Status)
 	}
 }
@@ -291,6 +292,7 @@ func (g *GameSpySession) exchangeFriendStatus(profileId uint32) {
 				return
 			}
 
+			session.recordStatusSent(g.User.ProfileId)
 			sendMessageToSession("100", g.User.ProfileId, session, g.Status)
 		}
 
@@ -300,9 +302,20 @@ func (g *GameSpySession) exchangeFriendStatus(profileId uint32) {
 				return
 			}
 
+			g.recordStatusSent(profileId)
 			sendMessageToSessionBuffer("100", profileId, g, session.Status)
 		}
 	}
+}
+
+func (g *GameSpySession) recordStatusSent(sender uint32) {
+	for _, friend := range g.RecvStatusFromList {
+		if friend == sender {
+			return
+		}
+	}
+
+	g.RecvStatusFromList = append(g.RecvStatusFromList, sender)
 }
 
 func (g *GameSpySession) sendLogoutStatus() {
