@@ -21,7 +21,7 @@ func main() {
 
 	wg := &sync.WaitGroup{}
 	actions := []func(){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, serverbrowser.StartServer, sake.StartServer, natneg.StartServer, api.StartServer, gamestats.StartServer}
-	wg.Add(5)
+	wg.Add(len(actions))
 	for _, action := range actions {
 		go func(ac func()) {
 			defer wg.Done()
