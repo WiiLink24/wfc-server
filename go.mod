@@ -6,7 +6,7 @@ require (
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/logrusorgru/aurora/v3 v3.0.0
 	github.com/sasha-s/go-deadlock v0.3.1
-	golang.org/x/net v0.17.0
+	golang.org/x/net v0.23.0
 )
 
 require (
@@ -19,7 +19,7 @@ require (
 	github.com/jackc/pgtype v1.14.0 // indirect
 	github.com/jackc/puddle v1.3.0 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
-	golang.org/x/crypto v0.17.0 // indirect
+	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gvisor.dev/gvisor v0.0.0-20240119232905-7b151e25d076
 )
