@@ -125,7 +125,7 @@ func GetExpectedUnitCode(gameName string) byte {
 
 	// Cross-platform games
 	if gameName == "mahjongkcds" || gameName == "puyopuyo7ds" || gameName == "puyopuyo20ds" {
-		return 2
+		return 0xff
 	}
 
 	return 0
