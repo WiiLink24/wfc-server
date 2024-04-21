@@ -156,6 +156,7 @@ func handleRequest(conn net.Conn) {
 			return
 		}
 
+		commands = session.handleCommand("getpd", commands, session.getpd)
 		commands = session.handleCommand("setpd", commands, session.setpd)
 
 		for _, command := range commands {
