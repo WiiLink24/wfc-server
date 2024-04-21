@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	UnitCodeDS  = 0
-	UnitCodeWii = 1
+	UnitCodeDS       = 0
+	UnitCodeWii      = 1
+	UnitCodeDSAndWii = 0xff
 )
 
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {
@@ -184,12 +185,17 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	if hostPlatform, exists := command.OtherValues["wwfc_host"]; exists {
 		g.HostPlatform = hostPlatform
 	} else {
-		g.HostPlatform = "Wii"
+		if g.UnitCode == UnitCodeDS {
+			g.HostPlatform = "DS"
+		} else {
+			g.HostPlatform = "Wii"
+		}
 	}
 
 	g.LoginInfoSet = true
 
-	if g.GameName != "mahjongkcds" && common.GetExpectedUnitCode(g.GameName) != unitcd {
+	expectedUnitCode := common.GetExpectedUnitCode(g.GameName)
+	if (g.UnitCode != UnitCodeDS && g.UnitCode != UnitCodeWii) || (g.UnitCode != expectedUnitCode && expectedUnitCode != UnitCodeDSAndWii) {
 		logging.Error(g.ModuleName, "Incorrect unit code specified:", aurora.Cyan(unitcd))
 		g.replyError(ErrLogin)
 		return

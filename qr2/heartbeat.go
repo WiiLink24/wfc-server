@@ -60,6 +60,7 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 			return
 		}
 	}
+	// Else it's a cross-compatible game and the endianness is ambiguous
 
 	payload["publicip"] = realIP
 	payload["publicport"] = realPort
