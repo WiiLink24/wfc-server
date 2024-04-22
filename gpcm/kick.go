@@ -1,5 +1,7 @@
 package gpcm
 
+import "wwfc/common"
+
 func kickPlayer(profileID uint32, reason string) {
 	if session, exists := sessions[profileID]; exists {
 		errorMessage := WWFCMsgKickedGeneric
@@ -25,7 +27,7 @@ func kickPlayer(profileID uint32, reason string) {
 
 		case "network_error":
 			// No error message
-			session.Conn.Close()
+			common.CloseConnection("gpcm", session.ConnIndex)
 			return
 		}
 
@@ -35,7 +37,7 @@ func kickPlayer(profileID uint32, reason string) {
 			Fatal:       true,
 			WWFCMessage: errorMessage,
 		})
-		session.Conn.Close()
+		common.CloseConnection("gpcm", session.ConnIndex)
 	}
 }
 

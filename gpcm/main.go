@@ -1,12 +1,8 @@
 package gpcm
 
 import (
-	"bufio"
 	"context"
-	"errors"
 	"fmt"
-	"io"
-	"net"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -18,7 +14,8 @@ import (
 )
 
 type GameSpySession struct {
-	Conn                net.Conn
+	ConnIndex           uint64
+	RemoteAddr          string
 	WriteBuffer         string
 	User                database.User
 	ModuleName          string
@@ -59,8 +56,9 @@ var (
 	ctx  = context.Background()
 	pool *pgxpool.Pool
 	// I would use a sync.Map instead of the map mutex combo, but this performs better.
-	sessions = map[uint32]*GameSpySession{}
-	mutex    = deadlock.Mutex{}
+	sessions            = map[uint32]*GameSpySession{}
+	sessionsByConnIndex = map[uint64]*GameSpySession{}
+	mutex               = deadlock.Mutex{}
 
 	allowDefaultDolphinKeys bool
 )
@@ -84,58 +82,44 @@ func StartServer() {
 	database.UpdateTables(pool, ctx)
 
 	allowDefaultDolphinKeys = config.AllowDefaultDolphinKeys
-
-	address := *config.GameSpyAddress + ":29900"
-	l, err := net.Listen("tcp", address)
-	if err != nil {
-		panic(err)
-	}
-
-	// Close the listener when the application closes.
-	defer l.Close()
-	logging.Notice("GPCM", "Listening on", address)
-
-	for {
-		// Listen for an incoming connection.
-		conn, err := l.Accept()
-		if err != nil {
-			panic(err)
-		}
-
-		// Handle connections in a new goroutine.
-		go handleRequest(conn)
-	}
 }
 
-func (g *GameSpySession) closeSession() {
-	if r := recover(); r != nil {
-		logging.Error(g.ModuleName, "Panic:", r)
+func CloseConnection(index uint64) {
+	mutex.Lock()
+	session := sessionsByConnIndex[index]
+	mutex.Unlock()
+
+	if session == nil {
+		logging.Error("GPCM", "Cannot find session for this connection index:", aurora.Cyan(index))
+		return
 	}
 
-	if g.LoggedIn {
-		qr2.Logout(g.User.ProfileId)
-		if g.QR2IP != 0 {
-			qr2.ProcessGPStatusUpdate(g.User.ProfileId, g.QR2IP, "0")
+	logging.Notice(session.ModuleName, "Connection closed")
+
+	if session.LoggedIn {
+		qr2.Logout(session.User.ProfileId)
+		if session.QR2IP != 0 {
+			qr2.ProcessGPStatusUpdate(session.User.ProfileId, session.QR2IP, "0")
 		}
-		g.sendLogoutStatus()
+		session.sendLogoutStatus()
 	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	g.Conn.Close()
-	if g.LoggedIn {
-		g.LoggedIn = false
-		delete(sessions, g.User.ProfileId)
+	if session.LoggedIn {
+		session.LoggedIn = false
+		delete(sessions, session.User.ProfileId)
 	}
 }
 
 // Handles incoming requests.
-func handleRequest(conn net.Conn) {
+func NewConnection(index uint64, address string) {
 	session := &GameSpySession{
-		Conn:           conn,
+		ConnIndex:      index,
+		RemoteAddr:     address,
 		User:           database.User{},
-		ModuleName:     "GPCM:" + conn.RemoteAddr().String(),
+		ModuleName:     "GPCM:" + address,
 		LoggedIn:       false,
 		Challenge:      "",
 		StatusSet:      false,
@@ -145,15 +129,8 @@ func handleRequest(conn net.Conn) {
 		AuthFriendList: []uint32{},
 	}
 
-	defer session.closeSession()
-
-	// Set session ID and challenge
+	// Set challenge
 	session.Challenge = common.RandomString(10)
-
-	err := conn.(*net.TCPConn).SetKeepAlive(true)
-	if err != nil {
-		logging.Error(session.ModuleName, "Unable to set keepalive:", err.Error())
-	}
 
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
@@ -163,66 +140,70 @@ func handleRequest(conn net.Conn) {
 			"id":        "1",
 		},
 	})
-	conn.Write([]byte(payload))
+	common.SendPacket("gpcm", index, []byte(payload))
 
-	logging.Notice(session.ModuleName, "Connection established from", conn.RemoteAddr())
+	logging.Notice(session.ModuleName, "Connection established from", address)
 
-	// Here we go into the listening loop
-	for {
-		// TODO: Handle split packets
-		buffer := make([]byte, 1024)
-		n, err := bufio.NewReader(conn).Read(buffer)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				// Client closed connection, terminate.
-				logging.Info(session.ModuleName, "Client closed connection")
-				return
-			}
+	mutex.Lock()
+	sessionsByConnIndex[index] = session
+	mutex.Unlock()
+}
 
-			logging.Error(session.ModuleName, "Connection lost")
-			return
+func HandlePacket(index uint64, data []byte) {
+	mutex.Lock()
+	session := sessionsByConnIndex[index]
+	mutex.Unlock()
+
+	if session == nil {
+		logging.Error("GPCM", "Cannot find session for this connection index:", aurora.Cyan(index))
+		return
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			logging.Error(session.ModuleName, "Panic:", r)
 		}
+	}()
 
-		commands, err := common.ParseGameSpyMessage(string(buffer[:n]))
-		if err != nil {
-			logging.Error(session.ModuleName, "Error parsing message:", err.Error())
-			logging.Error(session.ModuleName, "Raw data:", string(buffer[:n]))
-			session.replyError(ErrParse)
-			return
-		}
+	commands, err := common.ParseGameSpyMessage(string(data))
+	if err != nil {
+		logging.Error(session.ModuleName, "Error parsing message:", err.Error())
+		logging.Error(session.ModuleName, "Raw data:", string(data))
+		session.replyError(ErrParse)
+		return
+	}
 
-		// Commands must be handled in a certain order, not in the order supplied by the client
+	// Commands must be handled in a certain order, not in the order supplied by the client
 
-		commands = session.handleCommand("ka", commands, func(command common.GameSpyCommand) {
-			session.Conn.Write([]byte(`\ka\\final\`))
-		})
-		commands = session.handleCommand("login", commands, session.login)
-		commands = session.handleCommand("wwfc_exlogin", commands, session.exLogin)
-		commands = session.ignoreCommand("logout", commands)
+	commands = session.handleCommand("ka", commands, func(command common.GameSpyCommand) {
+		common.SendPacket("gpcm", session.ConnIndex, []byte(`\ka\\final\`))
+	})
+	commands = session.handleCommand("login", commands, session.login)
+	commands = session.handleCommand("wwfc_exlogin", commands, session.exLogin)
+	commands = session.ignoreCommand("logout", commands)
 
-		if len(commands) != 0 && !session.LoggedIn {
-			logging.Error(session.ModuleName, "Attempt to run command before login:", aurora.Cyan(commands[0]))
-			session.replyError(ErrNotLoggedIn)
-			return
-		}
+	if len(commands) != 0 && !session.LoggedIn {
+		logging.Error(session.ModuleName, "Attempt to run command before login:", aurora.Cyan(commands[0]))
+		session.replyError(ErrNotLoggedIn)
+		return
+	}
 
-		commands = session.handleCommand("wwfc_report", commands, session.handleWWFCReport)
-		commands = session.handleCommand("updatepro", commands, session.updateProfile)
-		commands = session.handleCommand("status", commands, session.setStatus)
-		commands = session.handleCommand("addbuddy", commands, session.addFriend)
-		commands = session.handleCommand("delbuddy", commands, session.removeFriend)
-		commands = session.handleCommand("authadd", commands, session.authAddFriend)
-		commands = session.handleCommand("bm", commands, session.bestieMessage)
-		commands = session.handleCommand("getprofile", commands, session.getProfile)
+	commands = session.handleCommand("wwfc_report", commands, session.handleWWFCReport)
+	commands = session.handleCommand("updatepro", commands, session.updateProfile)
+	commands = session.handleCommand("status", commands, session.setStatus)
+	commands = session.handleCommand("addbuddy", commands, session.addFriend)
+	commands = session.handleCommand("delbuddy", commands, session.removeFriend)
+	commands = session.handleCommand("authadd", commands, session.authAddFriend)
+	commands = session.handleCommand("bm", commands, session.bestieMessage)
+	commands = session.handleCommand("getprofile", commands, session.getProfile)
 
-		for _, command := range commands {
-			logging.Error(session.ModuleName, "Unknown command:", aurora.Cyan(command))
-		}
+	for _, command := range commands {
+		logging.Error(session.ModuleName, "Unknown command:", aurora.Cyan(command))
+	}
 
-		if session.WriteBuffer != "" {
-			conn.Write([]byte(session.WriteBuffer))
-			session.WriteBuffer = ""
-		}
+	if session.WriteBuffer != "" {
+		common.SendPacket("gpcm", session.ConnIndex, []byte(session.WriteBuffer))
+		session.WriteBuffer = ""
 	}
 }
 

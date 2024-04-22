@@ -163,7 +163,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	}
 
 	if cmd == common.MatchReservation {
-		if common.IPFormatNoPortToInt(g.Conn.RemoteAddr().String()) != int32(msgMatchData.Reservation.PublicIP) {
+		if common.IPFormatNoPortToInt(g.RemoteAddr) != int32(msgMatchData.Reservation.PublicIP) {
 			logging.Error(g.ModuleName, "RESERVATION: Public IP mismatch")
 			g.replyError(ErrMessage)
 			return
@@ -172,7 +172,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		g.QR2IP = uint64(msgMatchData.Reservation.PublicIP) | (uint64(msgMatchData.Reservation.PublicPort) << 32)
 
 	} else if cmd == common.MatchResvOK {
-		if common.IPFormatNoPortToInt(g.Conn.RemoteAddr().String()) != int32(msgMatchData.ResvOK.PublicIP) {
+		if common.IPFormatNoPortToInt(g.RemoteAddr) != int32(msgMatchData.ResvOK.PublicIP) {
 			logging.Error(g.ModuleName, "RESV_OK: Public IP mismatch")
 			g.replyError(ErrMessage)
 			return
@@ -204,7 +204,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		return
 	}
 
-	sameAddress := strings.Split(g.Conn.RemoteAddr().String(), ":")[0] == strings.Split(toSession.Conn.RemoteAddr().String(), ":")[0]
+	sameAddress := strings.Split(g.RemoteAddr, ":")[0] == strings.Split(toSession.RemoteAddr, ":")[0]
 
 	if cmd == common.MatchReservation {
 		if g.QR2IP == 0 {
@@ -360,7 +360,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		},
 	})
 
-	toSession.Conn.Write([]byte(message))
+	common.SendPacket("gpcm", toSession.ConnIndex, []byte(message))
 
 	// Append sender's profile ID to dest's RecvStatusFromList
 	toSession.RecvStatusFromList = append(toSession.RecvStatusFromList, g.User.ProfileId)

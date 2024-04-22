@@ -269,7 +269,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	otherSession, exists := sessions[g.User.ProfileId]
 	if exists {
 		otherSession.replyError(ErrForcedDisconnect)
-		otherSession.Conn.Close()
+		common.CloseConnection("gpcm", otherSession.ConnIndex)
 
 		for i := 0; ; i++ {
 			mutex.Unlock()
@@ -302,7 +302,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, g.User.GsbrCode[:4])
 
 	// Notify QR2 of the login
-	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.User.GsbrCode[:4], g.Conn.RemoteAddr().String(), g.NeedsExploit, g.DeviceAuthenticated, g.User.Restricted, KickPlayer)
+	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.User.GsbrCode[:4], g.RemoteAddr, g.NeedsExploit, g.DeviceAuthenticated, g.User.Restricted, KickPlayer)
 
 	replyUserId := g.User.UserId
 	if g.UnitCode == UnitCodeDS {
@@ -336,19 +336,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		OtherValues:  otherValues,
 	})
 
-	g.Conn.Write([]byte(payload))
-
-	// Now start sending keep alive packets every 5 minutes
-	go func() {
-		for {
-			time.Sleep(5 * time.Minute)
-			if !g.LoggedIn {
-				return
-			}
-
-			g.Conn.Write([]byte(`\ka\\final\`))
-		}
-	}()
+	common.SendPacket("gpcm", g.ConnIndex, []byte(payload))
 }
 
 func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
@@ -439,7 +427,7 @@ func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authTo
 
 func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string, profileId uint32, deviceId uint32) bool {
 	// Get IP address without port
-	ipAddress := g.Conn.RemoteAddr().String()
+	ipAddress := g.RemoteAddr
 	if strings.Contains(ipAddress, ":") {
 		ipAddress = ipAddress[:strings.Index(ipAddress, ":")]
 	}
