@@ -18,6 +18,9 @@ import (
 func main() {
 	config := common.GetConfig()
 	logging.SetLevel(*config.LogLevel)
+	if err := logging.SetOutput(config.LogOutput); err != nil {
+		logging.Error("MAIN", err)
+	}
 
 	wg := &sync.WaitGroup{}
 	actions := []func(){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, serverbrowser.StartServer, sake.StartServer, natneg.StartServer, api.StartServer, gamestats.StartServer}

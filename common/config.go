@@ -20,6 +20,7 @@ type Config struct {
 	EnableHTTPSExploitWii   *bool   `xml:"enableHttpsExploitWii,omitempty"`
 	EnableHTTPSExploitDS    *bool   `xml:"enableHttpsExploitDS,omitempty"`
 	LogLevel                *int    `xml:"logLevel"`
+	LogOutput               string  `xml:"logOutput"`
 	CertPath                string  `xml:"certPath"`
 	KeyPath                 string  `xml:"keyPath"`
 	CertPathWii             string  `xml:"certDerPathWii"`
@@ -76,6 +77,10 @@ func GetConfig() Config {
 	if config.LogLevel == nil {
 		level := 4
 		config.LogLevel = &level
+	}
+
+	if config.LogOutput == "" {
+		config.LogOutput = "StdOutAndFile"
 	}
 
 	return config
