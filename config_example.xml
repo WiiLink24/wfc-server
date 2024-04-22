@@ -33,12 +33,25 @@
     <username>username</username>
     <password>password</password>
 
-    <!-- Database information-->
+    <!-- Database information -->
     <databaseAddress>127.0.0.1</databaseAddress>
     <databaseName>wwfc</databaseName>
-
-    <!-- Log verbosity -->
+    
+    <!-- Logging configuration -->
+    <!-- Log verbosity
+         0: No messages are logged.
+         1: General messages are logged.
+         2: General and error messages are logged.
+         3: General, error, and warning messages are logged.
+         4: General, error, warning, and informational messages are logged.
+    -->
     <logLevel>4</logLevel>
+    <!-- Log output
+         None         : Messages are discarded.
+         StdOut       : Messages are written to standard output.
+         StdOutAndFile: Messages are written to both standard output and a file.
+    -->
+    <logOutput>StdOutAndFile</logOutput>
 
     <!-- API secret -->
     <apiSecret>hQ3f57b3tW2WnjJH3v</apiSecret>
