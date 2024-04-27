@@ -92,8 +92,9 @@ type MatchCommandDataResvOK struct {
 }
 
 type MatchCommandDataResvDeny struct {
-	Reason       uint32
-	ReasonString string
+	Reason          uint32
+	ReasonString    string
+	ReasonSpecified bool
 
 	UserData []byte
 }
@@ -388,11 +389,15 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		}, true
 
 	case MatchResvDeny:
-		if len(buffer) != 0x04 {
-			break
+		var reason uint32
+		var userData []byte
+		if len(buffer) >= 0x04 {
+			reason = binary.LittleEndian.Uint32(buffer[0x00:0x04])
+			userData = buffer[0x04:]
+		} else {
+			reason = 0
+			userData = buffer
 		}
-
-		reason := binary.LittleEndian.Uint32(buffer[0x00:0x04])
 
 		return MatchCommandData{
 			Version: version,
@@ -400,6 +405,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 			ResvDeny: &MatchCommandDataResvDeny{
 				Reason: reason,
 				ReasonString: map[uint32]string{
+					0x00: "Unspecified reason.",
 					0x10: "Game server is fully occupied.",
 					0x11: "This Domain is already closed.",
 					0x12: "The condition was not satisfied.",
@@ -410,7 +416,8 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 					0x17: "The reservation came from a different other host.",
 					0x18: "Illegal mesh reservation.",
 				}[reason],
-				UserData: buffer[0x4:],
+				ReasonSpecified: len(buffer) > 0x04,
+				UserData:        userData,
 			},
 		}, true
 
@@ -418,6 +425,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		if len(buffer) != 0x00 {
 			break
 		}
+
 		return MatchCommandData{
 			Version: version,
 			Command: command,
@@ -427,6 +435,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		if len(buffer) != 0x00 {
 			break
 		}
+
 		return MatchCommandData{
 			Version: version,
 			Command: command,
@@ -480,6 +489,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		if len(buffer) != 0x00 {
 			break
 		}
+
 		return MatchCommandData{
 			Version: version,
 			Command: command,
@@ -489,6 +499,7 @@ func DecodeMatchCommand(command byte, buffer []byte, version int) (MatchCommandD
 		if len(buffer) != 0x04 {
 			break
 		}
+
 		return MatchCommandData{
 			Version: version,
 			Command: command,
@@ -642,6 +653,10 @@ func EncodeMatchCommand(command byte, data MatchCommandData) ([]byte, bool) {
 		return message, true
 
 	case MatchResvDeny:
+		if !data.ResvDeny.ReasonSpecified {
+			return data.ResvDeny.UserData, true
+		}
+
 		message := binary.LittleEndian.AppendUint32([]byte{}, data.ResvDeny.Reason)
 
 		message = append(message, data.ResvDeny.UserData...)
