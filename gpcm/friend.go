@@ -91,7 +91,8 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if !g.User.OpenHost && g.isFriendAuthorized(uint32(newProfileId)) {
+	authorized := g.isFriendAuthorized(uint32(newProfileId))
+	if !g.User.OpenHost && authorized {
 		logging.Info(g.ModuleName, "Attempt to add a friend who is already authorized")
 		// This seems to always happen, do we need to return an error?
 		// DWC vocally ignores the error anyway, so let's not bother
@@ -125,8 +126,10 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 
 	// Friends are now mutual!
 	// TODO: Add a limit
-	g.AuthFriendList = append(g.AuthFriendList, uint32(newProfileId))
-	newSession.AuthFriendList = append(newSession.AuthFriendList, g.User.ProfileId)
+	if !authorized {
+		g.AuthFriendList = append(g.AuthFriendList, uint32(newProfileId))
+		newSession.AuthFriendList = append(newSession.AuthFriendList, g.User.ProfileId)
+	}
 
 	// Send friend auth message
 	sendMessageToSessionBuffer("4", newSession.User.ProfileId, g, "")
@@ -148,6 +151,9 @@ func (g *GameSpySession) removeFriend(command common.GameSpyCommand) {
 		return
 	}
 	delProfileID32 := uint32(delProfileID64)
+
+	fc := common.CalcFriendCodeString(delProfileID32, g.User.GsbrCode[:4])
+	logging.Info(g.ModuleName, "Remove friend:", aurora.Cyan(strDelProfileID), aurora.Cyan(fc))
 
 	mutex.Lock()
 	defer mutex.Unlock()

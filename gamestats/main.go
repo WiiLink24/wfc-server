@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"wwfc/common"
 	"wwfc/database"
@@ -117,40 +119,80 @@ func handleRequest(conn net.Conn) {
 
 	// Here we go into the listening loop
 	for {
-		// TODO: Handle split packets
-		buffer := make([]byte, 1024)
-		n, err := bufio.NewReader(conn).Read(buffer)
-		if err != nil {
-			logging.Notice(session.ModuleName, "Connection lost:", err.Error())
-			return
-		}
+		buffer := make([]byte, 0x4000)
+		bufferSize := 0
+		message := ""
 
-		// Decrypt the data
-		for i := 0; i < n; i++ {
-			if i+7 <= n && bytes.Equal(buffer[i:i+7], []byte(`\final\`)) {
-				i += 6
+		// Packets can be received in fragments, so this loop makes sure the packet has been fully received before continuing
+		for {
+			if bufferSize >= len(buffer) {
+				logging.Error(session.ModuleName, "Buffer overflow")
+				return
+			}
+
+			readSize, err := bufio.NewReader(conn).Read(buffer[bufferSize:])
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					logging.Info(session.ModuleName, "Connection closed")
+					return
+				}
+
+				logging.Error(session.ModuleName, "Connection error:", err.Error())
+				return
+			}
+
+			bufferSize += readSize
+
+			if !bytes.Contains(buffer[max(0, bufferSize-readSize-6):bufferSize], []byte(`\final\`)) {
 				continue
 			}
 
-			buffer[i] ^= "GameSpy3D"[i%9]
+			// Decrypt the data
+			decrypted := ""
+			for i := 0; i < bufferSize; i++ {
+				if i+7 <= bufferSize && bytes.Equal(buffer[i:i+7], []byte(`\final\`)) {
+					// Append the decrypted content to the message
+					message += decrypted + `\final\`
+					decrypted = ""
+
+					// Remove the processed data
+					buffer = buffer[i+7:]
+					bufferSize -= i + 7
+					i = 0
+
+					if bufferSize < 7 || !bytes.Contains(buffer[:bufferSize], []byte(`\final\`)) {
+						break
+					}
+					continue
+				}
+
+				decrypted += string(rune(buffer[i] ^ "GameSpy3D"[i%9]))
+			}
+
+			// Continue to processing the message if we have a full message and another message is not expected
+			if len(message) > 0 && bufferSize <= 0 {
+				break
+			}
 		}
 
-		commands, err := common.ParseGameSpyMessage(string(buffer[:n]))
+		commands, err := common.ParseGameSpyMessage(message)
 		if err != nil {
 			logging.Error(session.ModuleName, "Error parsing message:", err.Error())
-			logging.Error(session.ModuleName, "Raw data:", string(buffer[:n]))
+			logging.Error(session.ModuleName, "Raw data:", message)
 			session.replyError(gpcm.ErrParse)
 			return
 		}
 
 		commands = session.handleCommand("ka", commands, func(command common.GameSpyCommand) {
-			session.Conn.Write([]byte(`\ka\\final\`))
+			session.Write(common.GameSpyCommand{
+				Command: "ka",
+			})
 		})
 
 		commands = session.handleCommand("auth", commands, session.auth)
 		commands = session.handleCommand("authp", commands, session.authp)
 
-		if len(commands) != 0 && session.Authenticated == false {
+		if len(commands) != 0 && !session.Authenticated {
 			logging.Error(session.ModuleName, "Attempt to run command before authentication:", aurora.Cyan(commands[0]))
 			session.replyError(gpcm.ErrNotLoggedIn)
 			return
@@ -158,6 +200,7 @@ func handleRequest(conn net.Conn) {
 
 		commands = session.handleCommand("getpd", commands, session.getpd)
 		commands = session.handleCommand("setpd", commands, session.setpd)
+		common.UNUSED(session.ignoreCommand)
 
 		for _, command := range commands {
 			logging.Error(session.ModuleName, "Unknown command:", aurora.Cyan(command))

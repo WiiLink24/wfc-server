@@ -220,10 +220,21 @@ func login(moduleName string, fields map[string]string, isLocalhost bool) map[st
 		return param
 	}
 
-	if len(gsbrcd) < 4 || strings.ContainsRune(gsbrcd, 0) {
+	if (len(gsbrcd) < 4 && len(gsbrcd) != 0) || strings.ContainsRune(gsbrcd, 0) {
 		logging.Error(moduleName, "Invalid gsbrcd string in form")
 		param["returncd"] = "103"
 		return param
+	}
+
+	// Some games like Fortune Street make login requests without a gsbr code, so we temporarily fake one
+	if len(gsbrcd) == 0 {
+		if len(gamecd) < 4 {
+			logging.Error(moduleName, "Invalid gamecd string in form")
+			param["returncd"] = "103"
+			return param
+		}
+
+		gsbrcd = gamecd[:3] + "J"
 	}
 
 	lang, ok := fields["lang"]
