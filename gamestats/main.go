@@ -84,7 +84,7 @@ func NewConnection(index uint64, address string) {
 		WriteBuffer: []byte{},
 	}
 
-	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
+	session.Write(common.GameSpyCommand{
 		Command:      "lc",
 		CommandValue: "1",
 		OtherValues: map[string]string{
@@ -92,7 +92,8 @@ func NewConnection(index uint64, address string) {
 			"id":        "1",
 		},
 	})
-	common.SendPacket(ServerName, index, []byte(payload))
+	common.SendPacket(ServerName, index, []byte(session.WriteBuffer))
+	session.WriteBuffer = []byte{}
 
 	logging.Notice(session.ModuleName, "Connection established from", address)
 
