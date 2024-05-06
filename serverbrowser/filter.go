@@ -15,11 +15,11 @@ import (
 
 // Example: dwc_mver = 90 and dwc_pid != 43 and maxplayers = 11 and numplayers < 11 and dwc_mtype = 0 and dwc_hoststate = 2 and dwc_suspend = 0 and (rk = 'vs' and ev >= 4250 and ev <= 5750 and p = 0)
 
-func filterServers(servers []map[string]string, queryGame string, expression string, publicIP string) []map[string]string {
+func filterServers(moduleName string, servers []map[string]string, queryGame string, expression string, publicIP string) []map[string]string {
 	// Matchmaking search
 	tree, err := filter.Parse(expression)
 	if err != nil {
-		logging.Error(ModuleName, "Error parsing filter:", err.Error())
+		logging.Error(moduleName, "Error parsing filter:", err.Error())
 		return []map[string]string{}
 	}
 
@@ -40,7 +40,7 @@ func filterServers(servers []map[string]string, queryGame string, expression str
 
 		ret, err := filter.Eval(tree, server, queryGame)
 		if err != nil {
-			logging.Error(ModuleName, "Error evaluating filter:", err.Error())
+			logging.Error(moduleName, "Error evaluating filter:", err.Error())
 			return []map[string]string{}
 		}
 
@@ -49,11 +49,14 @@ func filterServers(servers []map[string]string, queryGame string, expression str
 		}
 	}
 
-	logging.Info(ModuleName, "Matched", aurora.BrightCyan(len(filtered)), "servers")
+	if len(filtered) != 0 {
+		logging.Info(moduleName, "Matched", aurora.BrightCyan(len(filtered)), "servers")
+	}
+
 	return filtered
 }
 
-func filterSelfLookup(servers []map[string]string, queryGame string, dwcPid string, publicIP string) []map[string]string {
+func filterSelfLookup(moduleName string, servers []map[string]string, queryGame string, dwcPid string, publicIP string) []map[string]string {
 	var filtered []map[string]string
 
 	// Search for where the profile ID matches
@@ -64,7 +67,7 @@ func filterSelfLookup(servers []map[string]string, queryGame string, dwcPid stri
 
 		if server["dwc_pid"] == dwcPid {
 			// May not be a self lookup, some games search for friends like this
-			logging.Info(ModuleName, "Lookup", aurora.Cyan(dwcPid), "ok")
+			logging.Info(moduleName, "Lookup", aurora.Cyan(dwcPid), "ok")
 			return []map[string]string{server}
 		}
 
@@ -85,10 +88,10 @@ func filterSelfLookup(servers []map[string]string, queryGame string, dwcPid stri
 	}
 
 	if len(filtered) == 0 {
-		logging.Error(ModuleName, "Could not find server with dwc_pid", aurora.Cyan(dwcPid))
+		logging.Error(moduleName, "Could not find server with dwc_pid", aurora.Cyan(dwcPid))
 		return []map[string]string{}
 	}
 
-	logging.Info(ModuleName, "Self lookup for", aurora.Cyan(dwcPid), "matched", aurora.BrightCyan(len(filtered)), "servers via public IP")
+	logging.Info(moduleName, "Self lookup for", aurora.Cyan(dwcPid), "matched", aurora.BrightCyan(len(filtered)), "servers via public IP")
 	return filtered
 }

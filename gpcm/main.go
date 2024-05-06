@@ -13,6 +13,8 @@ import (
 	"github.com/sasha-s/go-deadlock"
 )
 
+var ServerName = "gpcm"
+
 type GameSpySession struct {
 	ConnIndex           uint64
 	RemoteAddr          string
@@ -113,7 +115,6 @@ func CloseConnection(index uint64) {
 	}
 }
 
-// Handles incoming requests.
 func NewConnection(index uint64, address string) {
 	session := &GameSpySession{
 		ConnIndex:      index,
@@ -121,16 +122,13 @@ func NewConnection(index uint64, address string) {
 		User:           database.User{},
 		ModuleName:     "GPCM:" + address,
 		LoggedIn:       false,
-		Challenge:      "",
+		Challenge:      common.RandomString(10),
 		StatusSet:      false,
 		Status:         "",
 		LocString:      "",
 		FriendList:     []uint32{},
 		AuthFriendList: []uint32{},
 	}
-
-	// Set challenge
-	session.Challenge = common.RandomString(10)
 
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
@@ -140,7 +138,7 @@ func NewConnection(index uint64, address string) {
 			"id":        "1",
 		},
 	})
-	common.SendPacket("gpcm", index, []byte(payload))
+	common.SendPacket(ServerName, index, []byte(payload))
 
 	logging.Notice(session.ModuleName, "Connection established from", address)
 
@@ -176,7 +174,7 @@ func HandlePacket(index uint64, data []byte) {
 	// Commands must be handled in a certain order, not in the order supplied by the client
 
 	commands = session.handleCommand("ka", commands, func(command common.GameSpyCommand) {
-		common.SendPacket("gpcm", session.ConnIndex, []byte(`\ka\\final\`))
+		common.SendPacket(ServerName, session.ConnIndex, []byte(`\ka\\final\`))
 	})
 	commands = session.handleCommand("login", commands, session.login)
 	commands = session.handleCommand("wwfc_exlogin", commands, session.exLogin)
@@ -202,7 +200,7 @@ func HandlePacket(index uint64, data []byte) {
 	}
 
 	if session.WriteBuffer != "" {
-		common.SendPacket("gpcm", session.ConnIndex, []byte(session.WriteBuffer))
+		common.SendPacket(ServerName, session.ConnIndex, []byte(session.WriteBuffer))
 		session.WriteBuffer = ""
 	}
 }

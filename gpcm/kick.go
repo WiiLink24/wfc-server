@@ -27,7 +27,7 @@ func kickPlayer(profileID uint32, reason string) {
 
 		case "network_error":
 			// No error message
-			common.CloseConnection("gpcm", session.ConnIndex)
+			common.CloseConnection(ServerName, session.ConnIndex)
 			return
 		}
 
@@ -37,7 +37,7 @@ func kickPlayer(profileID uint32, reason string) {
 			Fatal:       true,
 			WWFCMessage: errorMessage,
 		})
-		common.CloseConnection("gpcm", session.ConnIndex)
+		common.CloseConnection(ServerName, session.ConnIndex)
 	}
 }
 

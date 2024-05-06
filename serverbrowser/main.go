@@ -1,30 +1,17 @@
 package serverbrowser
 
 import (
-	"bufio"
-	"context"
 	"encoding/binary"
-	"errors"
-	"fmt"
-	"io"
-	"net"
-	"os"
 	"wwfc/common"
 	"wwfc/logging"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/logrusorgru/aurora/v3"
+	"github.com/sasha-s/go-deadlock"
 )
 
-var (
-	ctx    = context.Background()
-	pool   *pgxpool.Pool
-	userId int
-)
+var ServerName = "serverbrowser"
 
 const (
-	ModuleName = "SB"
-
 	// Requests sent from the client
 	ServerListRequest   = 0x00
 	ServerInfoRequest   = 0x01
@@ -42,127 +29,99 @@ const (
 	PlayerSearchMessage = 0x06
 )
 
+var (
+	connBuffers = map[uint64]*[]byte{}
+	mutex       = deadlock.RWMutex{}
+)
+
 func StartServer() {
-	// Get config
-	config := common.GetConfig()
-
-	// Start SQL
-	dbString := fmt.Sprintf("postgres://%s:%s@%s/%s", config.Username, config.Password, config.DatabaseAddress, config.DatabaseName)
-	dbConf, err := pgxpool.ParseConfig(dbString)
-	if err != nil {
-		panic(err)
-	}
-
-	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
-	if err != nil {
-		panic(err)
-	}
-
-	address := *config.GameSpyAddress + ":28910"
-	l, err := net.Listen("tcp", address)
-	if err != nil {
-		panic(err)
-	}
-
-	go func() {
-		// Close the listener when the application closes.
-		defer l.Close()
-		logging.Notice(ModuleName, "Listening on", address)
-
-		for {
-			// Listen for an incoming connection.
-			conn, err := l.Accept()
-			if err != nil {
-				fmt.Println("Error accepting: ", err.Error())
-				os.Exit(1)
-			}
-
-			// Handle connections in a new goroutine.
-			go handleRequest(conn)
-		}
-	}()
 }
 
-// Handles incoming requests.
-func handleRequest(conn net.Conn) {
-	defer conn.Close()
+func NewConnection(index uint64, address string) {
+}
 
-	err := conn.(*net.TCPConn).SetKeepAlive(true)
-	if err != nil {
-		logging.Error(ModuleName, "Unable to set keepalive", err.Error())
-	}
+func CloseConnection(index uint64) {
+	mutex.Lock()
+	delete(connBuffers, index)
+	mutex.Unlock()
+}
 
-	logging.Info(ModuleName, "Connection established from", aurora.BrightCyan(conn.RemoteAddr()))
+func HandlePacket(index uint64, data []byte, address string) {
+	moduleName := "SB:" + address
 
-	// Here we go into the listening loop
-	bufferSize := 0
-	packetSize := uint16(0)
-	var buffer []byte
-	for {
-		// Remove stale data and remake the buffer
-		buffer = append(buffer[packetSize:], make([]byte, 1024-packetSize)...)
-		bufferSize -= int(packetSize)
-		packetSize = 0
+	mutex.RLock()
+	buffer := connBuffers[index]
+	mutex.RUnlock()
 
-		// Packets tend to be sent in fragments, so this loop makes sure the packets has been fully received before continuing
-		for {
-			if bufferSize > 2 {
-				packetSize = binary.BigEndian.Uint16(buffer[:2])
-				if packetSize < 3 || packetSize >= 1024 {
-					logging.Error(ModuleName, "Invalid packet size - terminating")
-					return
-				}
-
-				if bufferSize >= int(packetSize) {
-					// Got a full packet, break to continue
-					break
-				}
-			}
-
-			readSize, err := bufio.NewReader(conn).Read(buffer[bufferSize:])
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					logging.Info(ModuleName, "Connection closed")
-					return
-				}
-
-				logging.Error(ModuleName, "Connection error:", err.Error())
+	if buffer == nil {
+		buffer = &[]byte{}
+		defer func() {
+			if buffer == nil {
 				return
 			}
 
-			bufferSize += readSize
-		}
+			mutex.Lock()
+			connBuffers[index] = buffer
+			mutex.Unlock()
+		}()
+	}
 
-		switch buffer[2] {
-		case ServerListRequest:
-			logging.Info(ModuleName, "Command:", aurora.Yellow("SERVER_LIST_REQUEST"))
-			handleServerListRequest(conn, buffer[:packetSize])
-			break
+	if len(*buffer)+len(data) > 0x1000 {
+		logging.Error(moduleName, "Buffer overflow")
+		common.CloseConnection(ServerName, index)
+		buffer = nil
+		return
+	}
 
-		case ServerInfoRequest:
-			logging.Info(ModuleName, "Command:", aurora.Yellow("SERVER_INFO_REQUEST"))
-			break
+	*buffer = append(*buffer, data...)
 
-		case SendMessageRequest:
-			logging.Info(ModuleName, "Command:", aurora.Yellow("SEND_MESSAGE_REQUEST"))
-			handleSendMessageRequest(conn, buffer[:packetSize])
-			break
+	// Packets can be sent in fragments, so we need to check if we have a full packet
+	// The first two bytes signify the packet size
+	if len(*buffer) < 2 {
+		return
+	}
 
-		case KeepaliveReply:
-			logging.Info(ModuleName, "Command:", aurora.Yellow("KEEPALIVE_REPLY"))
-			break
+	packetSize := binary.BigEndian.Uint16((*buffer)[:2])
+	if packetSize < 3 || packetSize > 0x1000 {
+		logging.Error(moduleName, "Invalid packet size - terminating")
+		common.CloseConnection(ServerName, index)
+		buffer = nil
+		return
+	}
 
-		case MapLoopRequest:
-			logging.Info(ModuleName, "Command:", aurora.Yellow("MAPLOOP_REQUEST"))
-			break
+	if len(*buffer) < int(packetSize) {
+		return
+	}
 
-		case PlayerSearchRequest:
-			logging.Info(ModuleName, "Command:", aurora.Yellow("PLAYER_SEARCH_REQUEST"))
-			break
+	switch (*buffer)[2] {
+	case ServerListRequest:
+		// logging.Info(moduleName, "Command:", aurora.Yellow("SERVER_LIST_REQUEST"))
+		handleServerListRequest(moduleName, index, address, (*buffer)[:packetSize])
 
-		default:
-			logging.Error(ModuleName, "Unknown command:", aurora.Cyan(buffer[2]))
-			break
-		}
+	case ServerInfoRequest:
+		logging.Info(moduleName, "Command:", aurora.Yellow("SERVER_INFO_REQUEST"))
+
+	case SendMessageRequest:
+		// logging.Info(moduleName, "Command:", aurora.Yellow("SEND_MESSAGE_REQUEST"))
+		handleSendMessageRequest(moduleName, index, address, (*buffer)[:packetSize])
+
+	case KeepaliveReply:
+		logging.Info(moduleName, "Command:", aurora.Yellow("KEEPALIVE_REPLY"))
+
+	case MapLoopRequest:
+		logging.Info(moduleName, "Command:", aurora.Yellow("MAPLOOP_REQUEST"))
+
+	case PlayerSearchRequest:
+		logging.Info(moduleName, "Command:", aurora.Yellow("PLAYER_SEARCH_REQUEST"))
+
+	default:
+		logging.Error(moduleName, "Unknown command:", aurora.Cyan((*buffer)[2]))
+	}
+
+	if len(*buffer) > int(packetSize) {
+		*buffer = (*buffer)[packetSize:]
+	} else {
+		*buffer = []byte{}
+		buffer = nil
 	}
 }

@@ -360,7 +360,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		},
 	})
 
-	common.SendPacket("gpcm", toSession.ConnIndex, []byte(message))
+	common.SendPacket(ServerName, toSession.ConnIndex, []byte(message))
 
 	// Append sender's profile ID to dest's RecvStatusFromList
 	toSession.RecvStatusFromList = append(toSession.RecvStatusFromList, g.User.ProfileId)

@@ -99,8 +99,14 @@ func backendMain() {
 // RPCPacket.NewConnection is called by the frontend to notify the backend of a new connection
 func (r *RPCPacket) NewConnection(args RPCPacket, _ *struct{}) error {
 	switch args.Server {
+	case "serverbrowser":
+		serverbrowser.NewConnection(args.Index, args.Address)
 	case "gpcm":
 		gpcm.NewConnection(args.Index, args.Address)
+	case "gpsp":
+		gpsp.NewConnection(args.Index, args.Address)
+	case "gamestats":
+		gamestats.NewConnection(args.Index, args.Address)
 	}
 
 	return nil
@@ -109,8 +115,14 @@ func (r *RPCPacket) NewConnection(args RPCPacket, _ *struct{}) error {
 // RPCPacket.HandlePacket is called by the frontend to forward a packet to the backend
 func (r *RPCPacket) HandlePacket(args RPCPacket, _ *struct{}) error {
 	switch args.Server {
+	case "serverbrowser":
+		serverbrowser.HandlePacket(args.Index, args.Data, args.Address)
 	case "gpcm":
 		gpcm.HandlePacket(args.Index, args.Data)
+	case "gpsp":
+		gpsp.HandlePacket(args.Index, args.Data)
+	case "gamestats":
+		gamestats.HandlePacket(args.Index, args.Data)
 	}
 
 	return nil
@@ -119,8 +131,14 @@ func (r *RPCPacket) HandlePacket(args RPCPacket, _ *struct{}) error {
 // rpcPacket.closeConnection is called by the frontend to notify the backend of a closed connection
 func (r *RPCPacket) CloseConnection(args RPCPacket, _ *struct{}) error {
 	switch args.Server {
+	case "serverbrowser":
+		serverbrowser.CloseConnection(args.Index)
 	case "gpcm":
 		gpcm.CloseConnection(args.Index)
+	case "gpsp":
+		gpsp.CloseConnection(args.Index)
+	case "gamestats":
+		gamestats.CloseConnection(args.Index)
 	}
 
 	return nil
@@ -165,10 +183,10 @@ func frontendMain() {
 	go startBackendProcess()
 
 	servers := []serverInfo{
-		// {rpcName: "serverbrowser", protocol: "tcp", port: 28910},
+		{rpcName: "serverbrowser", protocol: "tcp", port: 28910},
 		{rpcName: "gpcm", protocol: "tcp", port: 29900},
-		// {rpcName: "gpsp", protocol: "tcp", port: 29901},
-		// {rpcName: "gamestats", protocol: "tcp", port: 29920},
+		{rpcName: "gpsp", protocol: "tcp", port: 29901},
+		{rpcName: "gamestats", protocol: "tcp", port: 29920},
 	}
 
 	for _, server := range servers {
@@ -291,6 +309,10 @@ func handleConnection(server serverInfo, conn net.Conn, index uint64) {
 			break
 		}
 
+		if n == 0 {
+			continue
+		}
+
 		rpcMutex.Lock()
 		rpcBusyCount.Add(1)
 		rpcMutex.Unlock()
@@ -302,6 +324,9 @@ func handleConnection(server serverInfo, conn net.Conn, index uint64) {
 
 		if err != nil {
 			logging.Error("FRONTEND", "Failed to forward packet to backend:", err)
+			if err == rpc.ErrShutdown {
+				os.Exit(1)
+			}
 			break
 		}
 	}
@@ -317,6 +342,9 @@ func handleConnection(server serverInfo, conn net.Conn, index uint64) {
 
 	if err != nil {
 		logging.Error("FRONTEND", "Failed to forward close connection to backend:", err)
+		if err == rpc.ErrShutdown {
+			os.Exit(1)
+		}
 	}
 }
 

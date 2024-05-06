@@ -247,7 +247,7 @@ func sendMessageToSession(msgType string, from uint32, session *GameSpySession, 
 			"msg": msg,
 		},
 	})
-	common.SendPacket("gpcm", session.ConnIndex, []byte(message))
+	common.SendPacket(ServerName, session.ConnIndex, []byte(message))
 }
 
 func sendMessageToSessionBuffer(msgType string, from uint32, session *GameSpySession, msg string) {

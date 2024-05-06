@@ -269,7 +269,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	otherSession, exists := sessions[g.User.ProfileId]
 	if exists {
 		otherSession.replyError(ErrForcedDisconnect)
-		common.CloseConnection("gpcm", otherSession.ConnIndex)
+		common.CloseConnection(ServerName, otherSession.ConnIndex)
 
 		for i := 0; ; i++ {
 			mutex.Unlock()
@@ -336,7 +336,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		OtherValues:  otherValues,
 	})
 
-	common.SendPacket("gpcm", g.ConnIndex, []byte(payload))
+	common.SendPacket(ServerName, g.ConnIndex, []byte(payload))
 }
 
 func (g *GameSpySession) exLogin(command common.GameSpyCommand) {

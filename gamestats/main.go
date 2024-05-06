@@ -1,13 +1,9 @@
 package gamestats
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"io"
-	"net"
+	"strings"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/gpcm"
@@ -15,10 +11,14 @@ import (
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/logrusorgru/aurora/v3"
+	"github.com/sasha-s/go-deadlock"
 )
 
+var ServerName = "gamestats"
+
 type GameStatsSession struct {
-	Conn       net.Conn
+	ConnIndex  uint64
+	RemoteAddr string
 	ModuleName string
 	Challenge  string
 
@@ -29,6 +29,7 @@ type GameStatsSession struct {
 	LoginID       int
 	User          database.User
 
+	ReadBuffer  []byte
 	WriteBuffer []byte
 }
 
@@ -38,7 +39,9 @@ var (
 
 	serverName string
 	webSalt    string
-	webHashPad string
+
+	sessionsByConnIndex = make(map[uint64]*GameStatsSession)
+	mutex               = deadlock.RWMutex{}
 )
 
 func StartServer() {
@@ -47,7 +50,6 @@ func StartServer() {
 
 	serverName = config.ServerName
 	webSalt = common.RandomString(32)
-	webHashPad = common.RandomString(8)
 
 	common.ReadGameList()
 
@@ -62,51 +64,27 @@ func StartServer() {
 	if err != nil {
 		panic(err)
 	}
-
-	address := *config.GameSpyAddress + ":29920"
-
-	l, err := net.Listen("tcp", address)
-	if err != nil {
-		panic(err)
-	}
-
-	go func() {
-		// Close the listener when the application closes.
-		defer l.Close()
-		logging.Notice("GSTATS", "Listening on", address)
-
-		for {
-			// Listen for an incoming connection.
-			conn, err := l.Accept()
-			if err != nil {
-				panic(err)
-			}
-
-			// Handle connections in a new goroutine.
-			go handleRequest(conn)
-		}
-	}()
 }
 
-// Handles incoming requests.
-func handleRequest(conn net.Conn) {
-	session := GameStatsSession{
-		Conn:       conn,
-		ModuleName: "GSTATS:" + conn.RemoteAddr().String(),
+func NewConnection(index uint64, address string) {
+	session := &GameStatsSession{
+		ConnIndex:  index,
+		RemoteAddr: address,
+		ModuleName: "GSTATS:" + address,
 		Challenge:  common.RandomString(10),
 
+		SessionKey: 0,
+		GameInfo:   nil,
+
+		Authenticated: false,
+		LoginID:       0,
+		User:          database.User{},
+
+		ReadBuffer:  []byte{},
 		WriteBuffer: []byte{},
 	}
 
-	defer conn.Close()
-
-	err := conn.(*net.TCPConn).SetKeepAlive(true)
-	if err != nil {
-		logging.Notice(session.ModuleName, "Unable to set keepalive:", err.Error())
-	}
-
-	// Send challenge
-	session.Write(common.GameSpyCommand{
+	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
 		CommandValue: "1",
 		OtherValues: map[string]string{
@@ -114,104 +92,115 @@ func handleRequest(conn net.Conn) {
 			"id":        "1",
 		},
 	})
-	conn.Write(session.WriteBuffer)
-	session.WriteBuffer = []byte{}
+	common.SendPacket(ServerName, index, []byte(payload))
 
-	logging.Notice(session.ModuleName, "Connection established from", conn.RemoteAddr())
+	logging.Notice(session.ModuleName, "Connection established from", address)
 
-	// Here we go into the listening loop
-	for {
-		buffer := make([]byte, 0x4000)
-		bufferSize := 0
-		message := ""
+	mutex.Lock()
+	sessionsByConnIndex[index] = session
+	mutex.Unlock()
+}
 
-		// Packets can be received in fragments, so this loop makes sure the packet has been fully received before continuing
-		for {
-			if bufferSize >= len(buffer) {
-				logging.Error(session.ModuleName, "Buffer overflow")
-				return
-			}
+func CloseConnection(index uint64) {
+	mutex.RLock()
+	session := sessionsByConnIndex[index]
+	mutex.RUnlock()
 
-			readSize, err := bufio.NewReader(conn).Read(buffer[bufferSize:])
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					logging.Info(session.ModuleName, "Connection closed")
-					return
-				}
+	if session == nil {
+		logging.Error("GSTATS", "Cannot find session for this connection index:", aurora.Cyan(index))
+		return
+	}
 
-				logging.Error(session.ModuleName, "Connection error:", err.Error())
-				return
-			}
+	logging.Notice(session.ModuleName, "Connection closed")
 
-			bufferSize += readSize
+	mutex.Lock()
+	delete(sessionsByConnIndex, index)
+	mutex.Unlock()
+}
 
-			if !bytes.Contains(buffer[max(0, bufferSize-readSize-6):bufferSize], []byte(`\final\`)) {
-				continue
-			}
+func HandlePacket(index uint64, data []byte) {
+	mutex.RLock()
+	session := sessionsByConnIndex[index]
+	mutex.RUnlock()
 
-			// Decrypt the data
-			decrypted := ""
-			for i := 0; i < bufferSize; i++ {
-				if i+7 <= bufferSize && bytes.Equal(buffer[i:i+7], []byte(`\final\`)) {
-					// Append the decrypted content to the message
-					message += decrypted + `\final\`
-					decrypted = ""
+	if session == nil {
+		logging.Error("GSTATS", "Cannot find session for this connection index:", aurora.Cyan(index))
+		return
+	}
 
-					// Remove the processed data
-					buffer = buffer[i+7:]
-					bufferSize -= i + 7
-					i = 0
+	defer func() {
+		if r := recover(); r != nil {
+			logging.Error(session.ModuleName, "Panic:", r)
+		}
+	}()
 
-					if bufferSize < 7 || !bytes.Contains(buffer[:bufferSize], []byte(`\final\`)) {
-						break
-					}
-					continue
-				}
+	// Enforce maximum buffer size
+	length := len(session.ReadBuffer) + len(data)
+	if length > 0x4000 {
+		logging.Error(session.ModuleName, "Buffer overflow")
+		return
+	}
 
-				decrypted += string(rune(buffer[i] ^ "GameSpy3D"[i%9]))
-			}
+	session.ReadBuffer = append(session.ReadBuffer, data...)
 
-			// Continue to processing the message if we have a full message and another message is not expected
-			if len(message) > 0 && bufferSize <= 0 {
-				break
-			}
+	// Packets can be received in fragments, so make sure we're at the end of a packet
+	if string(session.ReadBuffer[max(0, length-7):length]) != `\final\` {
+		return
+	}
+
+	// Decrypt the data, can decrypt multiple packets
+	decrypted := strings.Builder{}
+	decrypted.Grow(length)
+	p := 0
+	for i := 0; i < length; i++ {
+		if string(session.ReadBuffer[i:i+7]) == `\final\` {
+			decrypted.WriteString(`\final\`)
+
+			i += 6
+			p = 0
+			continue
 		}
 
-		commands, err := common.ParseGameSpyMessage(message)
-		if err != nil {
-			logging.Error(session.ModuleName, "Error parsing message:", err.Error())
-			logging.Error(session.ModuleName, "Raw data:", message)
-			session.replyError(gpcm.ErrParse)
-			return
-		}
+		decrypted.WriteRune(rune(session.ReadBuffer[i] ^ "GameSpy3D"[p]))
+		p = (p + 1) % 9
+	}
 
-		commands = session.handleCommand("ka", commands, func(command common.GameSpyCommand) {
-			session.Write(common.GameSpyCommand{
-				Command: "ka",
-			})
+	message := decrypted.String()
+
+	commands, err := common.ParseGameSpyMessage(message)
+	if err != nil {
+		logging.Error(session.ModuleName, "Error parsing message:", err.Error())
+		logging.Error(session.ModuleName, "Raw data:", message)
+		session.replyError(gpcm.ErrParse)
+		return
+	}
+
+	commands = session.handleCommand("ka", commands, func(command common.GameSpyCommand) {
+		session.Write(common.GameSpyCommand{
+			Command: "ka",
 		})
+	})
 
-		commands = session.handleCommand("auth", commands, session.auth)
-		commands = session.handleCommand("authp", commands, session.authp)
+	commands = session.handleCommand("auth", commands, session.auth)
+	commands = session.handleCommand("authp", commands, session.authp)
 
-		if len(commands) != 0 && !session.Authenticated {
-			logging.Error(session.ModuleName, "Attempt to run command before authentication:", aurora.Cyan(commands[0]))
-			session.replyError(gpcm.ErrNotLoggedIn)
-			return
-		}
+	if len(commands) != 0 && !session.Authenticated {
+		logging.Error(session.ModuleName, "Attempt to run command before authentication:", aurora.Cyan(commands[0]))
+		session.replyError(gpcm.ErrNotLoggedIn)
+		return
+	}
 
-		commands = session.handleCommand("getpd", commands, session.getpd)
-		commands = session.handleCommand("setpd", commands, session.setpd)
-		common.UNUSED(session.ignoreCommand)
+	commands = session.handleCommand("getpd", commands, session.getpd)
+	commands = session.handleCommand("setpd", commands, session.setpd)
+	common.UNUSED(session.ignoreCommand)
 
-		for _, command := range commands {
-			logging.Error(session.ModuleName, "Unknown command:", aurora.Cyan(command))
-		}
+	for _, command := range commands {
+		logging.Error(session.ModuleName, "Unknown command:", aurora.Cyan(command))
+	}
 
-		if len(session.WriteBuffer) > 0 {
-			conn.Write(session.WriteBuffer)
-			session.WriteBuffer = []byte{}
-		}
+	if len(session.WriteBuffer) > 0 {
+		common.SendPacket(ServerName, session.ConnIndex, session.WriteBuffer)
+		session.WriteBuffer = []byte{}
 	}
 }
 

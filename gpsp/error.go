@@ -1,12 +1,16 @@
 package gpsp
 
 import (
-	"net"
+	"wwfc/common"
 	"wwfc/gpcm"
 	"wwfc/logging"
 )
 
-func replyError(moduleName string, conn net.Conn, err gpcm.GPError) {
+func replyError(moduleName string, connIndex uint64, err gpcm.GPError) {
 	logging.Error(moduleName, "Reply error:", err.ErrorString)
-	conn.Write([]byte(err.GetMessage()))
+	msg := err.GetMessage()
+	common.SendPacket(ServerName, connIndex, []byte(msg))
+	if err.Fatal {
+		common.CloseConnection(ServerName, connIndex)
+	}
 }

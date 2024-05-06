@@ -409,9 +409,9 @@ func (g *GameSpySession) replyError(err GPError) {
 	if !g.LoginInfoSet {
 		msg := err.GetMessage()
 		// logging.Info(g.ModuleName, "Sending error message:", msg)
-		common.SendPacket("gpcm", g.ConnIndex, []byte(msg))
+		common.SendPacket(ServerName, g.ConnIndex, []byte(msg))
 		if err.Fatal {
-			common.CloseConnection("gpcm", g.ConnIndex)
+			common.CloseConnection(ServerName, g.ConnIndex)
 		}
 		return
 	}
@@ -423,8 +423,8 @@ func (g *GameSpySession) replyError(err GPError) {
 
 	msg := err.GetMessageTranslate(g.GameName, g.Region, g.Language, g.ConsoleFriendCode, deviceId)
 	// logging.Info(g.ModuleName, "Sending error message:", msg)
-	common.SendPacket("gpcm", g.ConnIndex, []byte(msg))
+	common.SendPacket(ServerName, g.ConnIndex, []byte(msg))
 	if err.Fatal {
-		common.CloseConnection("gpcm", g.ConnIndex)
+		common.CloseConnection(ServerName, g.ConnIndex)
 	}
 }
