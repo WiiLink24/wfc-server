@@ -64,21 +64,23 @@ func StartServer() {
 		panic(err)
 	}
 
-	// Close the listener when the application closes.
-	defer l.Close()
-	logging.Notice(ModuleName, "Listening on", address)
+	go func() {
+		// Close the listener when the application closes.
+		defer l.Close()
+		logging.Notice(ModuleName, "Listening on", address)
 
-	for {
-		// Listen for an incoming connection.
-		conn, err := l.Accept()
-		if err != nil {
-			fmt.Println("Error accepting: ", err.Error())
-			os.Exit(1)
+		for {
+			// Listen for an incoming connection.
+			conn, err := l.Accept()
+			if err != nil {
+				fmt.Println("Error accepting: ", err.Error())
+				os.Exit(1)
+			}
+
+			// Handle connections in a new goroutine.
+			go handleRequest(conn)
 		}
-
-		// Handle connections in a new goroutine.
-		go handleRequest(conn)
-	}
+	}()
 }
 
 // Handles incoming requests.

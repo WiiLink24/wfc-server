@@ -63,7 +63,20 @@ func backendMain() {
 		os.Exit(1)
 	}
 
-	logging.Notice("BACKEND", "Listening on", aurora.BrightCyan(address))
+	common.ConnectFrontend()
+
+	wg := &sync.WaitGroup{}
+	actions := []func(){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, serverbrowser.StartServer, sake.StartServer, natneg.StartServer, api.StartServer, gamestats.StartServer}
+	wg.Add(len(actions))
+	for _, action := range actions {
+		go func(ac func()) {
+			defer wg.Done()
+			ac()
+		}(action)
+	}
+
+	// Wait for all servers to start
+	wg.Wait()
 
 	go func() {
 		for {
@@ -77,19 +90,10 @@ func backendMain() {
 		}
 	}()
 
-	// TODO: Wait until the servers are started before allowing in connections
+	logging.Notice("BACKEND", "Listening on", aurora.BrightCyan(address))
 
-	wg := &sync.WaitGroup{}
-	actions := []func(){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, serverbrowser.StartServer, sake.StartServer, natneg.StartServer, api.StartServer, gamestats.StartServer}
-	wg.Add(len(actions))
-	for _, action := range actions {
-		go func(ac func()) {
-			defer wg.Done()
-			ac()
-		}(action)
-	}
-
-	wg.Wait()
+	// Prevent application from exiting
+	select {}
 }
 
 // RPCPacket.NewConnection is called by the frontend to notify the backend of a new connection

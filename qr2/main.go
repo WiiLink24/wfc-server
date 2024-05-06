@@ -40,19 +40,21 @@ func StartServer() {
 
 	masterConn = conn
 
-	// Close the listener when the application closes.
-	defer conn.Close()
-	logging.Notice("QR2", "Listening on", address)
+	go func() {
+		// Close the listener when the application closes.
+		defer conn.Close()
+		logging.Notice("QR2", "Listening on", address)
 
-	for {
-		buf := make([]byte, 1024)
-		_, addr, err := conn.ReadFrom(buf)
-		if err != nil {
-			continue
+		for {
+			buf := make([]byte, 1024)
+			_, addr, err := conn.ReadFrom(buf)
+			if err != nil {
+				continue
+			}
+
+			go handleConnection(conn, addr, buf)
 		}
-
-		go handleConnection(conn, addr, buf)
-	}
+	}()
 }
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {

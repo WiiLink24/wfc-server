@@ -2,19 +2,10 @@ package gpsp
 
 import (
 	"bufio"
-	"context"
 	"net"
 	"wwfc/common"
 	"wwfc/gpcm"
 	"wwfc/logging"
-
-	"github.com/jackc/pgx/v4/pgxpool"
-)
-
-var (
-	ctx    = context.Background()
-	pool   *pgxpool.Pool
-	userId int64
 )
 
 func StartServer() {
@@ -27,20 +18,22 @@ func StartServer() {
 		panic(err)
 	}
 
-	// Close the listener when the application closes.
-	defer l.Close()
-	logging.Notice("GPSP", "Listening on", address)
+	go func() {
+		// Close the listener when the application closes.
+		defer l.Close()
+		logging.Notice("GPSP", "Listening on", address)
 
-	for {
-		// Listen for an incoming connection.
-		conn, err := l.Accept()
-		if err != nil {
-			panic(err)
+		for {
+			// Listen for an incoming connection.
+			conn, err := l.Accept()
+			if err != nil {
+				panic(err)
+			}
+
+			// Handle connections in a new goroutine.
+			go handleRequest(conn)
 		}
-
-		// Handle connections in a new goroutine.
-		go handleRequest(conn)
-	}
+	}()
 }
 
 // Handles incoming requests.
@@ -77,19 +70,15 @@ func handleRequest(conn net.Conn) {
 				logging.Error(moduleName, "Unknown command:", command.Command)
 				logging.Error(moduleName, "Raw data:", string(buffer))
 				replyError(moduleName, conn, gpcm.ErrParse)
-				break
 
 			case "ka":
 				conn.Write([]byte(`\ka\\final\`))
-				break
 
 			case "otherslist":
 				conn.Write([]byte(handleOthersList(command)))
-				break
 
 			case "search":
 				conn.Write([]byte(handleSearch(command)))
-				break
 			}
 		}
 	}

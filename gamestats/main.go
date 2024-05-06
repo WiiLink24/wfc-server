@@ -70,20 +70,22 @@ func StartServer() {
 		panic(err)
 	}
 
-	// Close the listener when the application closes.
-	defer l.Close()
-	logging.Notice("GSTATS", "Listening on", address)
+	go func() {
+		// Close the listener when the application closes.
+		defer l.Close()
+		logging.Notice("GSTATS", "Listening on", address)
 
-	for {
-		// Listen for an incoming connection.
-		conn, err := l.Accept()
-		if err != nil {
-			panic(err)
+		for {
+			// Listen for an incoming connection.
+			conn, err := l.Accept()
+			if err != nil {
+				panic(err)
+			}
+
+			// Handle connections in a new goroutine.
+			go handleRequest(conn)
 		}
-
-		// Handle connections in a new goroutine.
-		go handleRequest(conn)
-	}
+	}()
 }
 
 // Handles incoming requests.

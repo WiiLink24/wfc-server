@@ -94,19 +94,21 @@ func StartServer() {
 
 	natnegConn = conn
 
-	// Close the listener when the application closes.
-	defer conn.Close()
-	logging.Notice("NATNEG", "Listening on", address)
+	go func() {
+		// Close the listener when the application closes.
+		defer conn.Close()
+		logging.Notice("NATNEG", "Listening on", address)
 
-	for {
-		buffer := make([]byte, 1024)
-		size, addr, err := conn.ReadFrom(buffer)
-		if err != nil {
-			continue
+		for {
+			buffer := make([]byte, 1024)
+			size, addr, err := conn.ReadFrom(buffer)
+			if err != nil {
+				continue
+			}
+
+			go handleConnection(conn, addr, buffer[:size])
 		}
-
-		go handleConnection(conn, addr, buffer[:size])
-	}
+	}()
 }
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {

@@ -55,7 +55,9 @@ func StartServer() {
 	}
 
 	logging.Notice("NAS", "Starting HTTP server on", address)
-	panic(nhttp.ListenAndServe(address, http.HandlerFunc(handleRequest)))
+	go func() {
+		panic(nhttp.ListenAndServe(address, http.HandlerFunc(handleRequest)))
+	}()
 }
 
 var regexSakeHost = regexp.MustCompile(`^([a-z\-]+\.)?sake\.gs\.`)
