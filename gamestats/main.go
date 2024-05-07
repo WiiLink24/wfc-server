@@ -2,7 +2,9 @@ package gamestats
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
+	"os"
 	"strings"
 	"wwfc/common"
 	"wwfc/database"
@@ -23,7 +25,8 @@ type GameStatsSession struct {
 	Challenge  string
 
 	SessionKey int32
-	GameInfo   *common.GameInfo
+	GameName   string
+	gameInfo   *common.GameInfo
 
 	Authenticated bool
 	LoginID       int
@@ -64,9 +67,50 @@ func StartServer(reload bool) {
 	if err != nil {
 		panic(err)
 	}
+
+	if reload {
+		// Load state
+		file, err := os.Open("/state/gstats_sessions.gob")
+		if err != nil {
+			panic(err)
+		}
+
+		decoder := gob.NewDecoder(file)
+
+		err = decoder.Decode(&sessionsByConnIndex)
+		file.Close()
+
+		if err != nil {
+			panic(err)
+		}
+
+		for _, session := range sessionsByConnIndex {
+			session.gameInfo = common.GetGameInfoByName(session.GameName)
+			if session.gameInfo == nil {
+				logging.Error(session.ModuleName, "Unknown game from reload:", aurora.Cyan(session.GameName))
+				// Force close the session now to prevent a panic later
+				common.CloseConnection(ServerName, session.ConnIndex)
+				delete(sessionsByConnIndex, session.ConnIndex)
+			}
+		}
+	}
 }
 
 func Shutdown() {
+	// Save state
+	file, err := os.OpenFile("/state/gstats_sessions.gob", os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	encoder := gob.NewEncoder(file)
+
+	err = encoder.Encode(sessionsByConnIndex)
+	file.Close()
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 func NewConnection(index uint64, address string) {
@@ -77,7 +121,7 @@ func NewConnection(index uint64, address string) {
 		Challenge:  common.RandomString(10),
 
 		SessionKey: 0,
-		GameInfo:   nil,
+		gameInfo:   nil,
 
 		Authenticated: false,
 		LoginID:       0,

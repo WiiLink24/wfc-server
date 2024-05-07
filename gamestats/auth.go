@@ -21,7 +21,8 @@ func (g *GameStatsSession) auth(command common.GameSpyCommand) {
 
 	// TODO: Validate "response"
 	g.SessionKey = rand.Int31n(290000000) + 10000000
-	g.GameInfo = game
+	g.GameName = command.OtherValues["gamename"]
+	g.gameInfo = game
 
 	g.Write(common.GameSpyCommand{
 		Command:      "lc",
@@ -86,7 +87,7 @@ func (g *GameStatsSession) authp(command common.GameSpyCommand) {
 	g.ModuleName = "GSTATS:" + strconv.FormatInt(int64(g.User.ProfileId), 10)
 	g.Authenticated = true
 
-	logging.Notice(g.ModuleName, "Authenticated, game name:", aurora.Cyan(g.GameInfo.Name))
+	logging.Notice(g.ModuleName, "Authenticated, game name:", aurora.Cyan(g.gameInfo.Name))
 
 	g.Write(common.GameSpyCommand{
 		Command:      "pauthr",
