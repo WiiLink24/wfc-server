@@ -14,7 +14,7 @@ var (
 	apiSecret string
 )
 
-func StartServer() {
+func StartServer(reload bool) {
 	// Get config
 	config := common.GetConfig()
 
@@ -31,4 +31,7 @@ func StartServer() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func Shutdown() {
 }

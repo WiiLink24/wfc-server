@@ -44,7 +44,7 @@ var (
 	mutex               = deadlock.RWMutex{}
 )
 
-func StartServer() {
+func StartServer(reload bool) {
 	// Get config
 	config := common.GetConfig()
 
@@ -64,6 +64,9 @@ func StartServer() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func Shutdown() {
 }
 
 func NewConnection(index uint64, address string) {

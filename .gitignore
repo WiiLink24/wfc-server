@@ -1,14 +1,24 @@
 # Local configuration files
 config.xml
-salt.bin
+profanity.txt
 *.der
 *.pem
+
+# Local scripts
+*.sh
+*.bat
 
 # Logs
 logs
 
 # Payload data
 payload
+
+# Reload state
+state
+
+# Executables
+*.exe
 
 # Editor files
 .vscode

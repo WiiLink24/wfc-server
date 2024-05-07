@@ -25,7 +25,7 @@ var (
 	serverName string
 )
 
-func StartServer() {
+func StartServer(reload bool) {
 	// Get config
 	config := common.GetConfig()
 
@@ -54,10 +54,14 @@ func StartServer() {
 		logging.Info("NAS", err)
 	}
 
-	logging.Notice("NAS", "Starting HTTP server on", address)
+	logging.Notice("NAS", "Starting HTTP server on", aurora.BrightCyan(address))
 	go func() {
 		panic(nhttp.ListenAndServe(address, http.HandlerFunc(handleRequest)))
 	}()
+}
+
+func Shutdown() {
+	pool.Close()
 }
 
 var regexSakeHost = regexp.MustCompile(`^([a-z\-]+\.)?sake\.gs\.`)

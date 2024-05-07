@@ -28,7 +28,7 @@ const (
 
 var masterConn net.PacketConn
 
-func StartServer() {
+func StartServer(reload bool) {
 	// Get config
 	config := common.GetConfig()
 
@@ -40,10 +40,17 @@ func StartServer() {
 
 	masterConn = conn
 
+	if reload {
+		loadSessions()
+		loadLogins()
+		loadGroups()
+		logging.Info("QR2", "Loaded", aurora.Cyan(len(sessions)), "sessions")
+	}
+
 	go func() {
 		// Close the listener when the application closes.
 		defer conn.Close()
-		logging.Notice("QR2", "Listening on", address)
+		logging.Notice("QR2", "Listening on", aurora.BrightCyan(address))
 
 		for {
 			buf := make([]byte, 1024)
@@ -52,12 +59,36 @@ func StartServer() {
 				continue
 			}
 
-			go handleConnection(conn, addr, buf)
+			go handleConnection(conn, *addr.(*net.UDPAddr), buf)
 		}
 	}()
 }
 
-func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
+func Shutdown() {
+	// Lock indefinitely
+	mutex.Lock()
+
+	err := saveSessions()
+	if err != nil {
+		logging.Error("QR2", "Failed to save sessions:", err)
+	}
+
+	logging.Info("QR2", "Saved", aurora.Cyan(len(sessions)), "sessions")
+
+	err = saveLogins()
+	if err != nil {
+		logging.Error("QR2", "Failed to save logins:", err)
+	}
+
+	logging.Info("QR2", "Saved", aurora.Cyan(len(logins)), "logins")
+
+	err = saveGroups()
+	if err != nil {
+		logging.Error("QR2", "Failed to save groups:", err)
+	}
+}
+
+func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
 	packetType := buffer[0]
 	moduleName := "QR2:" + addr.String()
 
@@ -91,7 +122,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 			session.Authenticated = true
 			mutex.Unlock()
 
-			conn.WriteTo(createResponseHeader(ClientRegisteredReply, session.SessionID), addr)
+			conn.WriteTo(createResponseHeader(ClientRegisteredReply, session.SessionID), &addr)
 		} else {
 			mutex.Unlock()
 		}
@@ -119,23 +150,23 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		// In case ClientExploitReply is lost, this can be checked as well
 		// This would be sent either after the payload is downloaded, or the client is already patched
 		session.ExploitReceived = true
-		if login := session.Login; login != nil {
+		if login := session.login; login != nil {
 			login.NeedsExploit = false
 		}
 
-		session.MessageAckWaker.Assert()
+		session.messageAckWaker.Assert()
 		return
 
 	case KeepAliveRequest:
 		// logging.Info(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
-		conn.WriteTo(createResponseHeader(KeepAliveRequest, 0), addr)
+		conn.WriteTo(createResponseHeader(KeepAliveRequest, 0), &addr)
 
 		session.LastKeepAlive = time.Now().Unix()
 		return
 
 	case AvailableRequest:
 		logging.Info("QR2", "Command:", aurora.Yellow("AVAILABLE"))
-		conn.WriteTo(createResponseHeader(AvailableRequest, 0), addr)
+		conn.WriteTo(createResponseHeader(AvailableRequest, 0), &addr)
 		return
 
 	case ClientRegisteredReply:
@@ -145,7 +176,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_EXPLOIT_ACK"))
 
 		session.ExploitReceived = true
-		if login := session.Login; login != nil {
+		if login := session.login; login != nil {
 			login.NeedsExploit = false
 		}
 

@@ -82,7 +82,7 @@ var (
 	natnegConn net.PacketConn
 )
 
-func StartServer() {
+func StartServer(reload bool) {
 	// Get config
 	config := common.GetConfig()
 
@@ -97,7 +97,7 @@ func StartServer() {
 	go func() {
 		// Close the listener when the application closes.
 		defer conn.Close()
-		logging.Notice("NATNEG", "Listening on", address)
+		logging.Notice("NATNEG", "Listening on", aurora.BrightCyan(address))
 
 		for {
 			buffer := make([]byte, 1024)
@@ -109,6 +109,9 @@ func StartServer() {
 			go handleConnection(conn, addr, buffer[:size])
 		}
 	}()
+}
+
+func Shutdown() {
 }
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {

@@ -8,7 +8,10 @@ import (
 
 var ServerName = "gpsp"
 
-func StartServer() {
+func StartServer(reload bool) {
+}
+
+func Shutdown() {
 }
 
 func NewConnection(index uint64, address string) {

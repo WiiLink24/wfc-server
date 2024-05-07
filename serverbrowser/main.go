@@ -34,7 +34,10 @@ var (
 	mutex       = deadlock.RWMutex{}
 )
 
-func StartServer() {
+func StartServer(reload bool) {
+}
+
+func Shutdown() {
 }
 
 func NewConnection(index uint64, address string) {

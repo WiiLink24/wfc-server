@@ -11,7 +11,7 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 )
 
-func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []byte) {
+func heartbeat(moduleName string, conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
 	sessionId := binary.BigEndian.Uint32(buffer[1:5])
 	values := strings.Split(string(buffer[5:]), "\u0000")
 
@@ -79,12 +79,11 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 	if ratingError := checkValidRating(moduleName, payload); ratingError != "ok" {
 		mutex.Lock()
 		session, sessionExists := sessions[lookupAddr]
-		if sessionExists && session.Login != nil {
-			callback := session.Login.GPErrorCallback
-			profileId := session.Login.ProfileID
+		if sessionExists && session.login != nil {
+			profileId := session.login.ProfileID
 
 			mutex.Unlock()
-			callback(profileId, ratingError)
+			gpErrorCallback(profileId, ratingError)
 			return
 		} else {
 			// Else don't return and move on, so we can return an error once logged in
@@ -92,7 +91,7 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		}
 	}
 
-	session, ok := setSessionData(moduleName, addr, sessionId, payload)
+	session, ok := setSessionData(moduleName, &addr, sessionId, payload)
 	if !ok {
 		return
 	}
@@ -105,7 +104,7 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		sessionPtr, sessionExists := sessions[lookupAddr]
 		if !sessionExists {
 			logging.Error(moduleName, "Session not found")
-		} else if sessionPtr.Login == nil {
+		} else if sessionPtr.login == nil {
 			profileId := unknowns[0]
 			logging.Info(moduleName, "Attempting to use unknown as profile ID", aurora.Cyan(profileId))
 			sessionPtr.setProfileID(moduleName, profileId, "")
@@ -118,7 +117,7 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 		sendChallenge(conn, addr, session, lookupAddr)
 	}
 
-	if login := session.Login; !session.ExploitReceived && login != nil && session.Login.NeedsExploit {
+	if login := session.login; !session.ExploitReceived && login != nil && session.login.NeedsExploit {
 		// The version of DWC in Mario Kart DS doesn't check matching status
 		if (!noIP && statechanged == "1") || login.GameCode == "AMCE" || login.GameCode == "AMCP" || login.GameCode == "AMCJ" {
 			logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")
@@ -127,12 +126,12 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.Addr, buffer []b
 	}
 
 	mutex.Lock()
-	if session.GroupPointer != nil {
-		if session.GroupPointer.Server == nil {
-			session.GroupPointer.findNewServer()
+	if session.groupPointer != nil {
+		if session.groupPointer.server == nil {
+			session.groupPointer.findNewServer()
 		} else {
 			// Update the match type if needed
-			session.GroupPointer.updateMatchType()
+			session.groupPointer.updateMatchType()
 		}
 	}
 	mutex.Unlock()

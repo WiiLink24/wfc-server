@@ -1,8 +1,10 @@
 package qr2
 
 import (
+	"encoding/gob"
 	"math/rand"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -23,10 +25,10 @@ const (
 type Session struct {
 	SessionID       uint32
 	SearchID        uint64
-	Addr            net.Addr
+	Addr            net.UDPAddr
 	Challenge       string
 	Authenticated   bool
-	Login           *LoginInfo
+	login           *LoginInfo
 	ExploitReceived bool
 	LastKeepAlive   int64
 	Endianness      byte // Some fields depend on the client's endianness
@@ -34,9 +36,10 @@ type Session struct {
 	PacketCount     uint32
 	Reservation     common.MatchCommandData
 	ReservationID   uint64
-	MessageMutex    *deadlock.Mutex
-	MessageAckWaker *sleep.Waker
-	GroupPointer    *Group
+	messageMutex    *deadlock.Mutex
+	messageAckWaker *sleep.Waker
+	groupPointer    *Group
+	GroupName       string
 }
 
 var (
@@ -52,15 +55,15 @@ func removeSession(addr uint64) {
 		return
 	}
 
-	session.MessageAckWaker.Assert()
+	session.messageAckWaker.Assert()
 
-	if session.GroupPointer != nil {
+	if session.groupPointer != nil {
 		session.removeFromGroup()
 	}
 
-	if session.Login != nil {
-		session.Login.Session = nil
-		session.Login = nil
+	if session.login != nil {
+		session.login.session = nil
+		session.login = nil
 	}
 
 	// Delete search ID lookup
@@ -71,22 +74,22 @@ func removeSession(addr uint64) {
 
 // Remove session from group. Expects the global mutex to already be locked.
 func (session *Session) removeFromGroup() {
-	if session.GroupPointer == nil {
+	if session.groupPointer == nil {
 		return
 	}
 
-	delete(session.GroupPointer.Players, session)
+	delete(session.groupPointer.players, session)
 
-	if len(session.GroupPointer.Players) == 0 {
-		logging.Notice("QR2", "Deleting group", aurora.Cyan(session.GroupPointer.GroupName))
-		delete(groups, session.GroupPointer.GroupName)
-	} else if session.GroupPointer.Server == session {
-		logging.Notice("QR2", "Server down in group", aurora.Cyan(session.GroupPointer.GroupName))
-		session.GroupPointer.Server = nil
-		session.GroupPointer.findNewServer()
+	if len(session.groupPointer.players) == 0 {
+		logging.Notice("QR2", "Deleting group", aurora.Cyan(session.groupPointer.GroupName))
+		delete(groups, session.groupPointer.GroupName)
+	} else if session.groupPointer.server == session {
+		logging.Notice("QR2", "Server down in group", aurora.Cyan(session.groupPointer.GroupName))
+		session.groupPointer.server = nil
+		session.groupPointer.findNewServer()
 	}
 
-	for player := range session.GroupPointer.Players {
+	for player := range session.groupPointer.players {
 		delete(player.Data, "+conn_"+session.Data["+joinindex"])
 	}
 
@@ -96,7 +99,8 @@ func (session *Session) removeFromGroup() {
 		}
 	}
 
-	session.GroupPointer = nil
+	session.groupPointer = nil
+	session.GroupName = ""
 }
 
 // Update session data, creating the session if it doesn't exist. Returns a copy of the session data.
@@ -119,7 +123,7 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 	if !sessionExists {
 		session = &Session{
 			SessionID:       sessionId,
-			Addr:            addr,
+			Addr:            *addr.(*net.UDPAddr),
 			Challenge:       "",
 			Authenticated:   false,
 			LastKeepAlive:   time.Now().Unix(),
@@ -128,8 +132,8 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 			PacketCount:     0,
 			Reservation:     common.MatchCommandData{},
 			ReservationID:   0,
-			MessageMutex:    &deadlock.Mutex{},
-			MessageAckWaker: &sleep.Waker{},
+			messageMutex:    &deadlock.Mutex{},
+			messageAckWaker: &sleep.Waker{},
 		}
 	}
 
@@ -206,24 +210,23 @@ func (session *Session) setProfileID(moduleName string, newPID string, gpcmIP st
 	}
 
 	if ratingError := checkValidRating(moduleName, session.Data); ratingError != "ok" {
-		callback := loginInfo.GPErrorCallback
 		profileId := loginInfo.ProfileID
 
 		mutex.Unlock()
-		callback(profileId, ratingError)
+		gpErrorCallback(profileId, ratingError)
 		mutex.Lock()
 		return false
 	}
 
-	session.Login = loginInfo
+	session.login = loginInfo
 
 	// Constraint: only one session can exist with a given profile ID
-	if loginInfo.Session != nil {
-		logging.Notice(moduleName, "Removing outdated session", aurora.BrightCyan(loginInfo.Session.Addr.String()), "with PID", aurora.Cyan(newPID))
-		removeSession(makeLookupAddr(loginInfo.Session.Addr.String()))
+	if loginInfo.session != nil {
+		logging.Notice(moduleName, "Removing outdated session", aurora.BrightCyan(loginInfo.session.Addr.String()), "with PID", aurora.Cyan(newPID))
+		removeSession(makeLookupAddr(loginInfo.session.Addr.String()))
 	}
 
-	loginInfo.Session = session
+	loginInfo.session = session
 
 	if loginInfo.DeviceAuthenticated {
 		session.Data["+deviceauth"] = "1"
@@ -288,4 +291,42 @@ func GetSearchID(addr uint64) uint64 {
 	}
 
 	return 0
+}
+
+// Save the sessions to a file. Expects the mutex to be locked.
+func saveSessions() error {
+	file, err := os.OpenFile("state/qr2_sessions.gob", os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+
+	encoder := gob.NewEncoder(file)
+	err = encoder.Encode(sessions)
+	file.Close()
+	return err
+}
+
+// Load the sessions from a file. Expects the mutex to be locked.
+func loadSessions() error {
+	file, err := os.Open("state/qr2_sessions.gob")
+	if err != nil {
+		return err
+	}
+
+	decoder := gob.NewDecoder(file)
+	err = decoder.Decode(&sessions)
+	file.Close()
+	if err != nil {
+		return err
+	}
+
+	for _, session := range sessions {
+		if session.SearchID != 0 {
+			sessionBySearchID[session.SearchID] = session
+		}
+
+		session.messageAckWaker = &sleep.Waker{}
+	}
+
+	return nil
 }

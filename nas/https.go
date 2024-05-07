@@ -60,7 +60,7 @@ func startHTTPSProxy(config common.Config) {
 	exploitWii := *config.EnableHTTPSExploitWii
 	exploitDS := *config.EnableHTTPSExploitDS
 
-	logging.Notice("NAS-TLS", "Starting HTTPS server on", address)
+	logging.Notice("NAS-TLS", "Starting HTTPS server on", aurora.BrightCyan(address))
 	l, err := net.Listen("tcp", address)
 	if err != nil {
 		panic(err)

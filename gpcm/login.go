@@ -302,7 +302,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, g.User.GsbrCode[:4])
 
 	// Notify QR2 of the login
-	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.User.GsbrCode[:4], g.RemoteAddr, g.NeedsExploit, g.DeviceAuthenticated, g.User.Restricted, KickPlayer)
+	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.User.GsbrCode[:4], g.RemoteAddr, g.NeedsExploit, g.DeviceAuthenticated, g.User.Restricted)
 
 	replyUserId := g.User.UserId
 	if g.UnitCode == UnitCodeDS {

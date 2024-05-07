@@ -3,7 +3,9 @@ package qr2
 import (
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,8 +24,8 @@ type Group struct {
 	MatchType     string
 	MKWRegion     string
 	LastJoinIndex int
-	Server        *Session
-	Players       map[*Session]bool
+	server        *Session
+	players       map[*Session]bool
 }
 
 var groups = map[string]*Group{}
@@ -34,7 +36,7 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 		return false
 	}
 
-	group := sender.GroupPointer
+	group := sender.groupPointer
 	if group == nil {
 		group = &Group{
 			GroupID:       resvOK.GroupID,
@@ -44,8 +46,8 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 			MatchType:     sender.Data["dwc_mtype"],
 			MKWRegion:     "",
 			LastJoinIndex: 0,
-			Server:        sender,
-			Players:       map[*Session]bool{sender: true},
+			server:        sender,
+			players:       map[*Session]bool{sender: true},
 		}
 
 		for {
@@ -75,7 +77,8 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 			sender.Data["+localplayers"] = strconv.FormatUint(uint64(resvOK.LocalPlayerCount), 10)
 		}
 
-		sender.GroupPointer = group
+		sender.groupPointer = group
+		sender.GroupName = group.GroupName
 		groups[group.GroupName] = group
 
 		logging.Notice(moduleName, "Created new group", aurora.Cyan(group.GroupName))
@@ -88,7 +91,7 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 	sender.Data["+conn_"+destination.Data["+joinindex"]] = "1"
 	destination.Data["+conn_"+sender.Data["+joinindex"]] = "1"
 
-	if group.Players[destination] {
+	if group.players[destination] {
 		// Player is already in the group
 		return true
 	}
@@ -101,18 +104,19 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 		destination.Data["+localplayers"] = strconv.FormatUint(uint64(reservation.LocalPlayerCount), 10)
 	}
 
-	if destination.GroupPointer != nil && destination.GroupPointer != group {
+	if destination.groupPointer != nil && destination.groupPointer != group {
 		destination.removeFromGroup()
 	}
 
-	group.Players[destination] = true
-	destination.GroupPointer = group
+	group.players[destination] = true
+	destination.groupPointer = group
+	destination.GroupName = group.GroupName
 
 	return true
 }
 
 func processTellAddr(moduleName string, sender *Session, destination *Session) {
-	if sender.GroupPointer != nil && sender.GroupPointer == destination.GroupPointer {
+	if sender.groupPointer != nil && sender.groupPointer == destination.groupPointer {
 		// Just assume the connection is successful if TELL_ADDR is used
 		sender.Data["+conn_"+destination.Data["+joinindex"]] = "2"
 		destination.Data["+conn_"+sender.Data["+joinindex"]] = "2"
@@ -197,7 +201,7 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 		return
 	}
 
-	session := login.Session
+	session := login.session
 	if session == nil {
 		if senderIP == 0 {
 			logging.Info(moduleName, "Received status update for profile ID", aurora.Cyan(profileID), "but no session exists")
@@ -217,7 +221,7 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 	}
 
 	// Send the client message exploit if not received yet
-	if status != "0" && status != "1" && !session.ExploitReceived && session.Login != nil && session.Login.NeedsExploit {
+	if status != "0" && status != "1" && !session.ExploitReceived && session.login != nil && session.login.NeedsExploit {
 		sessionCopy := *session
 
 		mutex.Unlock()
@@ -228,7 +232,7 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 
 	if status == "0" || status == "1" || status == "3" || status == "4" {
 		session := sessions[senderIP]
-		if session == nil || session.GroupPointer == nil {
+		if session == nil || session.groupPointer == nil {
 			return
 		}
 
@@ -237,11 +241,11 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 }
 
 func checkReservationAllowed(moduleName string, sender, destination *Session, joinType byte) string {
-	if sender.Login == nil || destination.Login == nil {
+	if sender.login == nil || destination.login == nil {
 		return ""
 	}
 
-	if !sender.Login.Restricted && !destination.Login.Restricted {
+	if !sender.login.Restricted && !destination.login.Restricted {
 		return "ok"
 	}
 
@@ -251,7 +255,7 @@ func checkReservationAllowed(moduleName string, sender, destination *Session, jo
 
 	// TODO: Once OpenHost is implemented, disallow joining public rooms
 
-	if destination.GroupPointer == nil {
+	if destination.groupPointer == nil {
 		// Destination is not in a group, check their dwc_mtype instead
 		if destination.Data["dwc_mtype"] != "2" && destination.Data["dwc_mtype"] != "3" {
 			return "restricted_join"
@@ -261,7 +265,7 @@ func checkReservationAllowed(moduleName string, sender, destination *Session, jo
 		return "ok"
 	}
 
-	if destination.GroupPointer.MatchType != "private" {
+	if destination.groupPointer.MatchType != "private" {
 		return "restricted_join"
 	}
 
@@ -289,14 +293,14 @@ func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32
 		return ""
 	}
 
-	to := toLogin.Session
+	to := toLogin.session
 	if to == nil {
 		logging.Error(moduleName, "Destination profile ID does not have a session")
 		return ""
 	}
 
 	// Validate dwc_pid value
-	if !from.setProfileID(moduleName, senderPidStr, "") || from.Login == nil {
+	if !from.setProfileID(moduleName, senderPidStr, "") || from.login == nil {
 		return ""
 	}
 
@@ -324,7 +328,7 @@ func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {
 		return
 	}
 
-	if session1.GroupPointer == nil || session1.GroupPointer != session2.GroupPointer {
+	if session1.groupPointer == nil || session1.groupPointer != session2.groupPointer {
 		logging.Warn(moduleName, "Received NATNEG report for two IPs in different groups")
 		return
 	}
@@ -360,9 +364,7 @@ func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
 		return
 	}
 
-	gpErrorCallback := login.GPErrorCallback
-
-	session := login.Session
+	session := login.session
 	if session == nil {
 		mutex.Unlock()
 		logging.Warn(moduleName, "Received USER packet from profile ID", aurora.Cyan(senderPid), "but no session exists")
@@ -427,7 +429,7 @@ func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
 func (g *Group) findNewServer() {
 	server := (*Session)(nil)
 	serverJoinIndex := -1
-	for session := range g.Players {
+	for session := range g.players {
 		if session.Data["dwc_hoststate"] != "2" {
 			continue
 		}
@@ -443,18 +445,18 @@ func (g *Group) findNewServer() {
 		}
 	}
 
-	g.Server = server
+	g.server = server
 	g.updateMatchType()
 }
 
 // updateMatchType updates the match type of the group based on the host's dwc_mtype value.
 // Expects the mutex to be locked.
 func (g *Group) updateMatchType() {
-	if g.Server == nil || g.Server.Data["dwc_mtype"] == "" {
+	if g.server == nil || g.server.Data["dwc_mtype"] == "" {
 		return
 	}
 
-	g.MatchType = g.Server.Data["dwc_mtype"]
+	g.MatchType = g.server.Data["dwc_mtype"]
 }
 
 type MiiInfo struct {
@@ -527,21 +529,21 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 			groupInfo.MatchType = "unknown"
 		}
 
-		if group.Server != nil {
-			groupInfo.ServerIndex = group.Server.Data["+joinindex"]
+		if group.server != nil {
+			groupInfo.ServerIndex = group.server.Data["+joinindex"]
 		}
 
 		if groupInfo.GameName == "mariokartwii" {
 			groupInfo.MKWRegion = group.MKWRegion
 		}
 
-		for session := range group.Players {
+		for session := range group.players {
 			mapData := map[string]string{}
 			for k, v := range session.Data {
 				mapData[k] = v
 			}
 
-			if login := session.Login; login != nil {
+			if login := session.login; login != nil {
 				mapData["+ingamesn"] = login.InGameName
 			} else {
 				mapData["+ingamesn"] = ""
@@ -655,4 +657,55 @@ func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo
 	}
 
 	return groupsCopy
+}
+
+// saveGroups saves the current groups state to disk.
+// Expects the mutex to be locked.
+func saveGroups() error {
+	file, err := os.OpenFile("state/qr2_groups.gob", os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+
+	encoder := gob.NewEncoder(file)
+	err = encoder.Encode(groups)
+	file.Close()
+	return err
+}
+
+// loadGroups loads the groups state from disk.
+// Expects the mutex to be locked, and the sessions to already be loaded.
+func loadGroups() error {
+	file, err := os.Open("state/qr2_groups.gob")
+	if err != nil {
+		return err
+	}
+
+	decoder := gob.NewDecoder(file)
+	err = decoder.Decode(&groups)
+	file.Close()
+	if err != nil {
+		return err
+	}
+
+	for _, session := range sessions {
+		if session.groupPointer != nil || session.GroupName == "" {
+			continue
+		}
+
+		group := groups[session.GroupName]
+		if group == nil {
+			logging.Warn("QR2", "Session", aurora.BrightCyan(session.Addr.String()), "has a group name but the group does not exist")
+			continue
+		}
+
+		group.players[session] = true
+		session.groupPointer = group
+	}
+
+	for _, group := range groups {
+		group.findNewServer()
+	}
+
+	return nil
 }

@@ -53,7 +53,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		return
 	}
 
-	if receiver.Login == nil || !receiver.Login.DeviceAuthenticated {
+	if receiver.login == nil || !receiver.login.DeviceAuthenticated {
 		logging.Error(moduleName, "Destination", aurora.Cyan(destSearchID), "is not device authenticated")
 	}
 
@@ -104,7 +104,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 			return
 		}
 
-		if sender.Login == nil || !sender.Login.DeviceAuthenticated {
+		if sender.login == nil || !sender.login.DeviceAuthenticated {
 			logging.Error(moduleName, "Sender is not device authenticated")
 			return
 		}
@@ -229,18 +229,18 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	binary.BigEndian.PutUint32(payload[len(payload)-4:], packetCount)
 	payload = append(payload, message...)
 
-	receiver.MessageMutex.Lock()
-	defer receiver.MessageMutex.Unlock()
+	receiver.messageMutex.Lock()
+	defer receiver.messageMutex.Unlock()
 
-	if receiver.Login == nil {
+	if receiver.login == nil {
 		return
 	}
 
 	s := sleep.Sleeper{}
 	defer s.Done()
 
-	receiver.MessageAckWaker.Clear()
-	s.AddWaker(receiver.MessageAckWaker)
+	receiver.messageAckWaker.Clear()
+	s.AddWaker(receiver.messageAckWaker)
 
 	timeWaker := sleep.Waker{}
 	s.AddWaker(&timeWaker)
@@ -251,7 +251,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 			timeWaker.Assert()
 		})
 
-		_, err := masterConn.WriteTo(payload, destAddr)
+		_, err := masterConn.WriteTo(payload, &destAddr)
 		if err != nil {
 			logging.Error(moduleName, "Error sending message:", err.Error())
 		}
@@ -268,9 +268,9 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 
 			logging.Error(moduleName, "Timed out waiting for ack")
 			// Kick the player
-			if login := receiver.Login; login != nil {
-				login.GPErrorCallback(login.ProfileID, "network_error")
-				receiver.Login = nil
+			if login := receiver.login; login != nil {
+				gpErrorCallback(login.ProfileID, "network_error")
+				receiver.login = nil
 			}
 			return
 
@@ -280,7 +280,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	}
 }
 
-func processClientMessage(moduleName string, sender, receiver *Session, message []byte, isNatnegPacket bool, matchData common.MatchCommandData) (destSessionID uint32, packetCount uint32, destAddr net.Addr) {
+func processClientMessage(moduleName string, sender, receiver *Session, message []byte, isNatnegPacket bool, matchData common.MatchCommandData) (destSessionID uint32, packetCount uint32, destAddr net.UDPAddr) {
 	mutex.Lock()
 
 	destPid, ok := receiver.Data["dwc_pid"]
@@ -310,20 +310,18 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 			if resvError == "restricted" || resvError == "restricted_join" {
 				logging.Error(moduleName, "RESERVATION: Restricted player attempted to join a public match")
 
-				if sender.Login != nil && sender.Login.Restricted {
-					callback := sender.Login.GPErrorCallback
-					profileId := sender.Login.ProfileID
+				if sender.login != nil && sender.login.Restricted {
+					profileId := sender.login.ProfileID
 
 					mutex.Unlock()
-					callback(profileId, resvError)
+					gpErrorCallback(profileId, resvError)
 					mutex.Lock()
 				}
-				if receiver.Login != nil && receiver.Login.Restricted {
-					callback := receiver.Login.GPErrorCallback
-					profileId := receiver.Login.ProfileID
+				if receiver.login != nil && receiver.login.Restricted {
+					profileId := receiver.login.ProfileID
 
 					mutex.Unlock()
-					callback(profileId, resvError)
+					gpErrorCallback(profileId, resvError)
 					mutex.Lock()
 				}
 			}
@@ -335,7 +333,7 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 	} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
 		if receiver.ReservationID != sender.SearchID || receiver.Reservation.Reservation == nil {
 			logging.Warn(moduleName, "Destination has no reservation with the sender")
-			if receiver.GroupPointer == nil || receiver.GroupPointer != sender.GroupPointer {
+			if receiver.groupPointer == nil || receiver.groupPointer != sender.groupPointer {
 				return
 			}
 			// Allow the message through anyway to avoid a room deadlock
@@ -361,14 +359,14 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 }
 
 func sendClientExploit(moduleName string, sessionCopy Session) {
-	if len(sessionCopy.Login.GameCode) != 4 || !common.IsUppercaseAlphanumeric(sessionCopy.Login.GameCode) {
-		logging.Error(moduleName, "Invalid game code:", aurora.Cyan(sessionCopy.Login.GameCode))
+	if len(sessionCopy.login.GameCode) != 4 || !common.IsUppercaseAlphanumeric(sessionCopy.login.GameCode) {
+		logging.Error(moduleName, "Invalid game code:", aurora.Cyan(sessionCopy.login.GameCode))
 		return
 	}
 
-	exploit, err := os.ReadFile("payload/sbcm/" + "payload." + sessionCopy.Login.GameCode + ".bin")
+	exploit, err := os.ReadFile("payload/sbcm/" + "payload." + sessionCopy.login.GameCode + ".bin")
 	if err != nil {
-		logging.Error(moduleName, "Error reading exploit file", aurora.Cyan(sessionCopy.Login.GameCode), "-", err.Error())
+		logging.Error(moduleName, "Error reading exploit file", aurora.Cyan(sessionCopy.login.GameCode), "-", err.Error())
 		return
 	}
 
@@ -392,7 +390,7 @@ func sendClientExploit(moduleName string, sessionCopy Session) {
 
 	go func() {
 		for {
-			_, err = masterConn.WriteTo(payload, sessionCopy.Addr)
+			_, err = masterConn.WriteTo(payload, &sessionCopy.Addr)
 			if err != nil {
 				logging.Error(moduleName, "Error sending message:", err.Error())
 			}
@@ -402,7 +400,7 @@ func sendClientExploit(moduleName string, sessionCopy Session) {
 
 			mutex.Lock()
 			session, sessionExists := sessions[makeLookupAddr(sessionCopy.Addr.String())]
-			if !sessionExists || session.ExploitReceived || session.Login == nil || !session.Login.NeedsExploit {
+			if !sessionExists || session.ExploitReceived || session.login == nil || !session.login.NeedsExploit {
 				mutex.Unlock()
 				return
 			}

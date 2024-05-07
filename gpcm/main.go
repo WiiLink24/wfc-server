@@ -2,7 +2,9 @@ package gpcm
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
+	"os"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -65,7 +67,9 @@ var (
 	allowDefaultDolphinKeys bool
 )
 
-func StartServer() {
+func StartServer(reload bool) {
+	qr2.SetGPErrorCallback(KickPlayer)
+
 	// Get config
 	config := common.GetConfig()
 
@@ -84,6 +88,24 @@ func StartServer() {
 	database.UpdateTables(pool, ctx)
 
 	allowDefaultDolphinKeys = config.AllowDefaultDolphinKeys
+
+	if reload {
+		err := LoadState()
+		if err != nil {
+			logging.Error("GPCM", "Failed to load state:", err)
+			os.Exit(1)
+		}
+
+		logging.Notice("GPCM", "Reloaded", aurora.Cyan(len(sessions)), "sessions")
+	}
+}
+
+func Shutdown() {
+	err := SaveState()
+	if err != nil {
+		logging.Error("GPCM", "Failed to save state:", err)
+	}
+	logging.Info("GPCM", "Saved", aurora.Cyan(len(sessions)), "sessions")
 }
 
 func CloseConnection(index uint64) {
@@ -231,4 +253,45 @@ func (g *GameSpySession) ignoreCommand(name string, commands []common.GameSpyCom
 	}
 
 	return unhandled
+}
+
+func SaveState() error {
+	// Create if not exist
+	file, err := os.OpenFile("state/gpcm_sessions.gob", os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+
+	encoder := gob.NewEncoder(file)
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	err = encoder.Encode(sessions)
+	file.Close()
+	return err
+}
+
+func LoadState() error {
+	file, err := os.Open("state/gpcm_sessions.gob")
+	if err != nil {
+		return err
+	}
+
+	decoder := gob.NewDecoder(file)
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	err = decoder.Decode(&sessions)
+	file.Close()
+	if err != nil {
+		return err
+	}
+
+	for _, session := range sessions {
+		sessionsByConnIndex[session.ConnIndex] = session
+	}
+
+	return nil
 }

@@ -9,7 +9,7 @@ import (
 	"wwfc/common"
 )
 
-func sendChallenge(conn net.PacketConn, addr net.Addr, session Session, lookupAddr uint64) {
+func sendChallenge(conn net.PacketConn, addr net.UDPAddr, session Session, lookupAddr uint64) {
 	challenge := session.Challenge
 	if challenge == "" {
 		// Generate challenge
@@ -43,7 +43,7 @@ func sendChallenge(conn net.PacketConn, addr net.Addr, session Session, lookupAd
 
 	go func() {
 		for {
-			conn.WriteTo(response, addr)
+			conn.WriteTo(response, &addr)
 
 			time.Sleep(1 * time.Second)
 

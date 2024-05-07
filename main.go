@@ -2,11 +2,13 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/rpc"
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"wwfc/api"
 	"wwfc/common"
@@ -35,9 +37,11 @@ func main() {
 
 	// Start the backend instead of the frontend if the first argument is "backend"
 	if len(args) > 0 && args[0] == "backend" {
-		backendMain()
+		backendMain(len(args) > 1 && args[1] == "reload")
+	} else if len(args) > 0 && args[0] == "cmd" {
+		handleCommand(args[1:])
 	} else {
-		frontendMain()
+		frontendMain(len(args) > 0 && args[0] == "skipbackend")
 	}
 }
 
@@ -49,7 +53,7 @@ type RPCPacket struct {
 }
 
 // backendMain starts all the servers and creates an RPC server to communicate with the frontend
-func backendMain() {
+func backendMain(reload bool) {
 	if err := logging.SetOutput(config.LogOutput); err != nil {
 		logging.Error("BACKEND", err)
 	}
@@ -66,12 +70,12 @@ func backendMain() {
 	common.ConnectFrontend()
 
 	wg := &sync.WaitGroup{}
-	actions := []func(){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, serverbrowser.StartServer, sake.StartServer, natneg.StartServer, api.StartServer, gamestats.StartServer}
+	actions := []func(bool){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, serverbrowser.StartServer, sake.StartServer, natneg.StartServer, api.StartServer, gamestats.StartServer}
 	wg.Add(len(actions))
 	for _, action := range actions {
-		go func(ac func()) {
+		go func(ac func(bool)) {
 			defer wg.Done()
-			ac()
+			ac(reload)
 		}(action)
 	}
 
@@ -128,7 +132,7 @@ func (r *RPCPacket) HandlePacket(args RPCPacket, _ *struct{}) error {
 	return nil
 }
 
-// rpcPacket.closeConnection is called by the frontend to notify the backend of a closed connection
+// RPCPacket.closeConnection is called by the frontend to notify the backend of a closed connection
 func (r *RPCPacket) CloseConnection(args RPCPacket, _ *struct{}) error {
 	switch args.Server {
 	case "serverbrowser":
@@ -141,6 +145,24 @@ func (r *RPCPacket) CloseConnection(args RPCPacket, _ *struct{}) error {
 		gamestats.CloseConnection(args.Index)
 	}
 
+	return nil
+}
+
+// RPCPacket.Shutdown is called by the frontend to shutdown the backend
+func (r *RPCPacket) Shutdown(_ struct{}, _ *struct{}) error {
+	wg := &sync.WaitGroup{}
+	actions := []func(){nas.Shutdown, gpcm.Shutdown, qr2.Shutdown, gpsp.Shutdown, serverbrowser.Shutdown, sake.Shutdown, natneg.Shutdown, api.Shutdown, gamestats.Shutdown}
+	wg.Add(len(actions))
+	for _, action := range actions {
+		go func(ac func()) {
+			defer wg.Done()
+			ac()
+		}(action)
+	}
+
+	wg.Wait()
+
+	os.Exit(0)
 	return nil
 }
 
@@ -166,7 +188,7 @@ var (
 )
 
 // frontendMain starts the backend process and communicates with it using RPC
-func frontendMain() {
+func frontendMain(skipBackend bool) {
 	// Don't allow the frontend to output to a file (there's no reason to)
 	logOutput := config.LogOutput
 	if logOutput == "StdOutAndFile" {
@@ -180,7 +202,12 @@ func frontendMain() {
 	rpcMutex.Lock()
 
 	startFrontendServer()
-	go startBackendProcess()
+
+	if !skipBackend {
+		go startBackendProcess(false, true)
+	} else {
+		go waitForBackend()
+	}
 
 	servers := []serverInfo{
 		{rpcName: "serverbrowser", protocol: "tcp", port: 28910},
@@ -224,24 +251,46 @@ func startFrontendServer() {
 	}()
 }
 
-// startBackendProcess starts the backend process and waits for the RPC server to start.
-// Expects the RPC mutex to be locked.
-func startBackendProcess() {
-	cmd := exec.Command(os.Args[0], "backend")
+// startBackendProcess starts the backend process and (optionally) waits for the RPC server to start.
+// If wait is true, expects the RPC mutex to be locked.
+func startBackendProcess(reload bool, wait bool) {
+	exe, err := os.Executable()
+	if err != nil {
+		logging.Error("FRONTEND", "Failed to get executable path:", err)
+		os.Exit(1)
+	}
+
+	logging.Info("FRONTEND", "Running from", aurora.BrightCyan(exe))
+
+	var cmd *exec.Cmd
+	if reload {
+		cmd = exec.Command(exe, "backend", "reload")
+	} else {
+		cmd = exec.Command(exe, "backend")
+	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		logging.Error("FRONTEND", "Failed to start backend process:", err)
 		os.Exit(1)
 	}
 
+	if wait {
+		waitForBackend()
+	}
+}
+
+// waitForBackend waits for the backend to start.
+// Expects the RPC mutex to be locked.
+func waitForBackend() {
 	for {
 		client, err := rpc.Dial("tcp", "localhost:29999")
 		if err == nil {
 			rpcClient = client
 			rpcMutex.Unlock()
-			break
+			return
 		}
 	}
 }
@@ -376,4 +425,83 @@ func (r *RPCFrontendPacket) CloseConnection(args RPCFrontendPacket, _ *struct{})
 
 	delete(connections[args.Server], args.Index)
 	return conn.Close()
+}
+
+// RPCFrontendPacket.ReloadBackend is called by an external program to reload the backend
+func (r *RPCFrontendPacket) ReloadBackend(_ struct{}, _ *struct{}) error {
+	r.ShutdownBackend(struct{}{}, &struct{}{})
+
+	// Unlocks the mutex locked by ShutdownBackend
+	startBackendProcess(true, false)
+
+	return nil
+}
+
+// RPCFrontendPacket.ShutdownBackend is called by an external program to shutdown the backend
+func (r *RPCFrontendPacket) ShutdownBackend(_ struct{}, _ *struct{}) error {
+	// Lock indefinitely
+	rpcMutex.Lock()
+
+	rpcBusyCount.Wait()
+
+	err := rpcClient.Call("RPCPacket.Shutdown", struct{}{}, nil)
+	if err != nil && err != rpc.ErrShutdown && !strings.Contains(err.Error(), "An existing connection was forcibly closed by the remote host.") {
+		logging.Error("FRONTEND", "Failed to reload backend:", err)
+	} else {
+		err = nil
+	}
+
+	err = rpcClient.Close()
+	if err != nil {
+		logging.Error("FRONTEND", "Failed to close RPC client:", err)
+	}
+
+	go waitForBackend()
+
+	return nil
+}
+
+// handleCommand is used to send a command to the backend
+func handleCommand(args []string) {
+	if len(args) < 2 {
+		fmt.Printf("Usage: %s cmd <f|b> <command...>\n", os.Args[0])
+		return
+	}
+
+	var client *rpc.Client
+	var err error
+
+	if args[0] == "f" {
+		client, err = rpc.Dial("tcp", "localhost:29998")
+	} else if args[0] == "b" {
+		client, err = rpc.Dial("tcp", "localhost:29999")
+	} else {
+		fmt.Printf("Unknown command type: '%s', please supply 'f' or 'b' (for frontend or backend)\n", args[0])
+		return
+	}
+
+	if err != nil {
+		fmt.Println("Failed to connect to RPC server:", err)
+		return
+	}
+
+	defer client.Close()
+
+	if args[0] == "b" {
+		fmt.Printf("Unknown backend command: '%s'\n", args[1])
+	} else {
+		if args[1] == "backend" {
+			if len(args) > 2 && args[2] == "shutdown" {
+				err = client.Call("RPCFrontendPacket.ShutdownBackend", struct{}{}, nil)
+			} else {
+				err = client.Call("RPCFrontendPacket.ReloadBackend", struct{}{}, nil)
+			}
+		} else {
+			fmt.Printf("Unknown frontend command: '%s'\n", args[1])
+		}
+	}
+
+	if err != nil {
+		fmt.Println("Failed to send command:", err)
+	}
 }
