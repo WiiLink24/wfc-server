@@ -2,6 +2,8 @@ package serverbrowser
 
 import (
 	"encoding/binary"
+	"encoding/gob"
+	"os"
 	"wwfc/common"
 	"wwfc/logging"
 
@@ -35,9 +37,40 @@ var (
 )
 
 func StartServer(reload bool) {
+	if !reload {
+		return
+	}
+
+	// Load connection state
+	file, err := os.Open("/state/sb_connections.gob")
+	if err != nil {
+		panic(err)
+	}
+
+	decoder := gob.NewDecoder(file)
+
+	err = decoder.Decode(&connBuffers)
+	file.Close()
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 func Shutdown() {
+	// Save connection state
+	file, err := os.OpenFile("/state/sb_connections.gob", os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	encoder := gob.NewEncoder(file)
+
+	err = encoder.Encode(connBuffers)
+	file.Close()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func NewConnection(index uint64, address string) {
