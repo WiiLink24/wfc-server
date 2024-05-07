@@ -65,9 +65,6 @@ func StartServer(reload bool) {
 }
 
 func Shutdown() {
-	// Lock indefinitely
-	mutex.Lock()
-
 	err := saveSessions()
 	if err != nil {
 		logging.Error("QR2", "Failed to save sessions:", err)
