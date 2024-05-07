@@ -2,11 +2,12 @@ package nas
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"wwfc/api"
 	"wwfc/common"
 	"wwfc/gamestats"
@@ -14,32 +15,17 @@ import (
 	"wwfc/nhttp"
 	"wwfc/sake"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/logrusorgru/aurora/v3"
 )
 
 var (
-	ctx  = context.Background()
-	pool *pgxpool.Pool
-
 	serverName string
+	server     *nhttp.Server
 )
 
 func StartServer(reload bool) {
 	// Get config
 	config := common.GetConfig()
-
-	// Start SQL
-	dbString := fmt.Sprintf("postgres://%s:%s@%s/%s", config.Username, config.Password, config.DatabaseAddress, config.DatabaseName)
-	dbConf, err := pgxpool.ParseConfig(dbString)
-	if err != nil {
-		panic(err)
-	}
-
-	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
-	if err != nil {
-		panic(err)
-	}
 
 	serverName = config.ServerName
 
@@ -49,19 +35,38 @@ func StartServer(reload bool) {
 		go startHTTPSProxy(config)
 	}
 
-	err = CacheProfanityFile()
+	err := CacheProfanityFile()
 	if err != nil {
 		logging.Info("NAS", err)
 	}
 
-	logging.Notice("NAS", "Starting HTTP server on", aurora.BrightCyan(address))
+	server = &nhttp.Server{
+		Addr:    address,
+		Handler: http.HandlerFunc(handleRequest),
+	}
+
 	go func() {
-		panic(nhttp.ListenAndServe(address, http.HandlerFunc(handleRequest)))
+		logging.Notice("NAS", "Starting HTTP server on", aurora.BrightCyan(address))
+
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, nhttp.ErrServerClosed) {
+			panic(err)
+		}
 	}()
 }
 
 func Shutdown() {
-	pool.Close()
+	if server == nil {
+		return
+	}
+
+	ctx, release := context.WithTimeout(context.Background(), 10*time.Second)
+	defer release()
+
+	err := server.Shutdown(ctx)
+	if err != nil {
+		logging.Error("NAS", "Error on HTTP shutdown:", err)
+	}
 }
 
 var regexSakeHost = regexp.MustCompile(`^([a-z\-]+\.)?sake\.gs\.`)

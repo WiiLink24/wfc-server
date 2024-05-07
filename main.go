@@ -445,10 +445,8 @@ func (r *RPCFrontendPacket) ShutdownBackend(_ struct{}, _ *struct{}) error {
 	rpcBusyCount.Wait()
 
 	err := rpcClient.Call("RPCPacket.Shutdown", struct{}{}, nil)
-	if err != nil && err != rpc.ErrShutdown && !strings.Contains(err.Error(), "An existing connection was forcibly closed by the remote host.") {
+	if err != nil && !strings.Contains(err.Error(), "An existing connection was forcibly closed by the remote host.") {
 		logging.Error("FRONTEND", "Failed to reload backend:", err)
-	} else {
-		err = nil
 	}
 
 	err = rpcClient.Close()

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"golang.org/x/net/http/httpguts"
 	"io"
 	"math"
 	"net"
@@ -15,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/net/http/httpguts"
 )
 
 type connReader struct {
@@ -117,7 +118,7 @@ func (cr *connReader) handleReadError(_ error) {
 
 // may be called from multiple goroutines.
 func (cr *connReader) closeNotify() {
-	res, _ := cr.conn.curReq.Load().(*response)
+	res := cr.conn.curReq.Load()
 	if res != nil && atomic.CompareAndSwapInt32(&res.didCloseNotify, 0, 1) {
 		res.closeNotifyCh <- true
 	}
