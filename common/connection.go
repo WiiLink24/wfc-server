@@ -18,7 +18,7 @@ func ConnectFrontend() {
 	var err error
 	rpcFrontend, err = rpc.Dial("tcp", "localhost:29998")
 	if err != nil {
-		logging.Error("BACKEND", "Failed to connect to frontend:", err)
+		panic(err)
 	}
 }
 
@@ -44,6 +44,32 @@ func CloseConnection(server string, index uint64) error {
 	err := rpcFrontend.Call("RPCFrontendPacket.CloseConnection", RPCFrontendPacket{Server: server, Index: index}, nil)
 	if err != nil {
 		logging.Error("COMMON", "Failed to close connection:", err)
+	}
+	return err
+}
+
+// Ready will notify the frontend that the backend is ready to accept connections
+func Ready() error {
+	if rpcFrontend == nil {
+		ConnectFrontend()
+	}
+
+	err := rpcFrontend.Call("RPCFrontendPacket.Ready", struct{}{}, nil)
+	if err != nil {
+		logging.Error("COMMON", "Failed to notify frontend that backend is ready:", err)
+	}
+	return err
+}
+
+// Shutdown will notify the frontend that the backend is shutting down
+func Shutdown() error {
+	if rpcFrontend == nil {
+		ConnectFrontend()
+	}
+
+	err := rpcFrontend.Call("RPCFrontendPacket.ShutdownBackend", struct{}{}, nil)
+	if err != nil {
+		logging.Error("COMMON", "Failed to notify frontend that backend is shutting down:", err)
 	}
 	return err
 }
