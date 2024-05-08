@@ -90,22 +90,22 @@ func StartServer(reload bool) {
 	allowDefaultDolphinKeys = config.AllowDefaultDolphinKeys
 
 	if reload {
-		err := LoadState()
+		err := loadState()
 		if err != nil {
 			logging.Error("GPCM", "Failed to load state:", err)
 			os.Exit(1)
 		}
 
-		logging.Notice("GPCM", "Reloaded", aurora.Cyan(len(sessions)), "sessions")
+		logging.Notice("GPCM", "Loaded", aurora.Cyan(len(sessions)), "sessions")
 	}
 }
 
 func Shutdown() {
-	err := SaveState()
+	err := saveState()
 	if err != nil {
 		logging.Error("GPCM", "Failed to save state:", err)
 	}
-	logging.Info("GPCM", "Saved", aurora.Cyan(len(sessions)), "sessions")
+	logging.Notice("GPCM", "Saved", aurora.Cyan(len(sessions)), "sessions")
 }
 
 func CloseConnection(index uint64) {
@@ -255,8 +255,7 @@ func (g *GameSpySession) ignoreCommand(name string, commands []common.GameSpyCom
 	return unhandled
 }
 
-func SaveState() error {
-	// Create if not exist
+func saveState() error {
 	file, err := os.OpenFile("state/gpcm_sessions.gob", os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -272,7 +271,7 @@ func SaveState() error {
 	return err
 }
 
-func LoadState() error {
+func loadState() error {
 	file, err := os.Open("state/gpcm_sessions.gob")
 	if err != nil {
 		return err
