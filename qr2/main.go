@@ -3,6 +3,7 @@ package qr2
 import (
 	"encoding/binary"
 	"net"
+	"sync"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
@@ -26,7 +27,11 @@ const (
 	ClientExploitReply = 0x10
 )
 
-var masterConn net.PacketConn
+var (
+	masterConn net.PacketConn
+	inShutdown = false
+	waitGroup  = sync.WaitGroup{}
+)
 
 func StartServer(reload bool) {
 	// Get config
@@ -39,25 +44,52 @@ func StartServer(reload bool) {
 	}
 
 	masterConn = conn
+	inShutdown = false
 
 	if reload {
-		loadSessions()
-		loadLogins()
-		loadGroups()
-		logging.Info("QR2", "Loaded", aurora.Cyan(len(sessions)), "sessions")
+		err := loadSessions()
+		if err != nil {
+			panic(err)
+		}
+
+		logging.Notice("QR2", "Loaded", aurora.Cyan(len(sessions)), "sessions")
+
+		err = loadLogins()
+		if err != nil {
+			panic(err)
+		}
+
+		logging.Notice("QR2", "Loaded", aurora.Cyan(len(logins)), "logins")
+
+		err = loadGroups()
+		if err != nil {
+			panic(err)
+		}
+
+		logging.Notice("QR2", "Loaded", aurora.Cyan(len(groups)), "groups")
 	}
 
+	waitGroup.Add(1)
+
 	go func() {
+		defer waitGroup.Done()
+
 		// Close the listener when the application closes.
 		defer conn.Close()
 		logging.Notice("QR2", "Listening on", aurora.BrightCyan(address))
 
 		for {
+			if inShutdown {
+				return
+			}
+
 			buf := make([]byte, 1024)
-			_, addr, err := conn.ReadFrom(buf)
-			if err != nil {
+			n, addr, err := conn.ReadFrom(buf)
+			if err != nil || n == 0 {
 				continue
 			}
+
+			waitGroup.Add(1)
 
 			go handleConnection(conn, *addr.(*net.UDPAddr), buf)
 		}
@@ -65,27 +97,38 @@ func StartServer(reload bool) {
 }
 
 func Shutdown() {
+	inShutdown = true
+	masterConn.Close()
+	waitGroup.Wait()
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	err := saveSessions()
 	if err != nil {
 		logging.Error("QR2", "Failed to save sessions:", err)
 	}
 
-	logging.Info("QR2", "Saved", aurora.Cyan(len(sessions)), "sessions")
+	logging.Notice("QR2", "Saved", aurora.Cyan(len(sessions)), "sessions")
 
 	err = saveLogins()
 	if err != nil {
 		logging.Error("QR2", "Failed to save logins:", err)
 	}
 
-	logging.Info("QR2", "Saved", aurora.Cyan(len(logins)), "logins")
+	logging.Notice("QR2", "Saved", aurora.Cyan(len(logins)), "logins")
 
 	err = saveGroups()
 	if err != nil {
 		logging.Error("QR2", "Failed to save groups:", err)
 	}
+
+	logging.Notice("QR2", "Saved", aurora.Cyan(len(groups)), "groups")
 }
 
 func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
+	defer waitGroup.Done()
+
 	packetType := buffer[0]
 	moduleName := "QR2:" + addr.String()
 
