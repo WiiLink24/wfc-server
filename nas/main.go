@@ -41,8 +41,10 @@ func StartServer(reload bool) {
 	}
 
 	server = &nhttp.Server{
-		Addr:    address,
-		Handler: http.HandlerFunc(handleRequest),
+		Addr:        address,
+		Handler:     http.HandlerFunc(handleRequest),
+		IdleTimeout: 20 * time.Second,
+		ReadTimeout: 10 * time.Second,
 	}
 
 	go func() {
