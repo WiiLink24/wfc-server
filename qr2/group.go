@@ -662,7 +662,7 @@ func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo
 // saveGroups saves the current groups state to disk.
 // Expects the mutex to be locked.
 func saveGroups() error {
-	file, err := os.OpenFile("state/qr2_groups.gob", os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("state/qr2_groups.gob", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}

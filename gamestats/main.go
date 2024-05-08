@@ -100,7 +100,7 @@ func StartServer(reload bool) {
 
 func Shutdown() {
 	// Save state
-	file, err := os.OpenFile("state/gstats_sessions.gob", os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("state/gstats_sessions.gob", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		panic(err)
 	}
