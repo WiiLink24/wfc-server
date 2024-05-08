@@ -86,9 +86,9 @@ func startHTTPSProxy(config common.Config) {
 			go func() {
 				moduleName := "NAS-TLS:" + conn.RemoteAddr().String()
 
-				conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+				conn.SetDeadline(time.Now().Add(25 * time.Second))
 
-				handleRealTLS(moduleName, conn, nasAddr, privKeyPath, certsPath)
+				handleRealTLS(moduleName, conn, nasAddr)
 			}()
 		}
 	}
@@ -241,15 +241,15 @@ func startHTTPSProxy(config common.Config) {
 
 			moduleName := "NAS-TLS:" + conn.RemoteAddr().String()
 
-			conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+			conn.SetDeadline(time.Now().Add(5 * time.Second))
 
-			handleTLS(moduleName, conn, nasAddr, privKeyPath, certsPath, serverCertsRecordWii, rsaKeyWii, serverCertsRecordDS, rsaKeyDS)
+			handleTLS(moduleName, conn, nasAddr, serverCertsRecordWii, rsaKeyWii, serverCertsRecordDS, rsaKeyDS)
 		}()
 	}
 }
 
 // handleTLS handles the TLS request from the Wii or the DS. It may call handleRealTLS if the request is from a modern web browser.
-func handleTLS(moduleName string, rawConn net.Conn, nasAddr string, privKeyPath string, certsPath string, serverCertsRecordWii []byte, rsaKeyWii *rsa.PrivateKey, serverCertsRecordDS []byte, rsaKeyDS *rsa.PrivateKey) {
+func handleTLS(moduleName string, rawConn net.Conn, nasAddr string, serverCertsRecordWii []byte, rsaKeyWii *rsa.PrivateKey, serverCertsRecordDS []byte, rsaKeyDS *rsa.PrivateKey) {
 	// Recover from panics
 	defer func() {
 		if r := recover(); r != nil {
@@ -283,8 +283,10 @@ func handleTLS(moduleName string, rawConn net.Conn, nasAddr string, privKeyPath 
 			}
 		}
 		if index == 0x1D {
-			macFn, cipher, clientCipher := handleWiiTLSHandshake(moduleName, conn, serverCertsRecordWii, rsaKeyWii)
-			proxyConsoleTLS(moduleName, conn, nasAddr, VersionTLS10, macFn, cipher, clientCipher)
+			macFn, cipher, clientCipher, err := handleWiiTLSHandshake(moduleName, conn, serverCertsRecordWii, rsaKeyWii)
+			if err == nil && macFn != nil && cipher != nil && clientCipher != nil {
+				proxyConsoleTLS(moduleName, conn, nasAddr, VersionTLS10, macFn, cipher, clientCipher)
+			}
 			return
 		}
 	}
@@ -306,21 +308,25 @@ func handleTLS(moduleName string, rawConn net.Conn, nasAddr string, privKeyPath 
 			}
 		}
 		if index == 0x0B {
-			macFn, cipher, clientCipher := handleDSSSLHandshake(moduleName, conn, serverCertsRecordDS, rsaKeyDS)
-			proxyConsoleTLS(moduleName, conn, nasAddr, VersionSSL30, macFn, cipher, clientCipher)
+			macFn, cipher, clientCipher, err := handleDSSSLHandshake(moduleName, conn, serverCertsRecordDS, rsaKeyDS)
+			if err == nil && macFn != nil && cipher != nil && clientCipher != nil {
+				proxyConsoleTLS(moduleName, conn, nasAddr, VersionSSL30, macFn, cipher, clientCipher)
+			}
 			return
 		}
 	}
 
+	conn.SetDeadline(time.Now().Add(25 * time.Second))
+
 	// logging.Info(moduleName, "Forwarding client hello:", aurora.Cyan(fmt.Sprintf("% X ", helloBytes)))
-	handleRealTLS(moduleName, conn, nasAddr, privKeyPath, certsPath)
+	handleRealTLS(moduleName, conn, nasAddr)
 }
 
-func handleWiiTLSHandshake(moduleName string, conn bufferedConn, serverCertsRecord []byte, rsaKey *rsa.PrivateKey) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher) {
+func handleWiiTLSHandshake(moduleName string, conn bufferedConn, serverCertsRecord []byte, rsaKey *rsa.PrivateKey) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher, err error) {
 	// fmt.Printf("\n")
 
 	clientHello := make([]byte, 0x2D)
-	_, err := io.ReadFull(conn.r, clientHello)
+	_, err = io.ReadFull(conn.r, clientHello)
 	if err != nil {
 		logging.Error(moduleName, "Failed to read from client:", err)
 		return
@@ -371,7 +377,8 @@ func handleWiiTLSHandshake(moduleName string, conn bufferedConn, serverCertsReco
 	index := 0
 	// Read client key exchange (+ change cipher spec + finished)
 	for {
-		n, err := conn.Read(buf[index:])
+		var n int
+		n, err = conn.Read(buf[index:])
 		if err != nil {
 			logging.Error(moduleName, "Failed to read from client:", err)
 			return
@@ -385,6 +392,7 @@ func handleWiiTLSHandshake(moduleName string, conn bufferedConn, serverCertsReco
 			0x16, 0x03, 0x01, 0x00, 0x86, 0x10, 0x00, 0x00, 0x82, 0x00, 0x80,
 		}, buf[:min(index, 0x0B)]) {
 			logging.Error(moduleName, "Invalid client key exchange header:", aurora.Cyan(fmt.Sprintf("% X ", buf[:min(index, 0x0B)])))
+			err = errors.New("invalid client key exchange header")
 			return
 		}
 
@@ -394,6 +402,7 @@ func handleWiiTLSHandshake(moduleName string, conn bufferedConn, serverCertsReco
 				0x14, 0x03, 0x01, 0x00, 0x01, 0x01, 0x16, 0x03, 0x01, 0x00, 0x20,
 			}) {
 				logging.Error(moduleName, "Invalid client change cipher spec + finished header:", aurora.Cyan(fmt.Sprintf("%X ", buf[0x8B:min(index, 0x8B+0x0B)])))
+				err = errors.New("invalid client change cipher spec + finished header")
 				return
 			}
 		}
@@ -405,6 +414,7 @@ func handleWiiTLSHandshake(moduleName string, conn bufferedConn, serverCertsReco
 
 		if index > 0xB6 {
 			logging.Error(moduleName, "Invalid client key exchange length:", aurora.BrightCyan(index))
+			err = errors.New("invalid client key exchange length")
 			return
 		}
 	}
@@ -426,11 +436,13 @@ func handleWiiTLSHandshake(moduleName string, conn bufferedConn, serverCertsReco
 
 	if len(preMasterSecret) != 48 {
 		logging.Error(moduleName, "Invalid pre master secret length:", aurora.BrightCyan(len(preMasterSecret)))
+		err = errors.New("invalid pre master secret length")
 		return
 	}
 
 	if !bytes.Equal(preMasterSecret[:2], []byte{0x03, 0x01}) {
 		logging.Error(moduleName, "Invalid TLS version in pre master secret:", aurora.BrightCyan(preMasterSecret[:2]))
+		err = errors.New("invalid TLS version in pre master secret")
 		return
 	}
 
@@ -465,9 +477,6 @@ func handleWiiTLSHandshake(moduleName string, conn bufferedConn, serverCertsReco
 	// Create the hmac cipher
 	macFn = macMD5(VersionTLS10, serverMAC)
 
-	// Create the hmac cipher
-	// clientMacFn := hmac.New(md5.New, clientMAC)
-
 	// Decrypt client finish
 	clientCipher.XORKeyStream(clientFinish, clientFinish)
 	finishHash.Write(clientFinish[:0x10])
@@ -492,9 +501,9 @@ func handleWiiTLSHandshake(moduleName string, conn bufferedConn, serverCertsReco
 	return
 }
 
-func handleDSSSLHandshake(moduleName string, conn bufferedConn, serverCertsRecord []byte, rsaKey *rsa.PrivateKey) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher) {
+func handleDSSSLHandshake(moduleName string, conn bufferedConn, serverCertsRecord []byte, rsaKey *rsa.PrivateKey) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher, err error) {
 	clientHello := make([]byte, 0x34)
-	_, err := io.ReadFull(conn.r, clientHello)
+	_, err = io.ReadFull(conn.r, clientHello)
 	if err != nil {
 		logging.Error(moduleName, "Failed to read from client:", err)
 		return
@@ -544,7 +553,8 @@ func handleDSSSLHandshake(moduleName string, conn bufferedConn, serverCertsRecor
 	index := 0
 	// Read client key exchange (+ change cipher spec + finished)
 	for {
-		n, err := conn.Read(buf[index:])
+		var n int
+		n, err = conn.Read(buf[index:])
 		if err != nil {
 			logging.Error(moduleName, "Failed to read from client:", err)
 			return
@@ -558,6 +568,7 @@ func handleDSSSLHandshake(moduleName string, conn bufferedConn, serverCertsRecor
 			0x16, 0x03, 0x00, 0x00, 0x84, 0x10, 0x00, 0x00, 0x80,
 		}, buf[:min(index, 0x09)]) {
 			logging.Error(moduleName, "Invalid client key exchange header:", aurora.Cyan(fmt.Sprintf("% X ", buf[:min(index, 0x09)])))
+			err = errors.New("invalid client key exchange header")
 			return
 		}
 
@@ -567,6 +578,7 @@ func handleDSSSLHandshake(moduleName string, conn bufferedConn, serverCertsRecor
 				0x14, 0x03, 0x00, 0x00, 0x01, 0x01, 0x16, 0x03, 0x00, 0x00, 0x38,
 			}) {
 				logging.Error(moduleName, "Invalid client change cipher spec + finished header:", aurora.Cyan(fmt.Sprintf("%X ", buf[0x89:min(index, 0x89+0x0B)])))
+				err = errors.New("invalid client change cipher spec + finished header")
 				return
 			}
 		}
@@ -578,6 +590,7 @@ func handleDSSSLHandshake(moduleName string, conn bufferedConn, serverCertsRecor
 
 		if index > 0xCC {
 			logging.Error(moduleName, "Invalid client key exchange length:", aurora.BrightCyan(index))
+			err = errors.New("invalid client key exchange length")
 			return
 		}
 	}
@@ -599,11 +612,13 @@ func handleDSSSLHandshake(moduleName string, conn bufferedConn, serverCertsRecor
 
 	if len(preMasterSecret) != 48 {
 		logging.Error(moduleName, "Invalid pre master secret length:", aurora.BrightCyan(len(preMasterSecret)))
+		err = errors.New("invalid pre master secret length")
 		return
 	}
 
 	if !bytes.Equal(preMasterSecret[:2], []byte{0x03, 0x00}) {
 		logging.Error(moduleName, "Invalid TLS version in pre master secret:", aurora.BrightCyan(preMasterSecret[:2]))
+		err = errors.New("invalid TLS version in pre master secret")
 		return
 	}
 
@@ -637,9 +652,6 @@ func handleDSSSLHandshake(moduleName string, conn bufferedConn, serverCertsRecor
 
 	// Create the mac function
 	macFn = macMD5(VersionSSL30, serverMAC)
-
-	// Create the mac function
-	// clientMacFn := macMD5(VersionSSL30, clientMAC)
 
 	// Decrypt client finish
 	clientCipher.XORKeyStream(clientFinish, clientFinish)
@@ -806,7 +818,7 @@ func setupRealTLS(privKeyPath string, certsPath string) {
 }
 
 // handleRealTLS handles the TLS request legitimately using crypto/tls
-func handleRealTLS(moduleName string, conn net.Conn, nasAddr string, privKeyPath string, certsPath string) {
+func handleRealTLS(moduleName string, conn net.Conn, nasAddr string) {
 	// Recover from panics
 	defer func() {
 		if r := recover(); r != nil {
@@ -1076,18 +1088,6 @@ func finishedSum30(md5, sha1 hash.Hash, masterSecret []byte, magic [4]byte) []by
 	copy(ret, md5Digest)
 	copy(ret[len(md5Digest):], sha1Digest)
 	return ret
-}
-
-// clientSum returns the contents of the verify_data member of a client's
-// Finished message.
-func (h finishedHash) clientSum(masterSecret []byte) []byte {
-	if h.version == VersionSSL30 {
-		return finishedSum30(h.clientMD5, h.client, masterSecret, [4]byte{0x43, 0x4c, 0x4e, 0x54})
-	}
-
-	out := make([]byte, 12)
-	prf10(out, masterSecret, []byte("client finished"), h.Sum())
-	return out
 }
 
 // serverSum returns the contents of the verify_data member of a server's
