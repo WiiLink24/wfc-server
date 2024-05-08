@@ -62,14 +62,30 @@ func Ready() error {
 }
 
 // Shutdown will notify the frontend that the backend is shutting down
-func Shutdown() error {
+func Shutdown() (string, error) {
 	if rpcFrontend == nil {
 		ConnectFrontend()
 	}
 
-	err := rpcFrontend.Call("RPCFrontendPacket.ShutdownBackend", struct{}{}, nil)
+	var stateUuid string
+	err := rpcFrontend.Call("RPCFrontendPacket.ShutdownBackend", struct{}{}, &stateUuid)
 	if err != nil {
 		logging.Error("COMMON", "Failed to notify frontend that backend is shutting down:", err)
 	}
-	return err
+
+	return stateUuid, err
+}
+
+// VerifyState will verify the state UUID with the frontend
+func VerifyState(stateUuid string) (bool, error) {
+	if rpcFrontend == nil {
+		ConnectFrontend()
+	}
+
+	valid := false
+	err := rpcFrontend.Call("RPCFrontendPacket.VerifyState", stateUuid, &valid)
+	if err != nil {
+		logging.Error("COMMON", "Failed to verify state UUID with frontend:", err)
+	}
+	return valid, err
 }
