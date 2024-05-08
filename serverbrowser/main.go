@@ -42,7 +42,7 @@ func StartServer(reload bool) {
 	}
 
 	// Load connection state
-	file, err := os.Open("/state/sb_connections.gob")
+	file, err := os.Open("state/sb_connections.gob")
 	if err != nil {
 		panic(err)
 	}
@@ -55,11 +55,13 @@ func StartServer(reload bool) {
 	if err != nil {
 		panic(err)
 	}
+
+	logging.Notice("SB", "Loaded", aurora.Cyan(len(connBuffers)), "connections")
 }
 
 func Shutdown() {
 	// Save connection state
-	file, err := os.OpenFile("/state/sb_connections.gob", os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("state/sb_connections.gob", os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -71,6 +73,8 @@ func Shutdown() {
 	if err != nil {
 		panic(err)
 	}
+
+	logging.Notice("SB", "Saved", aurora.Cyan(len(connBuffers)), "connections")
 }
 
 func NewConnection(index uint64, address string) {

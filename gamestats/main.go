@@ -70,7 +70,7 @@ func StartServer(reload bool) {
 
 	if reload {
 		// Load state
-		file, err := os.Open("/state/gstats_sessions.gob")
+		file, err := os.Open("state/gstats_sessions.gob")
 		if err != nil {
 			panic(err)
 		}
@@ -93,12 +93,14 @@ func StartServer(reload bool) {
 				delete(sessionsByConnIndex, session.ConnIndex)
 			}
 		}
+
+		logging.Notice("GSTATS", "Loaded", aurora.Cyan(len(sessionsByConnIndex)), "sessions")
 	}
 }
 
 func Shutdown() {
 	// Save state
-	file, err := os.OpenFile("/state/gstats_sessions.gob", os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("state/gstats_sessions.gob", os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -111,6 +113,10 @@ func Shutdown() {
 	if err != nil {
 		panic(err)
 	}
+
+	pool.Close()
+
+	logging.Notice("GSTATS", "Saved", aurora.Cyan(len(sessionsByConnIndex)), "sessions")
 }
 
 func NewConnection(index uint64, address string) {
