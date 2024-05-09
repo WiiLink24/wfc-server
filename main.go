@@ -38,12 +38,25 @@ func main() {
 
 	// Separate frontend and backend into two separate processes.
 	// This is to allow restarting the backend without closing all connections.
+	noSignal := false
+	noReload := false
+
+	if len(args) > 1 {
+		for _, arg := range args[1:] {
+			switch arg {
+			case "--nosignal":
+				noSignal = true
+			case "--noreload":
+				noReload = true
+			}
+		}
+	}
 
 	// Start the backend instead of the frontend if the first argument is "backend"
 	if len(args) > 0 && args[0] == "backend" {
-		backendMain(len(args) > 1 && args[1] == "noreload")
+		backendMain(noSignal, noReload)
 	} else {
-		frontendMain(len(args) > 0 && args[0] == "frontend")
+		frontendMain(noSignal, len(args) > 0 && args[0] == "frontend")
 	}
 }
 
@@ -55,7 +68,7 @@ type RPCPacket struct {
 }
 
 // backendMain starts all the servers and creates an RPC server to communicate with the frontend
-func backendMain(noreload bool) {
+func backendMain(noSignal, noReload bool) {
 	sigExit := make(chan os.Signal, 1)
 	signal.Notify(sigExit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -75,7 +88,7 @@ func backendMain(noreload bool) {
 	common.ConnectFrontend()
 
 	uuid := ""
-	if !noreload {
+	if !noReload {
 		uuid = loadUuidFile()
 	}
 
@@ -116,6 +129,10 @@ func backendMain(noreload bool) {
 	// Wait for a signal to shutdown
 	<-sigExit
 
+	if noSignal {
+		select {}
+	}
+
 	stateUuid, err := common.Shutdown()
 	if err != nil {
 		panic(err)
@@ -127,7 +144,6 @@ func backendMain(noreload bool) {
 func loadUuidFile() string {
 	stateFile, err := os.Open("state/uuid.txt")
 	if err != nil {
-		logging.Error("BACKEND", "Failed to open state file:", err)
 		return ""
 	}
 
@@ -192,6 +208,11 @@ func (r *RPCPacket) CloseConnection(args RPCPacket, _ *struct{}) error {
 
 // RPCPacket.Shutdown is called by the frontend to shutdown the backend
 func (r *RPCPacket) Shutdown(stateUuid string, _ *struct{}) error {
+	if stateUuid == "" {
+		os.Exit(0)
+		return nil
+	}
+
 	wg := &sync.WaitGroup{}
 	actions := []func(){nas.Shutdown, gpcm.Shutdown, qr2.Shutdown, gpsp.Shutdown, serverbrowser.Shutdown, sake.Shutdown, natneg.Shutdown, api.Shutdown, gamestats.Shutdown}
 	wg.Add(len(actions))
@@ -238,16 +259,25 @@ type RPCFrontendPacket struct {
 var (
 	rpcClient *rpc.Client
 
-	rpcMutex     sync.Mutex
+	// This mutex could be locked for a very long time, don't use deadlock detection
+	rpcMutex sync.Mutex
+
 	rpcBusyCount sync.WaitGroup
 	backendReady = make(chan struct{})
 	frontendUuid string
 
 	connections = map[string]map[uint64]*net.Conn{}
+
+	integrated = false
 )
 
 // frontendMain starts the backend process and communicates with it using RPC
-func frontendMain(noBackend bool) {
+func frontendMain(noSignal, noBackend bool) {
+	integrated = !noBackend
+
+	sigExit := make(chan os.Signal, 1)
+	signal.Notify(sigExit, syscall.SIGINT, syscall.SIGTERM)
+
 	// Don't allow the frontend to output to a file (there's no reason to)
 	logOutput := config.LogOutput
 	if logOutput == "StdOutAndFile" {
@@ -280,8 +310,19 @@ func frontendMain(noBackend bool) {
 		go frontendListen(server)
 	}
 
-	// Prevent application from exiting
-	select {}
+	// Wait for a signal to shutdown
+	<-sigExit
+
+	if noSignal {
+		select {}
+	}
+
+	if rpcClient == nil {
+		return
+	}
+
+	rpcClient.Call("RPCPacket.Shutdown", "", nil)
+	rpcClient.Close()
 }
 
 // startFrontendServer starts the frontend RPC server.
@@ -323,9 +364,9 @@ func startBackendProcess(reload bool, wait bool) {
 
 	var cmd *exec.Cmd
 	if reload {
-		cmd = exec.Command(exe, "backend", "reload")
+		cmd = exec.Command(exe, "backend", "--nosignal")
 	} else {
-		cmd = exec.Command(exe, "backend")
+		cmd = exec.Command(exe, "backend", "--noreload", "--nosignal")
 	}
 
 	cmd.Stdout = os.Stdout
@@ -524,7 +565,7 @@ func (r *RPCFrontendPacket) ReloadBackend(_ struct{}, _ *struct{}) error {
 	return nil
 }
 
-// RPCFrontendPacket.ShutdownBackend is called by an external program to shutdown the backend
+// RPCFrontendPacket.ShutdownBackend is called by the backend to prepare for shutdown
 func (r *RPCFrontendPacket) ShutdownBackend(_ struct{}, uuid *string) error {
 	logging.Notice("FRONTEND", "Shutting down backend")
 
@@ -533,10 +574,14 @@ func (r *RPCFrontendPacket) ShutdownBackend(_ struct{}, uuid *string) error {
 
 	rpcBusyCount.Wait()
 
-	go waitForBackend()
+	if !integrated {
+		go waitForBackend()
 
-	frontendUuid = common.RandomString(32)
-	*uuid = frontendUuid
+		frontendUuid = common.RandomString(32)
+		*uuid = frontendUuid
+	} else {
+		*uuid = ""
+	}
 
 	return nil
 }
@@ -565,7 +610,8 @@ func (r *RPCFrontendPacket) VerifyState(uuid string, reload *bool) error {
 		return nil
 	}
 
-	*reload = true
+	*reload = uuid != ""
+
 	return nil
 }
 
