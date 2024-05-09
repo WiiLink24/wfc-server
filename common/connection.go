@@ -2,6 +2,7 @@ package common
 
 import (
 	"net/rpc"
+	"time"
 	"wwfc/logging"
 )
 
@@ -16,9 +17,16 @@ type RPCFrontendPacket struct {
 // ConnectFrontend connects to the frontend RPC server
 func ConnectFrontend() {
 	var err error
-	rpcFrontend, err = rpc.Dial("tcp", "localhost:29998")
-	if err != nil {
-		panic(err)
+	for i := 0; rpcFrontend == nil; i++ {
+		rpcFrontend, err = rpc.Dial("tcp", "localhost:29998")
+		if err != nil {
+			if i > 20 {
+				panic(err)
+			}
+
+			// Sleep for 200 ms before trying again
+			<-time.After(200 * time.Millisecond)
+		}
 	}
 }
 
