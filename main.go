@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 	"wwfc/api"
 	"wwfc/common"
 	"wwfc/gamestats"
@@ -77,7 +78,7 @@ func backendMain(noSignal, noReload bool) {
 	}
 
 	rpc.Register(&RPCPacket{})
-	address := "localhost:29999"
+	address := config.BackendAddress
 
 	l, err := net.Listen("tcp", address)
 	if err != nil {
@@ -328,7 +329,7 @@ func frontendMain(noSignal, noBackend bool) {
 // startFrontendServer starts the frontend RPC server.
 func startFrontendServer() {
 	rpc.Register(&RPCFrontendPacket{})
-	address := "localhost:29998"
+	address := config.FrontendAddress
 
 	l, err := net.Listen("tcp", address)
 	if err != nil {
@@ -389,7 +390,7 @@ func waitForBackend() {
 	backendReady = make(chan struct{})
 
 	for {
-		client, err := rpc.Dial("tcp", "localhost:29999")
+		client, err := rpc.Dial("tcp", config.FrontendBackendAddress)
 		if err == nil {
 			rpcClient = client
 			rpcMutex.Unlock()
@@ -398,6 +399,8 @@ func waitForBackend() {
 
 			return
 		}
+
+		<-time.After(50 * time.Millisecond)
 	}
 }
 

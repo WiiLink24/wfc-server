@@ -16,9 +16,11 @@ type RPCFrontendPacket struct {
 
 // ConnectFrontend connects to the frontend RPC server
 func ConnectFrontend() {
+	config := GetConfig()
+
 	var err error
 	for i := 0; rpcFrontend == nil; i++ {
-		rpcFrontend, err = rpc.Dial("tcp", "localhost:29998")
+		rpcFrontend, err = rpc.Dial("tcp", config.BackendFrontendAddress)
 		if err != nil {
 			if i > 20 {
 				panic(err)

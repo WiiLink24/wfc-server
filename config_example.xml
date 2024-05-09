@@ -2,6 +2,18 @@
     <!-- The address the GameSpy services will bind to -->
     <gsAddress>127.0.0.1</gsAddress>
 
+    <!-- The address the frontend RPC server will bind to -->
+    <frontendAddress>127.0.0.1:29998</frontendAddress>
+
+    <!-- The address the frontend can reach the backend from -->
+    <frontendBackendAddress>127.0.0.1:29999</frontendBackendAddress>
+
+    <!-- The address the backend RPC server will bind to -->
+    <backendAddress>127.0.0.1:29999</backendAddress>
+
+    <!-- The address the backend can reach the frontend from -->
+    <backendFrontendAddress>127.0.0.1:29998</backendFrontendAddress>
+
     <!-- The address the NAS HTTP server will bind to -->
     <nasAddress>127.0.0.1</nasAddress>
     <nasPort>80</nasPort>
