@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
+	"strings"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -20,7 +21,6 @@ var ServerName = "gpcm"
 type GameSpySession struct {
 	ConnIndex           uint64
 	RemoteAddr          string
-	WriteBuffer         string
 	User                database.User
 	ModuleName          string
 	LoggedIn            bool
@@ -54,6 +54,9 @@ type GameSpySession struct {
 	ReservationPID uint32
 
 	NeedsExploit bool
+
+	ReadBuffer  []byte
+	WriteBuffer string
 }
 
 var (
@@ -185,10 +188,43 @@ func HandlePacket(index uint64, data []byte) {
 		}
 	}()
 
-	commands, err := common.ParseGameSpyMessage(string(data))
+	// Enforce maximum buffer size
+	length := len(session.ReadBuffer) + len(data)
+	if length > 0x4000 {
+		logging.Error(session.ModuleName, "Buffer overflow")
+		return
+	}
+
+	session.ReadBuffer = append(session.ReadBuffer, data...)
+
+	// Packets can be received in fragments, so make sure we're at the end of a packet
+	if string(session.ReadBuffer[max(0, length-7):length]) != `\final\` {
+		return
+	}
+
+	builder := strings.Builder{}
+	builder.Grow(length)
+
+	// Copy one rune at a time to enforce ASCII (rather than UTF-8)
+	for i := 0; i < length; i++ {
+		if session.ReadBuffer[i] == 0 {
+			logging.Error(session.ModuleName, "Null byte in packet")
+			logging.Error(session.ModuleName, "Raw data:", string(data))
+			session.replyError(ErrParse)
+			session.ReadBuffer = []byte{}
+			return
+		}
+
+		builder.WriteRune(rune(session.ReadBuffer[i]))
+	}
+
+	message := builder.String()
+	session.ReadBuffer = []byte{}
+
+	commands, err := common.ParseGameSpyMessage(message)
 	if err != nil {
 		logging.Error(session.ModuleName, "Error parsing message:", err.Error())
-		logging.Error(session.ModuleName, "Raw data:", string(data))
+		logging.Error(session.ModuleName, "Raw data:", message)
 		session.replyError(ErrParse)
 		return
 	}
@@ -222,7 +258,21 @@ func HandlePacket(index uint64, data []byte) {
 	}
 
 	if session.WriteBuffer != "" {
-		common.SendPacket(ServerName, session.ConnIndex, []byte(session.WriteBuffer))
+		data := []byte{}
+		logged := false
+		for c := 0; c < len(session.WriteBuffer); c++ {
+			if session.WriteBuffer[c] > 0xff || session.WriteBuffer[c] == 0x00 {
+				if !logged {
+					logging.Warn(session.ModuleName, "Non-char or null byte in response packet:", session.WriteBuffer)
+					logged = true
+				}
+				continue
+			}
+
+			data = append(data, session.WriteBuffer[c])
+		}
+
+		common.SendPacket(ServerName, session.ConnIndex, data)
 		session.WriteBuffer = ""
 	}
 }
