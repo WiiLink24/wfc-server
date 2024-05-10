@@ -542,8 +542,6 @@ func (r *RPCFrontendPacket) CloseConnection(args RPCFrontendPacket, _ *struct{})
 		return ErrBadIndex
 	}
 
-	delete(connections[args.Server], args.Index)
-
 	return (*conn).Close()
 }
 
