@@ -220,6 +220,7 @@ func HandlePacket(index uint64, data []byte) {
 	}
 
 	message := decrypted.String()
+	session.ReadBuffer = []byte{}
 
 	commands, err := common.ParseGameSpyMessage(message)
 	if err != nil {
