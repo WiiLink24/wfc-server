@@ -25,7 +25,21 @@ func handleSearch(command common.GameSpyCommand) string {
 	}
 
 	moduleName = "GPSP:" + strconv.FormatUint(profileId, 10)
-	logging.Info(moduleName, "Search for", aurora.Cyan(profileId))
+
+	logInfo := ""
+	for _, field := range []string{
+		"nick", "uniquenick", "email", "firstname", "lastname", "icquin", "skip",
+	} {
+		if value, ok := command.OtherValues[field]; ok {
+			logInfo += " " + aurora.BrightCyan(field).String() + ": '" + aurora.Cyan(value).String() + "'"
+		}
+	}
+
+	if logInfo == "" {
+		logging.Info(moduleName, "Search with no fields")
+	} else {
+		logging.Info(moduleName, "Search"+logInfo)
+	}
 
 	return common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command: "bsrdone",
