@@ -65,11 +65,15 @@ func (g *GameSpySession) getAuthorizedFriendIndex(profileId uint32) int {
 const (
 	// addFriendMessage = "\r\n\r\n|signed|00000000000000000000000000000000"
 
-	// TODO: Check if this is needed for any game, it sends via bm 1
-	// authFriendMessage = "I have authorized your request to add me to your list"
+	// Message used by DS games and some Wii games
+	bm1AuthMessage = "I have authorized your request to add me to your list"
 
 	logOutMessage = "|s|0|ss|Offline|ls||ip|0|p|0|qm|0"
 )
+
+func (g *GameSpySession) isBm1AuthMessageNeeded() bool {
+	return g.UnitCode == UnitCodeDS || g.UnitCode == UnitCodeDSAndWii || g.GameName == "jissenpachwii" || g.GameName == "drmariowii" || g.GameName == "pokebattlewii"
+}
 
 func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 	strNewProfileId := command.OtherValues["newprofileid"]
@@ -133,9 +137,19 @@ func (g *GameSpySession) addFriend(command common.GameSpyCommand) {
 
 	// Send friend auth message
 	sendMessageToSessionBuffer("4", newSession.User.ProfileId, g, "")
+
+	if g.isBm1AuthMessageNeeded() {
+		sendMessageToSessionBuffer("1", newSession.User.ProfileId, g, bm1AuthMessage)
+	}
+
 	if newSession.isFriendAdded(g.User.ProfileId) && !g.User.OpenHost {
 		// If we're open host then this would've been sent already
 		sendMessageToSession("4", g.User.ProfileId, newSession, "")
+
+		if newSession.isBm1AuthMessageNeeded() {
+			sendMessageToSession("1", g.User.ProfileId, newSession, bm1AuthMessage)
+		}
+
 		g.sendFriendStatus(newSession.User.ProfileId)
 	}
 
@@ -348,6 +362,11 @@ func (g *GameSpySession) openHostEnabled(sendStatus bool, lock bool) {
 			session.AuthFriendList = append(session.AuthFriendList, g.User.ProfileId)
 			g.AuthFriendList = append(g.AuthFriendList, session.User.ProfileId)
 			sendMessageToSession("4", g.User.ProfileId, session, "")
+
+			if session.isBm1AuthMessageNeeded() {
+				sendMessageToSession("1", g.User.ProfileId, session, bm1AuthMessage)
+			}
+
 			if sendStatus {
 				session.sendFriendStatus(g.User.ProfileId)
 			}
