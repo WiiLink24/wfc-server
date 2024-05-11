@@ -37,7 +37,7 @@ func (session *NATNEGSession) handlePreinit(conn net.PacketConn, addr net.Addr, 
 	// Hopefully just returning "ready" will cause the games to continue with NATNEG as normal.
 
 	packet := createPacketHeader(version, NNPreInitReply, session.Cookie)
+	buffer[1] = NNPreInitReady
 	packet = append(packet, buffer[:6]...)
-	packet[1] = NNPreInitReady
 	conn.WriteTo(packet, addr)
 }
