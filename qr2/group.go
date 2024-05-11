@@ -699,11 +699,19 @@ func loadGroups() error {
 			continue
 		}
 
+		if group.players == nil {
+			group.players = map[*Session]bool{}
+		}
+
 		group.players[session] = true
 		session.groupPointer = group
 	}
 
 	for _, group := range groups {
+		if group.players == nil {
+			group.players = map[*Session]bool{}
+		}
+
 		group.findNewServer()
 	}
 
