@@ -325,7 +325,10 @@ func loadSessions() error {
 			sessionBySearchID[session.SearchID] = session
 		}
 
+		session.messageMutex = &deadlock.Mutex{}
 		session.messageAckWaker = &sleep.Waker{}
+		session.groupPointer = nil
+		session.login = nil
 	}
 
 	return nil
