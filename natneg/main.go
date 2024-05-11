@@ -11,7 +11,6 @@ import (
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
-	"wwfc/qr2"
 
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -287,6 +286,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 	case NNPreInitRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("NN_PREINIT"))
+		session.handlePreinit(conn, addr, buffer[12:], moduleName, version)
 
 	case NNPreInitReply:
 		logging.Warn(moduleName, "Received server command:", aurora.Yellow("NN_PREINIT_ACK"))
@@ -349,94 +349,6 @@ func getPortTypeName(portType byte) string {
 	}
 }
 
-func (session *NATNEGSession) handleInit(conn net.PacketConn, addr net.Addr, buffer []byte, moduleName string, version byte) {
-	if len(buffer) < 10 {
-		logging.Error(moduleName, "Invalid packet size")
-		return
-	}
-
-	portType := buffer[0]
-	clientIndex := buffer[1]
-	useGamePort := buffer[2]
-	localIPBytes := buffer[3:7]
-	localPort := binary.BigEndian.Uint16(buffer[7:9])
-	gameName, err := common.GetString(buffer[9:])
-	if err != nil {
-		logging.Error(moduleName, "Invalid gameName")
-		return
-	}
-
-	expectedSize := 9 + len(gameName) + 1
-	if len(buffer) != expectedSize {
-		logging.Warn(moduleName, "Stray", aurora.BrightCyan(len(buffer)-expectedSize), "bytes after packet")
-	}
-
-	localIPStr := fmt.Sprintf("%d.%d.%d.%d:%d", localIPBytes[0], localIPBytes[1], localIPBytes[2], localIPBytes[3], localPort)
-
-	if portType > 0x03 {
-		logging.Error(moduleName, "Invalid port type")
-		return
-	}
-	if useGamePort > 1 {
-		logging.Error(moduleName, "Invalid", aurora.BrightGreen("Use Game Port"), "value")
-		return
-	}
-	if useGamePort == 0 && portType == PortTypeGamePort {
-		logging.Error(moduleName, "Request uses game port but use game port is disabled")
-		return
-	}
-
-	// Write the init acknowledgement to the requester address
-	ackHeader := createPacketHeader(version, NNInitReply, session.Cookie)
-	ackHeader = append(ackHeader, portType, clientIndex)
-	ackHeader = append(ackHeader, 0xff, 0xff, 0x6d, 0x16, 0xb5, 0x7d, 0xea)
-	conn.WriteTo(ackHeader, addr)
-
-	sender, exists := session.Clients[clientIndex]
-	if !exists {
-		logging.Notice(moduleName, "Creating client index", aurora.Cyan(clientIndex))
-
-		for _, other := range session.Clients {
-			if other.GameName != gameName {
-				logging.Error(moduleName, "Game name mismatch", aurora.Cyan(other.GameName), "!=", aurora.Cyan(gameName))
-				return
-			}
-		}
-
-		sender = &NATNEGClient{
-			Cookie:          session.Cookie,
-			Index:           clientIndex,
-			ConnectingIndex: clientIndex,
-			Result:          map[byte]byte{},
-			NegotiateIP:     "",
-			LocalIP:         "",
-			ServerIP:        "",
-			GameName:        "",
-		}
-		session.Clients[clientIndex] = sender
-	}
-
-	sender.GameName = gameName
-
-	if portType != PortTypeGamePort {
-		sender.NegotiateIP = addr.String()
-	}
-	if localPort != 0 {
-		sender.LocalIP = localIPStr
-	}
-	if useGamePort == 0 || portType == PortTypeGamePort {
-		sender.ServerIP = addr.String()
-	}
-
-	if !sender.isMapped() {
-		return
-	}
-	// logging.Info(moduleName, "Mapped", aurora.BrightCyan(sender.NegotiateIP), aurora.BrightCyan(sender.LocalIP), aurora.BrightCyan(sender.ServerIP))
-
-	// Send the connect requests
-	session.sendConnectRequests(moduleName)
-}
-
 func (client *NATNEGClient) isMapped() bool {
 	if client.NegotiateIP == "" || client.ServerIP == "" {
 		return false
@@ -448,114 +360,4 @@ func (client *NATNEGClient) isMapped() bool {
 func createPacketHeader(version byte, command byte, cookie uint32) []byte {
 	header := []byte{0xfd, 0xfc, 0x1e, 0x66, 0x6a, 0xb2, version, command}
 	return binary.BigEndian.AppendUint32(header, cookie)
-}
-
-func (session *NATNEGSession) sendConnectRequests(moduleName string) {
-	for id, sender := range session.Clients {
-		if !sender.isMapped() || sender.ConnectingIndex != id {
-			continue
-		}
-
-		for destID, destination := range session.Clients {
-			if id == destID || !destination.isMapped() || destination.ConnectingIndex != destID {
-				continue
-			}
-
-			if _, hasResult := destination.Result[id]; hasResult {
-				continue
-			}
-
-			logging.Notice(moduleName, "Exchange connect requests between", aurora.BrightCyan(id), "and", aurora.BrightCyan(destID))
-			sender.ConnectingIndex = destID
-			sender.ConnectAck = false
-			destination.ConnectingIndex = id
-			destination.ConnectAck = false
-
-			go func(session *NATNEGSession, sender *NATNEGClient, destination *NATNEGClient) {
-				for {
-					if !session.Open {
-						return
-					}
-
-					check := false
-
-					if !destination.ConnectAck && destination.ConnectingIndex == sender.Index {
-						check = true
-						sender.sendConnectRequestPacket(natnegConn, destination, session.Version)
-					}
-
-					if !sender.ConnectAck && sender.ConnectingIndex == destination.Index {
-						check = true
-						destination.sendConnectRequestPacket(natnegConn, sender, session.Version)
-					}
-
-					if !check {
-						return
-					}
-
-					time.Sleep(500 * time.Millisecond)
-				}
-			}(session, sender, destination)
-		}
-	}
-}
-
-func (client *NATNEGClient) sendConnectRequestPacket(conn net.PacketConn, destination *NATNEGClient, version byte) {
-	connectHeader := createPacketHeader(version, NNConnectRequest, destination.Cookie)
-	connectHeader = append(connectHeader, common.IPFormatBytes(client.ServerIP)...)
-	_, port := common.IPFormatToInt(client.ServerIP)
-	connectHeader = binary.BigEndian.AppendUint16(connectHeader, port)
-	// Two bytes: "gotyourdata" and "finished"
-	connectHeader = append(connectHeader, 0x42, 0x00)
-
-	destIPAddr, err := net.ResolveUDPAddr("udp", destination.NegotiateIP)
-	if err != nil {
-		panic(err)
-	}
-	conn.WriteTo(connectHeader, destIPAddr)
-}
-
-func (session *NATNEGSession) handleConnectReply(conn net.PacketConn, addr net.Addr, buffer []byte, moduleName string, version byte) {
-	// portType := buffer[0]
-	clientIndex := buffer[1]
-	// useGamePort := buffer[2]
-	// localIPBytes := buffer[3:7]
-
-	if client, exists := session.Clients[clientIndex]; exists {
-		client.ConnectAck = true
-	}
-}
-
-func (session *NATNEGSession) handleReport(conn net.PacketConn, addr net.Addr, buffer []byte, _ string, version byte) {
-	response := createPacketHeader(version, NNReportReply, session.Cookie)
-	response = append(response, buffer[:9]...)
-	response[14] = 0
-	conn.WriteTo(response, addr)
-
-	// portType := buffer[0]
-	clientIndex := buffer[1]
-	result := buffer[2]
-	// natType := buffer[3]
-	// mappingScheme := buffer[7]
-	// gameName, err := common.GetString(buffer[11:])
-
-	moduleName := "NATNEG:" + fmt.Sprintf("%08x/", session.Cookie) + addr.String()
-	logging.Notice(moduleName, "Report from", aurora.BrightCyan(clientIndex), "result:", aurora.Cyan(result))
-
-	if client, exists := session.Clients[clientIndex]; exists {
-		client.Result[client.ConnectingIndex] = result
-		connecting := session.Clients[client.ConnectingIndex]
-		client.ConnectingIndex = clientIndex
-		client.ConnectAck = false
-
-		if otherResult, hasResult := connecting.Result[clientIndex]; hasResult {
-			if otherResult != 1 {
-				result = otherResult
-			}
-			qr2.ProcessNATNEGReport(result, client.ServerIP, connecting.ServerIP)
-		}
-	}
-
-	// Send remaining requests
-	session.sendConnectRequests(moduleName)
 }
