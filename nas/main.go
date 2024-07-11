@@ -13,6 +13,7 @@ import (
 	"wwfc/gamestats"
 	"wwfc/logging"
 	"wwfc/nhttp"
+	"wwfc/race"
 	"wwfc/sake"
 
 	"github.com/logrusorgru/aurora/v3"
@@ -71,6 +72,7 @@ func Shutdown() {
 	}
 }
 
+var regexRaceHost = regexp.MustCompile(`^([a-z\-]+\.)?race\.gs\.`)
 var regexSakeHost = regexp.MustCompile(`^([a-z\-]+\.)?sake\.gs\.`)
 var regexGamestatsHost = regexp.MustCompile(`^([a-z\-]+\.)?gamestats2?\.gs\.`)
 var regexStage1URL = regexp.MustCompile(`^/w([0-9])$`)
@@ -87,6 +89,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	if regexGamestatsHost.MatchString(r.Host) {
 		// Redirect to the gamestats server
 		gamestats.HandleWebRequest(w, r)
+		return
+	}
+
+	// Check for *.race.gs.* or race.gs.*
+	if regexRaceHost.MatchString(r.Host) {
+		// Redirect to the race server
+		race.HandleRequest(w, r)
 		return
 	}
 
