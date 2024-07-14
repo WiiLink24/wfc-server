@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"io"
 	"net/http"
+	"strconv"
 	"wwfc/common"
 	"wwfc/logging"
 
@@ -11,20 +12,46 @@ import (
 )
 
 type rankingsRequestEnvelope struct {
-	XMLName xml.Name
-	Body    rankingsRequestBody
+	Body rankingsRequestBody
 }
 
 type rankingsRequestBody struct {
-	XMLName xml.Name
-	Data    rankingsRequestData `xml:",any"`
+	Data rankingsRequestData `xml:",any"`
 }
 
 type rankingsRequestData struct {
 	XMLName  xml.Name
-	GameId   uint                        `xml:"gameid"`
+	GameId   int                         `xml:"gameid"`
 	RegionId common.MarioKartWiiRegionID `xml:"regionid"`
 	CourseId common.MarioKartWiiCourseID `xml:"courseid"`
+}
+
+type rankingsResponseRankingDataResponse struct {
+	XMLName      xml.Name `xml:"RankingDataResponse"`
+	XMLNSXsi     string   `xml:"xmlns:xsi,attr"`
+	XMLNSXsd     string   `xml:"xmlns:xsd,attr"`
+	XMLNS        string   `xml:"xmlns,attr"`
+	ResponseCode int      `xml:"responseCode"`
+	DataArray    rankingsResponseDataArray
+}
+
+type rankingsResponseDataArray struct {
+	XMLName    xml.Name `xml:"dataArray"`
+	NumRecords int      `xml:"numrecords"`
+	Data       []rankingsResponseData
+}
+
+type rankingsResponseData struct {
+	XMLName     xml.Name `xml:"data"`
+	RankingData rankingsResponseRankingData
+}
+
+type rankingsResponseRankingData struct {
+	XMLName  xml.Name `xml:"RankingData"`
+	OwnerID  int      `xml:"ownerid"`
+	Rank     int      `xml:"rank"`
+	Time     int      `xml:"time"`
+	UserData string   `xml:"userdata"`
 }
 
 func handleNintendoRacingServiceRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
@@ -39,25 +66,25 @@ func handleNintendoRacingServiceRequest(moduleName string, responseWriter http.R
 		panic(err)
 	}
 
-	soapMessage := rankingsRequestEnvelope{}
-	err = xml.Unmarshal(requestBody, &soapMessage)
+	requestXML := rankingsRequestEnvelope{}
+	err = xml.Unmarshal(requestBody, &requestXML)
 	if err != nil {
-		logging.Error(moduleName, "Malformed XML")
+		logging.Error(moduleName, "Got malformed XML")
 		return
 	}
-	soapMessageData := soapMessage.Body.Data
+	requestData := requestXML.Body.Data
 
-	gameId := soapMessageData.GameId
+	gameId := requestData.GameId
 	if gameId != common.MarioKartWiiGameSpyGameID {
 		logging.Error(moduleName, "Wrong GameSpy game id")
 		return
 	}
 
-	soapAction := soapMessageData.XMLName.Local
+	soapAction := requestData.XMLName.Local
 	switch soapAction {
 	case "GetTopTenRankings":
-		regionId := soapMessageData.RegionId
-		courseId := soapMessageData.CourseId
+		regionId := requestData.RegionId
+		courseId := requestData.CourseId
 
 		if !regionId.IsValid() {
 			logging.Error(moduleName, "Invalid region id")
@@ -69,5 +96,46 @@ func handleNintendoRacingServiceRequest(moduleName string, responseWriter http.R
 		}
 
 		logging.Info(moduleName, "Received a request for the Top 10 of", aurora.BrightCyan(courseId.ToString()))
+		handleGetTopTenRankingsRequest(moduleName, responseWriter)
 	}
+}
+
+func handleGetTopTenRankingsRequest(moduleName string, responseWriter http.ResponseWriter) {
+	rankingData := rankingsResponseRankingData{
+		OwnerID:  1000000404,
+		Rank:     1,
+		Time:     0,
+		UserData: "xC0AIABNAGkAawBlAFMAdABhAHIAIAAAhH/RTQAAAAAgB45hkAAQTEDyjqQAeLgPhq4AiiUEACAATQBpAGsAZQBTAHQAYQByACD0UwACAAE=",
+	}
+
+	responseData := []rankingsResponseData{
+		{
+			RankingData: rankingData,
+		},
+	}
+
+	dataArray := rankingsResponseDataArray{
+		NumRecords: len(responseData),
+		Data:       responseData,
+	}
+
+	rankingDataResponse := rankingsResponseRankingDataResponse{
+		XMLNSXsi:     "http://www.w3.org/2001/XMLSchema-instance",
+		XMLNSXsd:     "http://www.w3.org/2001/XMLSchema",
+		XMLNS:        "http://gamespy.net/RaceService/",
+		ResponseCode: 0,
+		DataArray:    dataArray,
+	}
+
+	responseBody, err := xml.Marshal(rankingDataResponse)
+	if err != nil {
+		logging.Error(moduleName, "Failed to XML encode the data")
+		return
+	}
+
+	responseBody = append([]byte(xml.Header), responseBody...)
+
+	responseWriter.Header().Set("Content-Length", strconv.Itoa(len(responseBody)))
+	responseWriter.Header().Set("Content-Type", "text/xml")
+	responseWriter.Write(responseBody)
 }
