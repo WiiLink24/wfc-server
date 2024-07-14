@@ -1,9 +1,9 @@
 package common
 
-type MarioKartWiiRegionID uint
-type MarioKartWiiCourseID uint
+type MarioKartWiiRegionID int
+type MarioKartWiiCourseID int
 
-const MarioKartWiiGameSpyGameID uint = 1687
+const MarioKartWiiGameSpyGameID int = 1687
 
 const (
 	Worldwide    = iota // 0
