@@ -114,17 +114,6 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		banExists = false
 	}
 
-	if banExists {
-		if banTOS {
-			logging.Warn("DATABASE", "Profile", aurora.Cyan(user.ProfileId), "is banned")
-			return User{RestrictedDeviceId: bannedDeviceId}, ErrProfileBannedTOS
-		}
-
-		logging.Warn("DATABASE", "Profile", aurora.Cyan(user.ProfileId), "is restricted")
-		user.Restricted = true
-		user.RestrictedDeviceId = bannedDeviceId
-	}
-
 	return user, nil
 }
 
