@@ -90,12 +90,19 @@ func handleNintendoRacingServiceRequest(moduleName string, responseWriter http.R
 			logging.Error(moduleName, "Invalid region id")
 			return
 		}
-		if !courseId.IsValid() {
+		if courseId < common.MarioCircuit {
 			logging.Error(moduleName, "Invalid course id")
 			return
 		}
 
-		logging.Info(moduleName, "Received a request for the Top 10 of", aurora.BrightCyan(courseId.ToString()))
+		var topTenLeaderboard string
+		if courseId <= common.GBAShyGuyBeach {
+			topTenLeaderboard = courseId.ToString()
+		} else {
+			topTenLeaderboard = "a competition"
+		}
+
+		logging.Info(moduleName, "Received a request for the Top 10 of", aurora.BrightCyan(topTenLeaderboard))
 		handleGetTopTenRankingsRequest(moduleName, responseWriter)
 	}
 }
