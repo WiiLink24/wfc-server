@@ -330,6 +330,14 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		}
 	}
 
+	var openHostEnabled string
+	if g.User.OpenHost {
+		openHostEnabled = "1"
+	} else {
+		openHostEnabled = "0"
+	}
+	otherValues["wwfc_openhost"] = openHostEnabled
+
 	payload := common.CreateGameSpyMessage(common.GameSpyCommand{
 		Command:      "lc",
 		CommandValue: "2",
