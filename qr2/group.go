@@ -511,7 +511,7 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 		groupInfo := GroupInfo{
 			GroupName:       group.GroupName,
 			GameName:        group.GameName,
-			CreateTime:      group.CreateTime,
+			CreateTime:      group.CreateTime.UTC(),
 			MatchType:       "",
 			Suspend:         true,
 			ServerIndex:     "",
