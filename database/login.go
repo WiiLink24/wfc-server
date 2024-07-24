@@ -105,13 +105,24 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 	var banTOS bool
 	var bannedDeviceId uint32
 	timeNow := time.Now()
-	err = pool.QueryRow(ctx, SearchUserBan, user.ProfileId, user.NgDeviceId, ipAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceId)
+	err = pool.QueryRow(ctx, SearchUserBan, user.ProfileId, ipAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceId)
 	if err != nil {
 		if err != pgx.ErrNoRows {
 			return User{}, err
 		}
 
 		banExists = false
+	}
+
+	if banExists {
+		if banTOS {
+			logging.Warn("DATABASE", "Profile", aurora.Cyan(user.ProfileId), "is banned")
+			return User{RestrictedDeviceId: bannedDeviceId}, ErrProfileBannedTOS
+		}
+
+		logging.Warn("DATABASE", "Profile", aurora.Cyan(user.ProfileId), "is restricted")
+		user.Restricted = true
+		user.RestrictedDeviceId = bannedDeviceId
 	}
 
 	return user, nil
