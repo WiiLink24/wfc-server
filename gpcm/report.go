@@ -1,6 +1,7 @@
 package gpcm
 
 import (
+	"fmt"
 	"strconv"
 	"wwfc/common"
 	"wwfc/logging"
@@ -60,6 +61,22 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			}
 
 			logging.Warn(g.ModuleName, "Room stall caused by", aurora.BrightCyan(strconv.FormatUint(profileId, 10)))
+
+		case "mkw_too_many_frames_dropped":
+			if g.GameName != "mariokartwii" {
+				logging.Warn(g.ModuleName, "Ignoring mkw_too_many_frames_dropped from wrong game")
+				continue
+			}
+
+			framesDropped, err := strconv.ParseUint(value, 10, 32)
+			if err != nil {
+				logging.Error(g.ModuleName, "Error decoding mkw_too_many_frames_dropped:", err.Error())
+				continue
+			}
+
+			profileId := g.User.ProfileId
+			logging.Warn(g.ModuleName, "Kicking", aurora.BrightCyan(strconv.FormatUint(uint64(profileId), 10)), fmt.Sprintf("for dropping too many frames (%d)", framesDropped))
+			kickPlayer(profileId, "too_many_frames_dropped")
 		}
 	}
 }

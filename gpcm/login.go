@@ -269,7 +269,6 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	otherSession, exists := sessions[g.User.ProfileId]
 	if exists {
 		otherSession.replyError(ErrForcedDisconnect)
-		common.CloseConnection(ServerName, otherSession.ConnIndex)
 
 		for i := 0; ; i++ {
 			mutex.Unlock()
