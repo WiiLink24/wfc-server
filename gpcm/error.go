@@ -351,6 +351,19 @@ var (
 				"Error Code: %[1]d",
 		},
 	}
+
+	WWFCMsgTooManyFramesDropped = WWFCErrorMessage{
+		ErrorCode: 22010,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"Your game is dropping too many frames.\n" +
+				"Please remove any modifications that may\n" +
+				"be causing frame rate problems to avoid\n" +
+				"being banned from WiiLink Wi-Fi Connection.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
 )
 
 func (err GPError) GetMessage() string {
