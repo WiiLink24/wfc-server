@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -50,6 +51,9 @@ func handleBanImpl(w http.ResponseWriter, r *http.Request) string {
 		return "Missing pid in request"
 	}
 
+	ipAddress := r.RemoteAddr
+
+	log.Printf("Ban request: PID=%s, IP=%s", pidStr, ipAddress)
 	pid, err := strconv.ParseUint(pidStr, 10, 32)
 	if err != nil {
 		return "Invalid pid"
