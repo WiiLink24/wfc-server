@@ -302,7 +302,7 @@ var (
 		ErrorCode: 22002,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"You have been kicked from WiiLink WFC.\n" +
+				"You have been kicked from Retro WFC.\n" +
 				"Reason: %s" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x\n",
@@ -387,7 +387,7 @@ var (
 				"Your game is dropping too many frames.\n" +
 				"Please remove any modifications that may\n" +
 				"be causing frame rate problems to avoid\n" +
-				"being banned from WiiLink WFC.\n" +
+				"being banned from Retro WFC.\n" +
 				"\n" +
 				"Error Code: %[1]d",
 		},
