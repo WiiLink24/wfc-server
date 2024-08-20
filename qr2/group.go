@@ -595,7 +595,7 @@ func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo
 			playerInfo := PlayerInfo{
 				Count:      rawPlayer["+localplayers"],
 				ProfileID:  rawPlayer["dwc_pid"],
-				InGameName: rawPlayer["+ingamesn"],
+				InGameName: strings.ReplaceAll(strings.ReplaceAll(rawPlayer["+ingamesn"], "<", "&lt;"), ">", "&gt;"),
 			}
 
 			pid, err := strconv.ParseUint(rawPlayer["dwc_pid"], 10, 32)
@@ -618,7 +618,7 @@ func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo
 
 				playerInfo.Mii = append(playerInfo.Mii, MiiInfo{
 					MiiData: miiData,
-					MiiName: rawPlayer["+mii_name"+strconv.Itoa(i)],
+					MiiName: strings.ReplaceAll(strings.ReplaceAll(rawPlayer["+mii_name"+strconv.Itoa(i)], "<", "&lt;"), ">", "&gt;"),
 				})
 			}
 
