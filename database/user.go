@@ -16,6 +16,7 @@ const (
 	UpdateUserProfileID     = `UPDATE users SET profile_id = $3 WHERE user_id = $1 AND gsbrcd = $2`
 	UpdateUserNGDeviceID    = `UPDATE users SET ng_device_id = $2 WHERE profile_id = $1`
 	GetUser                 = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host FROM users WHERE profile_id = $1`
+	GetUserLastIPAddress    = `SELECT last_ip_address FROM users WHERE profile_id = $1`
 	DoesUserExist           = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
 	DeleteUserSession       = `DELETE FROM sessions WHERE profile_id = $1`
@@ -145,6 +146,16 @@ func BanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32, tos bool
 func UnbanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32) bool {
 	_, err := pool.Exec(ctx, DisableUserBan, profileId)
 	return err == nil
+}
+
+func GetUserIP(pool *pgxpool.Pool, ctx context.Context, profileId uint32) string {
+	var ip string
+	err := pool.QueryRow(ctx, GetUserLastIPAddress, profileId).Scan(&ip)
+	if err != nil {
+		return "Unknown"
+	}
+
+	return ip
 }
 
 func GetMKWFriendInfo(pool *pgxpool.Pool, ctx context.Context, profileId uint32) string {
