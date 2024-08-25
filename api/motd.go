@@ -5,21 +5,30 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"wwfc/database"
 	"wwfc/gpcm"
 )
 
-func HandleKick(w http.ResponseWriter, r *http.Request) {
+func HandleMotd(w http.ResponseWriter, r *http.Request) {
 	var jsonData map[string]string
 	var statusCode int
 
 	switch r.Method {
 	case http.MethodHead:
 		statusCode = http.StatusOK
+	case http.MethodGet:
+		motd, err := gpcm.GetMessageOfTheDay()
+		if err != nil {
+			jsonData = mmss("error", err.Error())
+			statusCode = http.StatusInternalServerError
+			break
+		}
+
+		jsonData = mmss("motd", motd)
+		statusCode = http.StatusOK
 	case http.MethodPost:
-		jsonData, statusCode = handleKickImpl(w, r)
+		jsonData, statusCode = handleMotdImpl(w, r)
 	default:
-		jsonData = mmss("error", "Incorrect request. POST or HEAD only.")
+		jsonData = mmss("error", "Incorrect request. POST, GET, or HEAD only.")
 		statusCode = http.StatusBadRequest
 	}
 
@@ -36,12 +45,12 @@ func HandleKick(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type KickRequestSpec struct {
+type MotdRequestSpec struct {
 	Secret string
-	Pid    uint32
+	Motd   string
 }
 
-func handleKickImpl(w http.ResponseWriter, r *http.Request) (map[string]string, int) {
+func handleMotdImpl(w http.ResponseWriter, r *http.Request) (map[string]string, int) {
 	// TODO: Actual authentication rather than a fixed secret
 
 	body, err := io.ReadAll(r.Body)
@@ -49,7 +58,7 @@ func handleKickImpl(w http.ResponseWriter, r *http.Request) (map[string]string, 
 		return mmss("error", "Unable to read request body"), http.StatusBadRequest
 	}
 
-	var req KickRequestSpec
+	var req MotdRequestSpec
 	err = json.Unmarshal(body, &req)
 	if err != nil {
 		return mmss("error", err.Error()), http.StatusBadRequest
@@ -59,12 +68,11 @@ func handleKickImpl(w http.ResponseWriter, r *http.Request) (map[string]string, 
 		return mmss("error", "Invalid API secret in request"), http.StatusUnauthorized
 	}
 
-	if req.Pid == 0 {
-		return mmss("error", "pid missing or 0 in request"), http.StatusBadRequest
+	err = gpcm.SetMessageOfTheDay(req.Motd)
+	if err != nil {
+		return mmss("error", err.Error()), http.StatusInternalServerError
 	}
 
-	gpcm.KickPlayer(req.Pid, "moderator_kick")
-
-	ip := database.GetUserIP(pool, ctx, req.Pid)
-	return mmss("status", "success", "ip", ip), http.StatusOK
+	// Don't return empty JSON, this is placeholder for now.
+	return mmss("result", "success"), http.StatusOK
 }
