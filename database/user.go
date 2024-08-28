@@ -15,8 +15,7 @@ const (
 	UpdateUserTable         = `UPDATE users SET firstname = CASE WHEN $3 THEN $2 ELSE firstname END, lastname = CASE WHEN $5 THEN $4 ELSE lastname END, open_host = CASE WHEN $7 THEN $6 ELSE open_host END WHERE profile_id = $1`
 	UpdateUserProfileID     = `UPDATE users SET profile_id = $3 WHERE user_id = $1 AND gsbrcd = $2`
 	UpdateUserNGDeviceID    = `UPDATE users SET ng_device_id = $2 WHERE profile_id = $1`
-	GetUser                 = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host FROM users WHERE profile_id = $1`
-	GetUserLastIPAddress    = `SELECT last_ip_address FROM users WHERE profile_id = $1`
+	GetUser                 = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn FROM users WHERE profile_id = $1`
 	DoesUserExist           = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
 	DeleteUserSession       = `DELETE FROM sessions WHERE profile_id = $1`
@@ -41,6 +40,8 @@ type User struct {
 	Restricted         bool
 	RestrictedDeviceId uint32
 	OpenHost           bool
+	LastInGameSn       string
+	LastIPAddress      string
 }
 
 var (
@@ -129,7 +130,7 @@ func (user *User) UpdateProfile(pool *pgxpool.Pool, ctx context.Context, data ma
 func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, bool) {
 	user := User{}
 	row := pool.QueryRow(ctx, GetUser, profileId)
-	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName, &user.OpenHost)
+	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName, &user.OpenHost, &user.LastIPAddress, &user.LastInGameSn)
 	if err != nil {
 		return User{}, false
 	}
@@ -146,16 +147,6 @@ func BanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32, tos bool
 func UnbanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32) bool {
 	_, err := pool.Exec(ctx, DisableUserBan, profileId)
 	return err == nil
-}
-
-func GetUserIP(pool *pgxpool.Pool, ctx context.Context, profileId uint32) string {
-	var ip string
-	err := pool.QueryRow(ctx, GetUserLastIPAddress, profileId).Scan(&ip)
-	if err != nil {
-		return "Unknown"
-	}
-
-	return ip
 }
 
 func GetMKWFriendInfo(pool *pgxpool.Pool, ctx context.Context, profileId uint32) string {

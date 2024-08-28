@@ -9,26 +9,32 @@ import (
 )
 
 func HandleUnban(w http.ResponseWriter, r *http.Request) {
-	var jsonData map[string]string
+	var user *database.User
+	var success bool
+	var err string
 	var statusCode int
 
 	switch r.Method {
 	case http.MethodHead:
 		statusCode = http.StatusOK
 	case http.MethodPost:
-		jsonData, statusCode = handleUnbanImpl(w, r)
+		user, success, err, statusCode = handleUnbanImpl(w, r)
 	default:
-		jsonData = mmss("error", "Incorrect request. POST or HEAD only.")
+		err = "Incorrect request. POST or HEAD only."
 		statusCode = http.StatusBadRequest
+	}
+
+	if user == nil {
+		user = &database.User{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	if len(jsonData) == 0 {
+	if r.Method == http.MethodHead {
 		w.WriteHeader(statusCode)
 	} else {
-		json, _ := json.Marshal(jsonData)
+		json, _ := json.Marshal(UserActionResponse{*user, success, err})
 		w.Header().Set("Content-Length", strconv.Itoa(len(json)))
 		w.WriteHeader(statusCode)
 		w.Write(json)
@@ -40,32 +46,40 @@ type UnbanRequestSpec struct {
 	Pid    uint32
 }
 
-func handleUnbanImpl(w http.ResponseWriter, r *http.Request) (map[string]string, int) {
+func handleUnbanImpl(w http.ResponseWriter, r *http.Request) (*database.User, bool, string, int) {
 	// TODO: Actual authentication rather than a fixed secret
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return mmss("error", "Unable to read request body"), http.StatusBadRequest
+		return nil, false, "Unable to read request body", http.StatusBadRequest
 	}
 
 	var req UnbanRequestSpec
 	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return mmss("error", err.Error()), http.StatusBadRequest
+		return nil, false, err.Error(), http.StatusBadRequest
 	}
 
 	if apiSecret == "" || req.Secret != apiSecret {
-		return mmss("error", "Invalid API secret in request"), http.StatusUnauthorized
+		return nil, false, "Invalid API secret in request", http.StatusUnauthorized
 	}
 
 	if req.Pid == 0 {
-		return mmss("error", "pid missing or 0 in request"), http.StatusBadRequest
+		return nil, false, "pid missing or 0 in request", http.StatusBadRequest
 	}
 
 	if !database.UnbanUser(pool, ctx, req.Pid) {
-		return mmss("error", "Failed to unban user"), http.StatusInternalServerError
+		return nil, false, "Failed to unban user", http.StatusInternalServerError
 	}
 
-	ip := database.GetUserIP(pool, ctx, req.Pid)
-	return mmss("result", "success", "ip", ip), http.StatusOK
+	var message string
+	user, success := database.GetProfile(pool, ctx, req.Pid)
+
+	if success {
+		message = ""
+	} else {
+		message = "Unable to query user data from the database"
+	}
+
+	return &user, success, message, http.StatusOK
 }
