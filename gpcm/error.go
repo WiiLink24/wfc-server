@@ -177,16 +177,6 @@ var (
 				"while logging in to Retro WFC.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"Retro WFCへの ログイン中に\n" +
-				"不明なエラー が発生しました\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: ""+
-				"Une erreur inconnue s'est produite\n" +
-				"pendant la connexion à Retro WFC.\n" +
-				"\n" +
-				"Code Erreur:  %[1]d",
 		},
 	}
 
@@ -198,16 +188,6 @@ var (
 				"to use Retro WFC on Dolphin.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"Dolphinで Retro WFCに接続するには\n" +
-				"ついかの セットアップが必要です\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: "" +
-				"Une installation additionnelle est requise\n" +
-				"pour utiliser Retro WFC sur Dolphin\n." +
-				"\n" +
-				"Code Erreur: %[1]d",
 		},
 	}
 
@@ -221,19 +201,6 @@ var (
 				"\n" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x",
-			LangJapanese: "" +
-				"利用きやくに いはんしたため\n" +
-				"Retro WFCから BANされました\n" +
-				"\n" +
-				"エラーコード： %[1]d" +
-				"サポートじょうほう： NG%08[2]x"
-			LangFrenchEU: ""+
-				"Vous avez été bannis de Retro WFC" +
-				"à cause d'une violation des" +
-				"Conditions de Service" +
-				"\n" +
-				"Code Erreur:  %[1]d\n" +
-				"Information Support: NG%08[2]x",
 		},
 	}
 
@@ -247,19 +214,6 @@ var (
 				"\n" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x",
-			LangJapanese: "" +
-				"利用きやくに いはんしたため\n" +
-				"Retro WFCから BANされています\n" +
-				"\n" +
-				"エラーコード： %[1]d" +
-				"サポートじょうほう： NG%08[2]x"
-			LangFrenchEU: ""+
-				"Vous avez été bannis de Retro WFC" +
-				"à cause d'une violation des" +
-				"Conditions de Service" +
-				"\n" +
-				"Code Erreur:  %[1]d\n" +
-				"Information Support: NG%08[2]x",
 		},
 	}
 
@@ -273,19 +227,6 @@ var (
 				"\n" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x",
-			LangJapanese: "" +
-				"Retro WFCの ルールにいはんしたため\n" +
-				"公式レースから BANされました\n" +
-				"\n" +
-				"エラーコード： %[1]d" +
-				"サポートじょうほう： NG%08[2]x"
-			LangFrenchEU: "" +
-			"Vous avez été bannis des match\n" +
-			"public à cause d'un violation d'une\n" +
-			"des règles de Retro WFC"
-			"\n" +
-			"Code Erreur:  %[1]d\n" +
-			"Information Support: NG%08[2]x",
 		},
 	}
 
@@ -299,20 +240,6 @@ var (
 				"\n" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x",
-			LangJapanese: "" +
-				"Retro WFCの ルールにいはんしたため\n" +
-				"公式レースから BANされています\n" +
-				"\n" +
-				"エラーコード： %[1]d" +
-				"サポートじょうほう： NG%08[2]x"
-			LangFrenchEU: "" +
-				"Vous avez été bannis des match\n" +
-				"public à cause d'un violation d'une\n" +
-				"des règles de Retro WFC"
-				"\n" +
-				"Code Erreur:  %[1]d\n" +
-				"Information Support: NG%08[2]x",
-	
 		},
 	}
 
@@ -346,16 +273,6 @@ var (
 				"Retro WFC.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"Retro WFCから キックされました\n" +
-				"公式レースから BANされました\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: "" +
-				"Vous avez été expulsé de\n"
-				"Retro WFC."
-				"\n"
-				"Code Erreur: %[1]d",
 		},
 	}
 
@@ -367,16 +284,6 @@ var (
 				"Retro WFC by a moderator.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"Retro WFCの モデレーターから\n" +
-				"キックされました\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU:"" +
-				"Vous avez été expulsé de\n" +
-				"Retro WFC par un modérateur.\n" +
-				"\n" +
-				"Code Erreur: %[1]d",
 		},
 	}
 
@@ -388,16 +295,6 @@ var (
 				"friend room by the room creator.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"フレンドルームの ホストから\n" +
-				"キックされました\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: "" +
-				"Vous avez été expulsé de la salle\n" +
-				"par le créateur." +
-				"\n" +
-				"Code Erreur: %[1]d",
 		},
 	}
 
@@ -421,20 +318,6 @@ var (
 				"profile.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"使われているコンソールは \n" +
-				"このプロファイルを 登録されたときに\n" +
-				"使われたコンソールでは ありません\n" +
-				"\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: "" +
-				"La consonle que vous utilisé\n" +
-				"n'est pas l'appareil utilisé pour\n" +
-				"enregistrer ce profil." +
-				"\n" +
-				"Code Erreur: %[1]d",
-
 		},
 	}
 
@@ -448,23 +331,7 @@ var (
 				"set up your NAND correctly.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"使われているコンソールは \n" +
-				"このプロファイルを 登録されたときに\n" +
-				"使われたコンソールでは ありません\n" +
-				"NANDがただしく 設定されていることを\n" +
-				"ご確認ください\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: "" +
-				"La consonle que vous utilisé\n" +
-				"n'est pas l'appareil utilisé pour\n" +
-				"enregistrer ce profil. Assurez-vous d'avoir\n" +
-				"configuré votre NAND correctement.\n"
-				"\n"
-				"Code Erreur: %[1]d",
-
 		},
-		
 	}
 
 	WWFCMsgProfileIDInvalid = WWFCErrorMessage{
@@ -476,19 +343,6 @@ var (
 				"Please create a new license.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"あなたが登録しようとした \n" +
-				"プロファイルIDは むこうです\n" +
-				"新しくライセンスをつくりなおしてください\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: "" +
-				"L'ID du profil que vous essayez\n" +
-				"d'enregistrer est invalide.\n" +
-				"Veuillez créer une nouveau permis.\n" +
-				"\n"
-				"Code Erreur: %[1]d",
-
 		},
 	}
 
@@ -500,17 +354,6 @@ var (
 				"register is already in use.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"あなたが登録しようとした \n" +
-				"フレンドコードは すでに登録されています\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: "" +
-				"Le code ami que vous essayez\n" +
-				"d'enregistrer est déjà utilisé.\n" +
-				"\n" +
-				"Code Erreur: %[1]d",
-
 		},
 	}
 
@@ -522,19 +365,7 @@ var (
 				"Try restarting your game.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"Retro WFCの ペイロードがむこうです \n" +
-				"ゲームを 再起動してください\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: "" +
-				"Le payload Retro WFC est invalide.\n" +
-				"Veuillez redémarrer votre jeu.\n" +
-				"\n" +
-				"Code Erreur: %[1]d",
-
 		},
-		
 	}
 
 	WWFCMsgInvalidELO = WWFCErrorMessage{
@@ -546,18 +377,6 @@ var (
 				"VR or BR value.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"VRまたはBRの値が むこうなため \n" +
-				"Retro WFCから 切断されました\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: "" +
-				"Vous avez été déconnecté de\n" +
-				"Retro WFC à cause d'une valeur invalide\n" +
-				"de Points Course ou Points Bataille\n" +
-				"\n" +
-				"Code Erreur: %[1]d",
-
 		},
 	}
 
@@ -571,20 +390,6 @@ var (
 				"being banned from Retro WFC.\n" +
 				"\n" +
 				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"ゲームのフレームレートがおそすぎます \n" +
-				"Retro WFCから BANされないように\n" +
-				"フレームレートが落ちるような\n" +
-				"プログラムを けしてください\n" +
-				"\n" +
-				"エラーコード： %[1]d"
-			LangFrenchEU: "" +
-				"Votre jeu perd trop de FPS.\n" +
-				"Veuillez retirer toute modification qui peut\n" +
-				"causer ce problème de performance pour éviter\n" +
-				"de vous faire bannir de Retro WFC.\n" +
-				"\n" +
-				"Code Erreur: %[1]d",
 		},
 	}
 )
