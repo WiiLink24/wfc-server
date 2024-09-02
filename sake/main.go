@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"wwfc/common"
 	"wwfc/logging"
 
@@ -41,9 +42,13 @@ func Shutdown() {
 func HandleRequest(w http.ResponseWriter, r *http.Request) {
 	logging.Info("SAKE", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
 
-	switch r.URL.String() {
-	case "/SakeStorageServer/StorageServer.asmx":
+	urlPath := r.URL.Path
+	switch {
+	case urlPath == "/SakeStorageServer/StorageServer.asmx":
 		moduleName := "SAKE:Storage:" + r.RemoteAddr
 		handleStorageRequest(moduleName, w, r)
+	case strings.Contains(urlPath, "upload.aspx"):
+		moduleName := "SAKE:File:" + r.RemoteAddr
+		handleFileUploadRequest(moduleName, w, r)
 	}
 }
