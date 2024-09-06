@@ -112,6 +112,10 @@ type StorageSearchForRecordsResponse struct {
 	Values                 StorageResponseValues `xml:"values"` // ???
 }
 
+var fileUploadHandlers = map[int]func(string, http.ResponseWriter, *http.Request){
+	common.GameSpyGameIdMarioKartWii: handleMarioKartWiiFileUploadRequest,
+}
+
 func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
 	headerAction := r.Header.Get("SOAPAction")
 	if headerAction == "" {
@@ -167,11 +171,30 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 		panic(err)
 	}
 
-	payload := append([]byte(`<?xml version="1.0" encoding="utf-8"?>`), out...)
+	payload := append([]byte(xml.Header), out...)
 
 	w.Header().Set("Content-Type", "text/xml")
 	w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
 	w.Write(payload)
+}
+
+func handleFileUploadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
+	query := request.URL.Query()
+
+	gameIdString := query.Get("gameid")
+	gameId, err := strconv.Atoi(gameIdString)
+	if err != nil {
+		logging.Error(moduleName, "Invalid GameSpy game id")
+		return
+	}
+
+	handler, handlerExists := fileUploadHandlers[gameId]
+	if !handlerExists {
+		logging.Warn(moduleName, "Unhandled file upload request for game id:", aurora.Cyan(gameId))
+		return
+	}
+
+	handler(moduleName, responseWriter, request)
 }
 
 func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, common.GameInfo, bool) {
