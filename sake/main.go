@@ -47,8 +47,11 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 	case urlPath == "/SakeStorageServer/StorageServer.asmx":
 		moduleName := "SAKE:Storage:" + r.RemoteAddr
 		handleStorageRequest(moduleName, w, r)
-	case strings.Contains(urlPath, "upload.aspx"):
+	case strings.HasSuffix(urlPath, "download.aspx"):
 		moduleName := "SAKE:File:" + r.RemoteAddr
-		handleFileUploadRequest(moduleName, w, r)
+		handleFileRequest(moduleName, w, r, FileRequestDownload)
+	case strings.HasSuffix(urlPath, "upload.aspx"):
+		moduleName := "SAKE:File:" + r.RemoteAddr
+		handleFileRequest(moduleName, w, r, FileRequestUpload)
 	}
 }

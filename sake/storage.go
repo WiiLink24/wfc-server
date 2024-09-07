@@ -16,9 +16,16 @@ import (
 )
 
 const (
+	FileRequestDownload = iota
+	FileRequestUpload
+)
+
+const (
 	SOAPEnvNamespace = "http://schemas.xmlsoap.org/soap/envelope/"
 	SakeNamespace    = "http://gamespy.net/sake"
 )
+
+type FileRequest int
 
 type StorageRequestEnvelope struct {
 	XMLName xml.Name
@@ -112,6 +119,10 @@ type StorageSearchForRecordsResponse struct {
 	Values                 StorageResponseValues `xml:"values"` // ???
 }
 
+var fileDownloadHandlers = map[int]func(string, http.ResponseWriter, *http.Request){
+	common.GameSpyGameIdMarioKartWii: handleMarioKartWiiFileDownloadRequest,
+}
+
 var fileUploadHandlers = map[int]func(string, http.ResponseWriter, *http.Request){
 	common.GameSpyGameIdMarioKartWii: handleMarioKartWiiFileUploadRequest,
 }
@@ -178,19 +189,30 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 	w.Write(payload)
 }
 
-func handleFileUploadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
-	query := request.URL.Query()
+func handleFileRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request,
+	fileRequest FileRequest) {
 
-	gameIdString := query.Get("gameid")
+	gameIdString := request.URL.Query().Get("gameid")
 	gameId, err := strconv.Atoi(gameIdString)
 	if err != nil {
 		logging.Error(moduleName, "Invalid GameSpy game id")
 		return
 	}
 
-	handler, handlerExists := fileUploadHandlers[gameId]
+	var handler func(string, http.ResponseWriter, *http.Request)
+	var handlerExists bool
+	switch fileRequest {
+	case FileRequestDownload:
+		handler, handlerExists = fileDownloadHandlers[gameId]
+	case FileRequestUpload:
+		handler, handlerExists = fileUploadHandlers[gameId]
+	default:
+		logging.Error(moduleName, "Invalid file request")
+		return
+	}
+
 	if !handlerExists {
-		logging.Warn(moduleName, "Unhandled file upload request for game id:", aurora.Cyan(gameId))
+		logging.Warn(moduleName, "Unhandled file request for GameSpy game id:", aurora.Cyan(gameId))
 		return
 	}
 

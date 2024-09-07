@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path"
+	"strings"
 	"wwfc/common"
 	"wwfc/logging"
 
@@ -42,8 +42,8 @@ func Shutdown() {
 func HandleRequest(responseWriter http.ResponseWriter, request *http.Request) {
 	logging.Info("RACE", aurora.Yellow(request.Method), aurora.Cyan(request.URL), "via", aurora.Cyan(request.Host), "from", aurora.BrightCyan(request.RemoteAddr))
 
-	switch path.Base(request.URL.Path) {
-	case "NintendoRacingService.asmx":
+	switch {
+	case strings.HasSuffix(request.URL.Path, "NintendoRacingService.asmx"):
 		moduleName := "RACE:RacingService:" + request.RemoteAddr
 		handleNintendoRacingServiceRequest(moduleName, responseWriter, request)
 	}

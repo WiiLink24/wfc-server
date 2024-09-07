@@ -21,7 +21,15 @@ const (
 		"AND courseid = $2 " +
 		"ORDER BY score ASC " +
 		"LIMIT 10"
-	uploadGhostFileStatement = "" +
+	getGhostFileQuery = "" +
+		"SELECT ghost " +
+		"FROM mario_kart_wii_sake " +
+		"WHERE courseid = $1 " +
+		"AND score < $2 " +
+		"AND pid <> $3 " +
+		"ORDER BY score DESC " +
+		"LIMIT 1"
+	insertGhostFileStatement = "" +
 		"INSERT INTO mario_kart_wii_sake (regionid, courseid, score, pid, playerinfo, ghost) " +
 		"VALUES ($1, $2, $3, $4, $5, $6) " +
 		"ON CONFLICT (courseid, pid) DO UPDATE " +
@@ -54,9 +62,22 @@ func GetMarioKartWiiTopTenRankings(pool *pgxpool.Pool, ctx context.Context, regi
 	return topTenRankings, nil
 }
 
-func UploadMarioKartWiiGhostFile(pool *pgxpool.Pool, ctx context.Context, regionId common.MarioKartWiiLeaderboardRegionId,
+func GetMarioKartWiiGhostFile(pool *pgxpool.Pool, ctx context.Context, courseId common.MarioKartWiiCourseId,
+	time int, pid int) ([]byte, error) {
+	row := pool.QueryRow(ctx, getGhostFileQuery, courseId, time, pid)
+
+	var ghost []byte
+	err := row.Scan(&ghost)
+	if err != nil {
+		return nil, err
+	}
+
+	return ghost, nil
+}
+
+func InsertMarioKartWiiGhostFile(pool *pgxpool.Pool, ctx context.Context, regionId common.MarioKartWiiLeaderboardRegionId,
 	courseId common.MarioKartWiiCourseId, score int, pid int, playerInfo string, ghost []byte) error {
-	_, err := pool.Exec(ctx, uploadGhostFileStatement, regionId, courseId, score, pid, playerInfo, ghost)
+	_, err := pool.Exec(ctx, insertGhostFileStatement, regionId, courseId, score, pid, playerInfo, ghost)
 
 	return err
 }

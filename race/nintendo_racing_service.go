@@ -101,7 +101,6 @@ func handleNintendoRacingServiceRequest(moduleName string, responseWriter http.R
 	soapAction := soapActionHeader[slashIndex+1 : slashIndex+1+quotationMarkIndex]
 	switch soapAction {
 	case "GetTopTenRankings":
-		logging.Info(moduleName, "Received a Top 10 rankings request")
 		handleGetTopTenRankingsRequest(moduleName, responseWriter, requestBody)
 	default:
 		logging.Info(moduleName, "Unhandled SOAPAction:", aurora.Cyan(soapAction))

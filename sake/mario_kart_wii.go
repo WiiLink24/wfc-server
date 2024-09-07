@@ -30,7 +30,82 @@ const (
 	rkgdFileName    = "ghost.bin"
 )
 
+func handleMarioKartWiiFileDownloadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
+	if strings.HasSuffix(request.URL.Path, "ghostdownload.aspx") {
+		handleMarioKartWiiGhostDownloadRequest(moduleName, responseWriter, request)
+		return
+	}
+}
+
+func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
+	query := request.URL.Query()
+
+	regionIdString := query.Get("region")
+	pidString := query.Get("p0")
+	courseIdString := query.Get("c0")
+	timeString := query.Get("t0")
+
+	regionIdInt, err := strconv.Atoi(regionIdString)
+	if err != nil {
+		logging.Error(moduleName, "Invalid region id")
+		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		return
+	}
+	if common.MarioKartWiiLeaderboardRegionId(regionIdInt) != common.Worldwide {
+		logging.Error(moduleName, "Invalid region id")
+		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		return
+	}
+
+	courseIdInt, err := strconv.Atoi(courseIdString)
+	if err != nil {
+		logging.Error(moduleName, "Invalid course id")
+		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		return
+	}
+	courseId := common.MarioKartWiiCourseId(courseIdInt)
+	if !courseId.IsValid() {
+		logging.Error(moduleName, "Invalid course id")
+		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		return
+	}
+
+	pid, err := strconv.Atoi(pidString)
+	if err != nil || pid <= 0 {
+		logging.Error(moduleName, "Invalid pid")
+		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		return
+	}
+
+	time, err := strconv.Atoi(timeString)
+	if err != nil || time <= 0 {
+		logging.Error(moduleName, "Invalid time")
+		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		return
+	}
+
+	ghost, err := database.GetMarioKartWiiGhostFile(pool, ctx, courseId, time, pid)
+	if err != nil {
+		logging.Error(moduleName, "Failed to get a ghost file from the database")
+		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultServerError))
+		return
+	}
+
+	responseBody := append(downloadedGhostFileHeader(), ghost...)
+
+	responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultSuccess))
+	responseWriter.Header().Set("Content-Length", strconv.Itoa(len(responseBody)))
+	responseWriter.Write(responseBody)
+}
+
 func handleMarioKartWiiFileUploadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
+	if strings.HasSuffix(request.URL.Path, "ghostupload.aspx") {
+		handleMarioKartWiiGhostUploadRequest(moduleName, responseWriter, request)
+		return
+	}
+}
+
+func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
 
 	regionIdString := query.Get("regionid")
@@ -38,6 +113,7 @@ func handleMarioKartWiiFileUploadRequest(moduleName string, responseWriter http.
 	scoreString := query.Get("score")
 	pidString := query.Get("pid")
 	playerInfo := query.Get("playerinfo")
+	_, isContest := query["contest"]
 
 	regionIdInt, err := strconv.Atoi(regionIdString)
 	if err != nil {
@@ -132,7 +208,11 @@ func handleMarioKartWiiFileUploadRequest(moduleName string, responseWriter http.
 		return
 	}
 
-	err = database.UploadMarioKartWiiGhostFile(pool, ctx, regionId, courseId, score, pid, playerInfo, ghostFile)
+	if isContest {
+		ghostFile = nil
+	}
+
+	err = database.InsertMarioKartWiiGhostFile(pool, ctx, regionId, courseId, score, pid, playerInfo, ghostFile)
 	if err != nil {
 		logging.Error(moduleName, "Failed to insert the ghost file into the database")
 		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultServerError))
@@ -140,6 +220,14 @@ func handleMarioKartWiiFileUploadRequest(moduleName string, responseWriter http.
 	}
 
 	responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultSuccess))
+}
+
+func downloadedGhostFileHeader() []byte {
+	var downloadedGhostFileHeader [0x200]byte
+
+	binary.BigEndian.PutUint32(downloadedGhostFileHeader[0x40:0x44], uint32(len(downloadedGhostFileHeader)))
+
+	return downloadedGhostFileHeader[:]
 }
 
 func isPlayerInfoValid(playerInfoString string) bool {
