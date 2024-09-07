@@ -38,6 +38,7 @@ func handleMarioKartWiiFileUploadRequest(moduleName string, responseWriter http.
 	scoreString := query.Get("score")
 	pidString := query.Get("pid")
 	playerInfo := query.Get("playerinfo")
+	_, isContest := query["contest"]
 
 	regionIdInt, err := strconv.Atoi(regionIdString)
 	if err != nil {
@@ -130,6 +131,10 @@ func handleMarioKartWiiFileUploadRequest(moduleName string, responseWriter http.
 		logging.Error(moduleName, "Received an invalid ghost file")
 		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultFileTooLarge))
 		return
+	}
+
+	if isContest {
+		ghostFile = nil
 	}
 
 	err = database.UploadMarioKartWiiGhostFile(pool, ctx, regionId, courseId, score, pid, playerInfo, ghostFile)
