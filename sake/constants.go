@@ -1,11 +1,8 @@
-package common
+package sake
+
+const GameSpyMultipartBoundary = "Qr4G823s23d---<<><><<<>--7d118e0536"
 
 type SakeFileResult int
-
-const (
-	GameSpyMultipartBoundary  = "Qr4G823s23d---<<><><<<>--7d118e0536"
-	GameSpyGameIdMarioKartWii = 1687
-)
 
 // https://documentation.help/GameSpy-SDK/SAKEFileResult.html
 const (

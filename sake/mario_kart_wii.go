@@ -12,6 +12,8 @@ import (
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 type playerInfo struct {
@@ -47,53 +49,53 @@ func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter ht
 
 	regionIdInt, err := strconv.Atoi(regionIdString)
 	if err != nil {
-		logging.Error(moduleName, "Invalid region id")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid region ID:", aurora.Cyan(regionIdString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 	if common.MarioKartWiiLeaderboardRegionId(regionIdInt) != common.Worldwide {
-		logging.Error(moduleName, "Invalid region id")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid region ID:", aurora.Cyan(regionIdString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 
 	courseIdInt, err := strconv.Atoi(courseIdString)
 	if err != nil {
-		logging.Error(moduleName, "Invalid course id")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 	courseId := common.MarioKartWiiCourseId(courseIdInt)
 	if !courseId.IsValid() {
-		logging.Error(moduleName, "Invalid course id")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 
 	pid, err := strconv.Atoi(pidString)
 	if err != nil || pid <= 0 {
-		logging.Error(moduleName, "Invalid pid")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid profile ID:", aurora.Cyan(pidString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 
 	time, err := strconv.Atoi(timeString)
 	if err != nil || time <= 0 {
-		logging.Error(moduleName, "Invalid time")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid time:", aurora.Cyan(timeString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 
 	ghost, err := database.GetMarioKartWiiGhostFile(pool, ctx, courseId, time, pid)
 	if err != nil {
-		logging.Error(moduleName, "Failed to get a ghost file from the database")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultServerError))
+		logging.Error(moduleName, "Failed to get a ghost file from the database:", err)
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
 		return
 	}
 
 	responseBody := append(downloadedGhostFileHeader(), ghost...)
 
-	responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultSuccess))
+	responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultSuccess))
 	responseWriter.Header().Set("Content-Length", strconv.Itoa(len(responseBody)))
 	responseWriter.Write(responseBody)
 }
@@ -117,47 +119,47 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 
 	regionIdInt, err := strconv.Atoi(regionIdString)
 	if err != nil {
-		logging.Error(moduleName, "Invalid region id")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid region ID:", aurora.Cyan(regionIdString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 	regionId := common.MarioKartWiiLeaderboardRegionId(regionIdInt)
 	if !regionId.IsValid() || regionId == common.Worldwide {
-		logging.Error(moduleName, "Invalid region id")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid region ID:", aurora.Cyan(regionIdString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 
 	courseIdInt, err := strconv.Atoi(courseIdString)
 	if err != nil {
-		logging.Error(moduleName, "Invalid course id")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 	courseId := common.MarioKartWiiCourseId(courseIdInt)
 	if courseId < common.MarioCircuit || courseId > 32767 {
-		logging.Error(moduleName, "Invalid course id")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 
 	score, err := strconv.Atoi(scoreString)
 	if err != nil || score <= 0 {
-		logging.Error(moduleName, "Invalid score")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid score:", aurora.Cyan(scoreString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 
 	pid, err := strconv.Atoi(pidString)
 	if err != nil || pid <= 0 {
-		logging.Error(moduleName, "Invalid pid")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid profile ID:", aurora.Cyan(pidString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 
 	if !isPlayerInfoValid(playerInfo) {
-		logging.Error(moduleName, "Invalid player info")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultMissingParameter))
+		logging.Error(moduleName, "Invalid player info:", aurora.Cyan(playerInfo))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 	// Mario Kart Wii expects player information to be in this form
@@ -167,7 +169,7 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 	// we need to surround it with double quotation marks.
 	contentType := request.Header.Get("Content-Type")
 	boundary := getMultipartBoundary(contentType)
-	if boundary == common.GameSpyMultipartBoundary {
+	if boundary == GameSpyMultipartBoundary {
 		quotedBoundary := fmt.Sprintf("%q", boundary)
 		contentType := strings.Replace(contentType, boundary, quotedBoundary, 1)
 		request.Header.Set("Content-Type", contentType)
@@ -175,36 +177,36 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 
 	err = request.ParseMultipartForm(rkgdFileMaxSize)
 	if err != nil {
-		logging.Error(moduleName, "Failed to parse the multipart form")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultFileNotFound))
+		logging.Error(moduleName, "Failed to parse the multipart form:", err)
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultFileNotFound))
 		return
 	}
 
 	file, fileHeader, err := request.FormFile(rkgdFileName)
 	if err != nil {
-		logging.Error(moduleName, "Failed to find the ghost file")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultFileNotFound))
+		logging.Error(moduleName, "Failed to find the ghost file:", err)
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultFileNotFound))
 		return
 	}
 	defer file.Close()
 
 	if fileHeader.Size < rkgdFileMinSize || fileHeader.Size > rkgdFileMaxSize {
-		logging.Error(moduleName, "The size of the ghost file is invalid")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultFileTooLarge))
+		logging.Error(moduleName, "The size of the ghost file is invalid:", aurora.Cyan(fileHeader.Size))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultFileTooLarge))
 		return
 	}
 
 	ghostFile := make([]byte, fileHeader.Size)
 	_, err = io.ReadFull(file, ghostFile)
 	if err != nil {
-		logging.Error(moduleName, "Failed to read contents of the ghost file")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultFileTooLarge))
+		logging.Error(moduleName, "Failed to read contents of the ghost file:", err)
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultFileTooLarge))
 		return
 	}
 
 	if !isRKGDFileValid(ghostFile) {
 		logging.Error(moduleName, "Received an invalid ghost file")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultFileTooLarge))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultFileTooLarge))
 		return
 	}
 
@@ -214,12 +216,12 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 
 	err = database.InsertMarioKartWiiGhostFile(pool, ctx, regionId, courseId, score, pid, playerInfo, ghostFile)
 	if err != nil {
-		logging.Error(moduleName, "Failed to insert the ghost file into the database")
-		responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultServerError))
+		logging.Error(moduleName, "Failed to insert the ghost file into the database:", err)
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
 		return
 	}
 
-	responseWriter.Header().Set(common.SakeFileResultHeader, strconv.Itoa(common.SakeFileResultSuccess))
+	responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultSuccess))
 }
 
 func downloadedGhostFileHeader() []byte {

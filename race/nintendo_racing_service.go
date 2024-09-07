@@ -72,6 +72,8 @@ const (
 	xmlNamespace    = "http://gamespy.net/RaceService/"
 )
 
+var MarioKartWiiGameID = common.GetGameIDOrPanic("mariokartwii") // 1687
+
 func handleNintendoRacingServiceRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
 	soapActionHeader := request.Header.Get("SOAPAction")
 	if soapActionHeader == "" {
@@ -102,6 +104,8 @@ func handleNintendoRacingServiceRequest(moduleName string, responseWriter http.R
 	switch soapAction {
 	case "GetTopTenRankings":
 		handleGetTopTenRankingsRequest(moduleName, responseWriter, requestBody)
+
+	// TODO SubmitScores
 	default:
 		logging.Info(moduleName, "Unhandled SOAPAction:", aurora.Cyan(soapAction))
 	}
@@ -119,8 +123,8 @@ func handleGetTopTenRankingsRequest(moduleName string, responseWriter http.Respo
 	requestData := requestXML.Body.Data
 
 	gameId := requestData.GameId
-	if gameId != common.GameSpyGameIdMarioKartWii {
-		logging.Error(moduleName, "Wrong GameSpy game id")
+	if gameId != MarioKartWiiGameID {
+		logging.Error(moduleName, "Wrong GameSpy game ID:", aurora.Cyan(gameId))
 		writeErrorResponse(raceServiceResultInvalidParameters, responseWriter)
 		return
 	}
@@ -129,19 +133,19 @@ func handleGetTopTenRankingsRequest(moduleName string, responseWriter http.Respo
 	courseId := requestData.CourseId
 
 	if !regionId.IsValid() {
-		logging.Error(moduleName, "Invalid region id")
+		logging.Error(moduleName, "Invalid region ID:", aurora.Cyan(regionId))
 		writeErrorResponse(raceServiceResultInvalidParameters, responseWriter)
 		return
 	}
 	if courseId < common.MarioCircuit || courseId > 32767 {
-		logging.Error(moduleName, "Invalid course id")
+		logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseId))
 		writeErrorResponse(raceServiceResultInvalidParameters, responseWriter)
 		return
 	}
 
 	topTenRankings, err := database.GetMarioKartWiiTopTenRankings(pool, ctx, regionId, courseId)
 	if err != nil {
-		logging.Error(moduleName, "Failed to get the Top 10 rankings")
+		logging.Error(moduleName, "Failed to get the Top 10 rankings:", err)
 		writeErrorResponse(raceServiceResultDatabaseError, responseWriter)
 		return
 	}

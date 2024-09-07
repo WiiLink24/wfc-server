@@ -30,10 +30,10 @@ const (
 		"ORDER BY score DESC " +
 		"LIMIT 1"
 	insertGhostFileStatement = "" +
-		"INSERT INTO mario_kart_wii_sake (regionid, courseid, score, pid, playerinfo, ghost) " +
-		"VALUES ($1, $2, $3, $4, $5, $6) " +
+		"INSERT INTO mario_kart_wii_sake (regionid, courseid, score, pid, playerinfo, ghost, upload_time) " +
+		"VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) " +
 		"ON CONFLICT (courseid, pid) DO UPDATE " +
-		"SET regionid = EXCLUDED.regionid, score = EXCLUDED.score, playerinfo = EXCLUDED.playerinfo, ghost = EXCLUDED.ghost"
+		"SET regionid = EXCLUDED.regionid, score = EXCLUDED.score, playerinfo = EXCLUDED.playerinfo, ghost = EXCLUDED.ghost, upload_time = CURRENT_TIMESTAMP"
 )
 
 func GetMarioKartWiiTopTenRankings(pool *pgxpool.Pool, ctx context.Context, regionId common.MarioKartWiiLeaderboardRegionId,

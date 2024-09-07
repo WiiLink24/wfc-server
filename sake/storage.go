@@ -120,11 +120,11 @@ type StorageSearchForRecordsResponse struct {
 }
 
 var fileDownloadHandlers = map[int]func(string, http.ResponseWriter, *http.Request){
-	common.GameSpyGameIdMarioKartWii: handleMarioKartWiiFileDownloadRequest,
+	common.GetGameIDOrPanic("mariokartwii"): handleMarioKartWiiFileDownloadRequest,
 }
 
 var fileUploadHandlers = map[int]func(string, http.ResponseWriter, *http.Request){
-	common.GameSpyGameIdMarioKartWii: handleMarioKartWiiFileUploadRequest,
+	common.GetGameIDOrPanic("mariokartwii"): handleMarioKartWiiFileUploadRequest,
 }
 
 func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Request) {

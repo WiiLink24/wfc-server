@@ -26,6 +26,8 @@ var (
 )
 
 func GetGameInfoByID(gameId int) *GameInfo {
+	ReadGameList()
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -37,6 +39,8 @@ func GetGameInfoByID(gameId int) *GameInfo {
 }
 
 func GetGameInfoByName(name string) *GameInfo {
+	ReadGameList()
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -45,6 +49,24 @@ func GetGameInfoByName(name string) *GameInfo {
 	}
 
 	return nil
+}
+
+func GetGameID(name string) int {
+	info := GetGameInfoByName(name)
+	if info != nil {
+		return info.GameID
+	}
+
+	return -1
+}
+
+func GetGameIDOrPanic(name string) int {
+	id := GetGameID(name)
+	if id == -1 {
+		panic("Game not found: " + name)
+	}
+
+	return id
 }
 
 func ReadGameList() {
