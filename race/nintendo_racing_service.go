@@ -72,7 +72,7 @@ const (
 	xmlNamespace    = "http://gamespy.net/RaceService/"
 )
 
-var MarioKartWiiGameID = common.GetGameIDOrPanic("mariokartwii") // 1687
+var marioKartWiiGameID = common.GetGameIDOrPanic("mariokartwii") // 1687
 
 func handleNintendoRacingServiceRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
 	soapActionHeader := request.Header.Get("SOAPAction")
@@ -123,7 +123,7 @@ func handleGetTopTenRankingsRequest(moduleName string, responseWriter http.Respo
 	requestData := requestXML.Body.Data
 
 	gameId := requestData.GameId
-	if gameId != MarioKartWiiGameID {
+	if gameId != marioKartWiiGameID {
 		logging.Error(moduleName, "Wrong GameSpy game ID:", aurora.Cyan(gameId))
 		writeErrorResponse(raceServiceResultInvalidParameters, responseWriter)
 		return
