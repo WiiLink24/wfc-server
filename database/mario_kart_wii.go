@@ -21,6 +21,18 @@ const (
 		"AND courseid = $2 " +
 		"ORDER BY score ASC " +
 		"LIMIT 10"
+	getStoredGhostDataQuery = "" +
+		"SELECT pid, id " +
+		"FROM mario_kart_wii_sake " +
+		"WHERE ($1 = 0 OR regionid = $1) " +
+		"AND courseid = $2 " +
+		"ORDER BY score ASC " +
+		"LIMIT 1"
+	getFileQuery = "" +
+		"SELECT ghost " +
+		"FROM mario_kart_wii_sake " +
+		"WHERE id = $1 " +
+		"LIMIT 1"
 	getGhostFileQuery = "" +
 		"SELECT ghost " +
 		"FROM mario_kart_wii_sake " +
@@ -54,12 +66,35 @@ func GetMarioKartWiiTopTenRankings(pool *pgxpool.Pool, ctx context.Context, regi
 
 		topTenRankings = append(topTenRankings, topTenRanking)
 	}
-	err = rows.Err()
-	if err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 
 	return topTenRankings, nil
+}
+
+func GetMarioKartWiiStoredGhostData(pool *pgxpool.Pool, ctx context.Context, regionId common.MarioKartWiiLeaderboardRegionId,
+	courseId common.MarioKartWiiCourseId) (int, int, error) {
+	row := pool.QueryRow(ctx, getStoredGhostDataQuery, regionId, courseId)
+
+	var pid int
+	var fileId int
+	if err := row.Scan(&pid, &fileId); err != nil {
+		return 0, 0, err
+	}
+
+	return pid, fileId, nil
+}
+
+func GetMarioKartWiiFile(pool *pgxpool.Pool, ctx context.Context, fileId int) ([]byte, error) {
+	row := pool.QueryRow(ctx, getFileQuery, fileId)
+
+	var file []byte
+	if err := row.Scan(&file); err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }
 
 func GetMarioKartWiiGhostFile(pool *pgxpool.Pool, ctx context.Context, courseId common.MarioKartWiiCourseId,
@@ -67,8 +102,7 @@ func GetMarioKartWiiGhostFile(pool *pgxpool.Pool, ctx context.Context, courseId 
 	row := pool.QueryRow(ctx, getGhostFileQuery, courseId, time, pid)
 
 	var ghost []byte
-	err := row.Scan(&ghost)
-	if err != nil {
+	if err := row.Scan(&ghost); err != nil {
 		return nil, err
 	}
 

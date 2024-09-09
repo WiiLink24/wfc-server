@@ -68,6 +68,11 @@ CREATE TABLE IF NOT EXISTS public.mario_kart_wii_sake (
 );
 
 
+ALTER TABLE ONLY public.mario_kart_wii_sake
+    ADD IF NOT EXISTS id serial PRIMARY KEY,
+    ADD IF NOT EXISTS upload_time timestamp without time zone;
+
+
 ALTER TABLE public.mario_kart_wii_sake OWNER TO wiilink;
 
 --

@@ -37,6 +37,36 @@ func handleMarioKartWiiFileDownloadRequest(moduleName string, responseWriter htt
 		handleMarioKartWiiGhostDownloadRequest(moduleName, responseWriter, request)
 		return
 	}
+
+	query := request.URL.Query()
+
+	fileIdString := query.Get("fileid")
+	pidString := query.Get("pid")
+
+	fileId, err := strconv.Atoi(fileIdString)
+	if err != nil || fileId <= 0 {
+		logging.Error(moduleName, "Invalid file ID:", aurora.Cyan(fileIdString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
+		return
+	}
+
+	pid, err := strconv.Atoi(pidString)
+	if err != nil || pid <= 0 {
+		logging.Error(moduleName, "Invalid profile ID:", aurora.Cyan(pidString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
+		return
+	}
+
+	file, err := database.GetMarioKartWiiFile(pool, ctx, fileId)
+	if err != nil {
+		logging.Error(moduleName, "Failed to get the file from the database:", err)
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
+		return
+	}
+
+	responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultSuccess))
+	responseWriter.Header().Set("Content-Length", strconv.Itoa(len(file)))
+	responseWriter.Write(file)
 }
 
 func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {

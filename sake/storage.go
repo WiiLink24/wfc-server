@@ -382,6 +382,71 @@ func searchForRecords(moduleName string, gameInfo common.GameInfo, request Stora
 				"info":     binaryDataValueBase64(database.GetMKWFriendInfo(pool, ctx, uint32(ownerId))),
 			},
 		}
+
+	case "mariokartwii/StoredGhostData":
+		if request.Sort != "time" {
+			logging.Error(moduleName, "Invalid sort string:", aurora.Cyan(request.Sort))
+			return &errorResponse
+		}
+
+		if request.Offset != 0 {
+			logging.Error(moduleName, "Invalid offset value:", aurora.Cyan(request.Offset))
+			return &errorResponse
+		}
+
+		if request.Max != 1 {
+			logging.Error(moduleName, "Invalid number of records to return:", aurora.Cyan(request.Max))
+			return &errorResponse
+		}
+
+		if request.Surrounding != 0 {
+			logging.Error(moduleName, "Invalid number of surrounding records to return:", aurora.Cyan(request.Surrounding))
+			return &errorResponse
+		}
+
+		if request.OwnerIDs != "" {
+			logging.Error(moduleName, "Invalid owner id array:", aurora.Cyan(request.OwnerIDs))
+			return &errorResponse
+		}
+
+		if request.CacheFlag != 0 {
+			logging.Error(moduleName, "Invalid cache value:", aurora.Cyan(request.CacheFlag))
+			return &errorResponse
+		}
+
+		match := regexp.MustCompile(`^course = ([1-9]\d?|0) and gameid = 1687(?: and region = ([1-7]))?$`).FindStringSubmatch(request.Filter)
+		if match == nil {
+			logging.Error(moduleName, "Invalid filter string:", aurora.Cyan(request.Filter))
+			return &errorResponse
+		}
+
+		courseIdInt, _ := strconv.Atoi(match[1])
+		courseId := common.MarioKartWiiCourseId(courseIdInt)
+		if !courseId.IsValid() {
+			logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdInt))
+			return &errorResponse
+		}
+
+		var regionId common.MarioKartWiiLeaderboardRegionId
+		if regionIdExists := match[2] != ""; regionIdExists {
+			regionIdInt, _ := strconv.Atoi(match[2])
+			regionId = common.MarioKartWiiLeaderboardRegionId(regionIdInt)
+		} else {
+			regionId = common.Worldwide
+		}
+
+		pid, fileId, err := database.GetMarioKartWiiStoredGhostData(pool, ctx, regionId, courseId)
+		if err != nil {
+			logging.Error(moduleName, "Failed to get the stored ghost data from the database:", err)
+			return &errorResponse
+		}
+
+		values = []map[string]StorageValue{
+			{
+				"profile": intValue(int32(pid)),
+				"fileid":  intValue(int32(fileId)),
+			},
+		}
 	}
 
 	// Sort the values now
