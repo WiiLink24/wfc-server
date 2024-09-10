@@ -110,7 +110,7 @@ func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter ht
 	}
 
 	time, err := strconv.Atoi(timeString)
-	if err != nil || time <= 0 {
+	if err != nil || time <= 0 || time >= 360000 /* 6 minutes */ {
 		logging.Error(moduleName, "Invalid time:", aurora.Cyan(timeString))
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
@@ -167,14 +167,14 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 		return
 	}
 	courseId := common.MarioKartWiiCourseId(courseIdInt)
-	if courseId < common.MarioCircuit || courseId > 32767 {
+	if courseId < common.MarioCircuit || isContest == courseId.IsValid() || courseId > 32767 {
 		logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdString))
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
 
 	score, err := strconv.Atoi(scoreString)
-	if err != nil || score <= 0 {
+	if err != nil || score <= 0 || score >= 360000 /* 6 minutes */ {
 		logging.Error(moduleName, "Invalid score:", aurora.Cyan(scoreString))
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return

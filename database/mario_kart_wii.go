@@ -21,6 +21,13 @@ const (
 		"AND courseid = $2 " +
 		"ORDER BY score ASC " +
 		"LIMIT 10"
+	getGhostDataQuery = "" +
+		"SELECT id " +
+		"FROM mario_kart_wii_sake " +
+		"WHERE courseid = $1 " +
+		"AND score < $2 " +
+		"ORDER BY score DESC " +
+		"LIMIT 1"
 	getStoredGhostDataQuery = "" +
 		"SELECT pid, id " +
 		"FROM mario_kart_wii_sake " +
@@ -71,6 +78,17 @@ func GetMarioKartWiiTopTenRankings(pool *pgxpool.Pool, ctx context.Context, regi
 	}
 
 	return topTenRankings, nil
+}
+
+func GetMarioKartWiiGhostData(pool *pgxpool.Pool, ctx context.Context, courseId common.MarioKartWiiCourseId, time int) (int, error) {
+	row := pool.QueryRow(ctx, getGhostDataQuery, courseId, time)
+
+	var fileId int
+	if err := row.Scan(&fileId); err != nil {
+		return 0, err
+	}
+
+	return fileId, nil
 }
 
 func GetMarioKartWiiStoredGhostData(pool *pgxpool.Pool, ctx context.Context, regionId common.MarioKartWiiLeaderboardRegionId,

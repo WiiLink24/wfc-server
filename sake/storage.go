@@ -383,6 +383,73 @@ func searchForRecords(moduleName string, gameInfo common.GameInfo, request Stora
 			},
 		}
 
+	case "mariokartwii/GhostData":
+		if request.TableID != "GhostData" {
+			logging.Error(moduleName, "Invalid table name:", aurora.Cyan(request.TableID))
+			return &errorResponse
+		}
+
+		if request.Sort != "time desc" {
+			logging.Error(moduleName, "Invalid sort string:", aurora.Cyan(request.Sort))
+			return &errorResponse
+		}
+
+		if request.Offset != 0 {
+			logging.Error(moduleName, "Invalid offset value:", aurora.Cyan(request.Offset))
+			return &errorResponse
+		}
+
+		if request.Max != 1 {
+			logging.Error(moduleName, "Invalid number of records to return:", aurora.Cyan(request.Max))
+			return &errorResponse
+		}
+
+		if request.Surrounding != 0 {
+			logging.Error(moduleName, "Invalid number of surrounding records to return:", aurora.Cyan(request.Surrounding))
+			return &errorResponse
+		}
+
+		if request.OwnerIDs != "" {
+			logging.Error(moduleName, "Invalid owner id array:", aurora.Cyan(request.OwnerIDs))
+			return &errorResponse
+		}
+
+		if request.CacheFlag != 0 {
+			logging.Error(moduleName, "Invalid cache value:", aurora.Cyan(request.CacheFlag))
+			return &errorResponse
+		}
+
+		match := regexp.MustCompile(`^course = ([1-9]\d?|0) and gameid = 1687 and time < ([1-9][0-9]{0,5})$`).FindStringSubmatch(request.Filter)
+		if match == nil {
+			logging.Error(moduleName, "Invalid filter string:", aurora.Cyan(request.Filter))
+			return &errorResponse
+		}
+
+		courseIdInt, _ := strconv.Atoi(match[1])
+		courseId := common.MarioKartWiiCourseId(courseIdInt)
+		if !courseId.IsValid() {
+			logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(match[1]))
+			return &errorResponse
+		}
+
+		time, _ := strconv.Atoi(match[2])
+		if time >= 360000 /* 6 minutes */ {
+			logging.Error(moduleName, "Invalid time:", aurora.Cyan(match[2]))
+			return &errorResponse
+		}
+
+		fileId, err := database.GetMarioKartWiiGhostData(pool, ctx, courseId, time)
+		if err != nil {
+			logging.Error(moduleName, "Failed to get the ghost data from the database:", err)
+			return &errorResponse
+		}
+
+		values = []map[string]StorageValue{
+			{
+				"fileid": intValue(int32(fileId)),
+			},
+		}
+
 	case "mariokartwii/StoredGhostData":
 		if request.Sort != "time" {
 			logging.Error(moduleName, "Invalid sort string:", aurora.Cyan(request.Sort))
@@ -423,7 +490,7 @@ func searchForRecords(moduleName string, gameInfo common.GameInfo, request Stora
 		courseIdInt, _ := strconv.Atoi(match[1])
 		courseId := common.MarioKartWiiCourseId(courseIdInt)
 		if !courseId.IsValid() {
-			logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdInt))
+			logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(match[1]))
 			return &errorResponse
 		}
 
