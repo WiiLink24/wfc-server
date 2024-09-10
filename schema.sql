@@ -59,7 +59,7 @@ ALTER TABLE public.users OWNER TO wiilink;
 CREATE TABLE IF NOT EXISTS public.mario_kart_wii_sake (
     regionid smallint NOT NULL CHECK (regionid >= 1 AND regionid <= 7),
     courseid smallint NOT NULL CHECK (courseid >= 0 AND courseid <= 32767),
-    score integer NOT NULL CHECK (score > 0),
+    score integer NOT NULL CHECK (score > 0 AND score < 360000),
     pid integer NOT NULL CHECK (pid > 0),
     playerinfo varchar(108) NOT NULL CHECK (LENGTH(playerinfo) = 108),
     ghost bytea CHECK (ghost IS NULL OR (OCTET_LENGTH(ghost) BETWEEN 148 AND 10240)),
