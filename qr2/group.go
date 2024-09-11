@@ -390,7 +390,8 @@ func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
 		}
 
 		index := 0x08 + i*0x4C
-		if common.RFLCalculateCRC(packet[index:index+0x4C]) != 0x0000 {
+		mii := common.Mii(packet[index : index+0x4C])
+		if mii.RFLCalculateCRC() != 0x0000 {
 			logging.Error(moduleName, "Received USER packet with invalid Mii data CRC")
 			gpErrorCallback(senderPid, "malpacket")
 			return

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"net/http"
 	"strconv"
@@ -17,7 +16,7 @@ import (
 )
 
 type playerInfo struct {
-	MiiData      [0x4C]byte // 0x00
+	MiiData      common.Mii // 0x00
 	ControllerId byte       // 0x4C
 	Unknown      byte       // 0x4D
 	StateCode    byte       // 0x4E
@@ -27,9 +26,7 @@ type playerInfo struct {
 const (
 	playerInfoSize = 0x50
 
-	rkgdFileMaxSize = 0x2800
-	rkgdFileMinSize = 0x0088 + 0x0008 + 0x0004
-	rkgdFileName    = "ghost.bin"
+	rkgdFileName = "ghost.bin"
 )
 
 func handleMarioKartWiiFileDownloadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
@@ -205,7 +202,7 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 		request.Header.Set("Content-Type", contentType)
 	}
 
-	err = request.ParseMultipartForm(rkgdFileMaxSize)
+	err = request.ParseMultipartForm(common.RKGDFileMaxSize)
 	if err != nil {
 		logging.Error(moduleName, "Failed to parse the multipart form:", err)
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultFileNotFound))
@@ -220,7 +217,7 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 	}
 	defer file.Close()
 
-	if fileHeader.Size < rkgdFileMinSize || fileHeader.Size > rkgdFileMaxSize {
+	if fileHeader.Size < common.RKGDFileMinSize || fileHeader.Size > common.RKGDFileMaxSize {
 		logging.Error(moduleName, "The size of the ghost file is invalid:", aurora.Cyan(fileHeader.Size))
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultFileTooLarge))
 		return
@@ -234,7 +231,7 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 		return
 	}
 
-	if !isRKGDFileValid(ghostFile) {
+	if !common.RKGhostData(ghostFile).IsRKGDFileValid(moduleName, courseId, score) {
 		logging.Error(moduleName, "Received an invalid ghost file")
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultFileTooLarge))
 		return
@@ -279,7 +276,7 @@ func isPlayerInfoValid(playerInfoString string) bool {
 		return false
 	}
 
-	if common.RFLCalculateCRC(playerInfo.MiiData[:]) != 0x0000 {
+	if playerInfo.MiiData.RFLCalculateCRC() != 0x0000 {
 		return false
 	}
 
@@ -296,19 +293,4 @@ func getMultipartBoundary(contentType string) string {
 	startIndex += len("boundary=")
 
 	return contentType[startIndex:]
-}
-
-func isRKGDFileValid(rkgdFile []byte) bool {
-	rkgdFileMagic := []byte{'R', 'K', 'G', 'D'}
-
-	if !bytes.Equal(rkgdFile[:4], rkgdFileMagic) {
-		return false
-	}
-
-	rkgdFileLength := len(rkgdFile)
-
-	expectedChecksum := binary.BigEndian.Uint32(rkgdFile[rkgdFileLength-4:])
-	checksum := crc32.ChecksumIEEE(rkgdFile[:rkgdFileLength-4])
-
-	return checksum == expectedChecksum
 }

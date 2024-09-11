@@ -16,16 +16,9 @@ import (
 )
 
 const (
-	FileRequestDownload = iota
-	FileRequestUpload
-)
-
-const (
 	SOAPEnvNamespace = "http://schemas.xmlsoap.org/soap/envelope/"
 	SakeNamespace    = "http://gamespy.net/sake"
 )
-
-type FileRequest int
 
 type StorageRequestEnvelope struct {
 	XMLName xml.Name
@@ -119,14 +112,6 @@ type StorageSearchForRecordsResponse struct {
 	Values                 StorageResponseValues `xml:"values"` // ???
 }
 
-var fileDownloadHandlers = map[int]func(string, http.ResponseWriter, *http.Request){
-	common.GetGameIDOrPanic("mariokartwii"): handleMarioKartWiiFileDownloadRequest,
-}
-
-var fileUploadHandlers = map[int]func(string, http.ResponseWriter, *http.Request){
-	common.GetGameIDOrPanic("mariokartwii"): handleMarioKartWiiFileUploadRequest,
-}
-
 func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
 	headerAction := r.Header.Get("SOAPAction")
 	if headerAction == "" {
@@ -187,36 +172,6 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "text/xml")
 	w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
 	w.Write(payload)
-}
-
-func handleFileRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request,
-	fileRequest FileRequest) {
-
-	gameIdString := request.URL.Query().Get("gameid")
-	gameId, err := strconv.Atoi(gameIdString)
-	if err != nil {
-		logging.Error(moduleName, "Invalid GameSpy game id")
-		return
-	}
-
-	var handler func(string, http.ResponseWriter, *http.Request)
-	var handlerExists bool
-	switch fileRequest {
-	case FileRequestDownload:
-		handler, handlerExists = fileDownloadHandlers[gameId]
-	case FileRequestUpload:
-		handler, handlerExists = fileUploadHandlers[gameId]
-	default:
-		logging.Error(moduleName, "Invalid file request")
-		return
-	}
-
-	if !handlerExists {
-		logging.Warn(moduleName, "Unhandled file request for GameSpy game id:", aurora.Cyan(gameId))
-		return
-	}
-
-	handler(moduleName, responseWriter, request)
 }
 
 func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, common.GameInfo, bool) {

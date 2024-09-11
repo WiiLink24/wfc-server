@@ -4,7 +4,9 @@ package common
 // https://wiibrew.org/wiki/Mii_Data
 // https://github.com/kiwi515/ogws/tree/master/src/RVLFaceLib
 
-func RFLCalculateCRC(data []byte) uint16 {
+type Mii [0x4C]byte
+
+func (data Mii) RFLCalculateCRC() uint16 {
 	crc := uint16(0)
 
 	for _, val := range data {
