@@ -77,6 +77,14 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			profileId := g.User.ProfileId
 			logging.Warn(g.ModuleName, "Kicking", aurora.BrightCyan(strconv.FormatUint(uint64(profileId), 10)), fmt.Sprintf("for dropping too many frames (%d)", framesDropped))
 			kickPlayer(profileId, "too_many_frames_dropped")
+
+		case "mkw_select_course", "mkw_select_cc":
+			if g.GameName != "mariokartwii" {
+				logging.Warn(g.ModuleName, "Ignoring mkw_select_* from wrong game")
+				continue
+			}
+
+			qr2.ProcessMKWSelectRecord(g.User.ProfileId, key, value)
 		}
 	}
 }
