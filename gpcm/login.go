@@ -476,7 +476,16 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 				ErrorCode:   ErrLogin.ErrorCode,
 				ErrorString: "The profile is banned from the service.",
 				Fatal:       true,
-				WWFCMessage: WWFCMsgProfileBannedTOS,
+				WWFCMessage: WWFCErrorMessage{
+					ErrorCode: 22002,
+					MessageRMC: map[byte]string{
+						LangEnglish: "" +
+							"You are banned from Retro WFC\n" +
+							"Reason: " + user.BanReason + "\n" +
+							"Error Code: %[1]d\n" +
+							"Support Info: NG%08[2]x",
+					},
+				},
 			})
 		} else {
 			g.replyError(GPError{

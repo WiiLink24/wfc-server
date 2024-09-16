@@ -41,6 +41,7 @@ func HandleKick(w http.ResponseWriter, r *http.Request) {
 
 type KickRequestSpec struct {
 	Secret string
+	Reason string
 	Pid    uint32
 }
 
@@ -66,7 +67,20 @@ func handleKickImpl(w http.ResponseWriter, r *http.Request) (*database.User, boo
 		return nil, false, "pid missing or 0 in request", http.StatusBadRequest
 	}
 
-	gpcm.KickPlayer(req.Pid, "moderator_kick")
+	if req.Reason == "" {
+		return nil, false, "Missing kick reason in request", http.StatusBadRequest
+	}
+
+	gpcm.KickPlayerCustomMessage(req.Pid, "moderator_kick", gpcm.WWFCErrorMessage{
+		ErrorCode: 22004,
+		MessageRMC: map[byte]string{
+			gpcm.LangEnglish: "" +
+				"You have been kicked from\n" +
+				"Retro WFC by a moderator.\n" +
+				"Reason: " + req.Reason + "\n" +
+				"Error Code: %[1]d",
+		},
+	})
 
 	var message string
 	user, success := database.GetProfile(pool, ctx, req.Pid)

@@ -40,6 +40,7 @@ type User struct {
 	LastName           string
 	Restricted         bool
 	RestrictedDeviceId uint32
+	BanReason          string
 	OpenHost           bool
 	LastInGameSn       string
 	LastIPAddress      string

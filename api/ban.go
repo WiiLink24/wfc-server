@@ -94,11 +94,16 @@ func handleBanImpl(w http.ResponseWriter, r *http.Request) (*database.User, bool
 		return nil, false, "Failed to ban user", http.StatusInternalServerError
 	}
 
-	if req.Tos {
-		gpcm.KickPlayer(req.Pid, "banned")
-	} else {
-		gpcm.KickPlayer(req.Pid, "restricted")
-	}
+	gpcm.KickPlayerCustomMessage(req.Pid, req.Reason, gpcm.WWFCErrorMessage{
+		ErrorCode: 22002,
+		MessageRMC: map[byte]string{
+			gpcm.LangEnglish: "" +
+				"You have been banned from Retro WFC\n" +
+				"Reason: " + req.Reason + "\n" +
+				"Error Code: %[1]d\n" +
+				"Support Info: NG%08[2]x",
+		},
+	})
 
 	var message string
 	user, success := database.GetProfile(pool, ctx, req.Pid)
