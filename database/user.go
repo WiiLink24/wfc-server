@@ -16,7 +16,7 @@ const (
 	UpdateUserProfileID     = `UPDATE users SET profile_id = $3 WHERE user_id = $1 AND gsbrcd = $2`
 	UpdateUserNGDeviceID    = `UPDATE users SET ng_device_id = $2 WHERE profile_id = $1`
 	GetUser                 = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn FROM users WHERE profile_id = $1`
-	DeleteUser              = `DELETE FROM users WHERE profile_id = $1 RETURNING user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn`
+	ClearProfileQuery       = `DELETE FROM users WHERE profile_id = $1 RETURNING user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn`
 	DoesUserExist           = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
 	DeleteUserSession       = `DELETE FROM sessions WHERE profile_id = $1`
@@ -142,7 +142,7 @@ func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User
 
 func ClearProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, bool) {
 	user := User{}
-	row := pool.QueryRow(ctx, DeleteUser, profileId)
+	row := pool.QueryRow(ctx, ClearProfileQuery, profileId)
 	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName, &user.OpenHost, &user.LastIPAddress, &user.LastInGameSn)
 
 	if err != nil {

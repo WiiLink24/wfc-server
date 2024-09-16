@@ -16,12 +16,9 @@ func HandleBan(w http.ResponseWriter, r *http.Request) {
 	var err string
 	var statusCode int
 
-	switch r.Method {
-	case http.MethodHead:
-		statusCode = http.StatusOK
-	case http.MethodPost:
+	if r.Method == http.MethodPost {
 		user, success, err, statusCode = handleBanImpl(w, r)
-	default:
+	} else {
 		err = "Incorrect request. POST or HEAD only."
 		statusCode = http.StatusBadRequest
 	}

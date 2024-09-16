@@ -15,8 +15,6 @@ func HandleMotd(w http.ResponseWriter, r *http.Request) {
 	var statusCode int
 
 	switch r.Method {
-	case http.MethodHead:
-		statusCode = http.StatusOK
 	case http.MethodGet:
 		_motd, motdErr := gpcm.GetMessageOfTheDay()
 		if motdErr != nil {
