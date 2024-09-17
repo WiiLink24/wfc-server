@@ -17,7 +17,7 @@ func (g *GameStatsSession) getpd(command common.GameSpyCommand) {
 			"lid":    strconv.Itoa(g.LoginID),
 			"pid":    command.OtherValues["pid"],
 			"mod":    strconv.Itoa(int(time.Now().Unix())),
-			"length": strconv.Itoa(len(data)),
+			"length": strconv.Itoa(len(data) + 1),
 			"data":   `\` + data + `\`,
 		},
 	})
