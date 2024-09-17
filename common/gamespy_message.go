@@ -73,7 +73,7 @@ func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {
 func CreateGameSpyMessage(command GameSpyCommand) string {
 	query := ""
 	for k, v := range command.OtherValues {
-		query += fmt.Sprintf(`\%s\%s`, strings.Replace(k, `\`, ``, -1), strings.Replace(v, `\`, ``, -1))
+		query += fmt.Sprintf(`\%s\%s`, k, v)
 	}
 
 	if command.Command != "" {

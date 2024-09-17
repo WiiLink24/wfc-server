@@ -7,6 +7,9 @@ import (
 )
 
 func (g *GameStatsSession) getpd(command common.GameSpyCommand) {
+	// Temporary empty data, it's an embedded gamespy \key\value message excluding \final\
+	data := `\\`
+
 	g.Write(common.GameSpyCommand{
 		Command:      "getpdr",
 		CommandValue: "1",
@@ -14,8 +17,8 @@ func (g *GameStatsSession) getpd(command common.GameSpyCommand) {
 			"lid":    strconv.Itoa(g.LoginID),
 			"pid":    command.OtherValues["pid"],
 			"mod":    strconv.Itoa(int(time.Now().Unix())),
-			"length": "0",
-			"data":   `\\`,
+			"length": strconv.Itoa(len(data)),
+			"data":   `\` + data + `\`,
 		},
 	})
 }
