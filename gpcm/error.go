@@ -347,7 +347,6 @@ var (
 				"Error Code: %[1]d",
 			LangJapanese: "" +
 				"Retro WFCから キックされました\n" +
-				"公式レースから BANされました\n" +
 				"\n" +
 				"エラーコード： %[1]d",
 			LangFrenchEU: "" +
