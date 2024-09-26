@@ -1,7 +1,6 @@
 package sake
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -11,23 +10,12 @@ import (
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+	"wwfc/race"
 
 	"github.com/logrusorgru/aurora/v3"
 )
 
-type playerInfo struct {
-	MiiData      common.Mii // 0x00
-	ControllerId byte       // 0x4C
-	Unknown      byte       // 0x4D
-	StateCode    byte       // 0x4E
-	CountryCode  byte       // 0x4F
-}
-
-const (
-	playerInfoSize = 0x50
-
-	rkgdFileName = "ghost.bin"
-)
+const rkgdFileName = "ghost.bin"
 
 func handleMarioKartWiiFileDownloadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
 	if strings.HasSuffix(request.URL.Path, "ghostdownload.aspx") {
@@ -128,6 +116,7 @@ func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter ht
 }
 
 func handleMarioKartWiiFileUploadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
+	return
 	if strings.HasSuffix(request.URL.Path, "ghostupload.aspx") {
 		handleMarioKartWiiGhostUploadRequest(moduleName, responseWriter, request)
 		return
@@ -184,7 +173,7 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 		return
 	}
 
-	if !isPlayerInfoValid(playerInfo) {
+	if !race.IsPlayerInfoValid(playerInfo) {
 		logging.Error(moduleName, "Invalid player info:", aurora.Cyan(playerInfo))
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
@@ -257,32 +246,6 @@ func downloadedGhostFileHeader() []byte {
 	binary.BigEndian.PutUint32(downloadedGhostFileHeader[0x40:0x44], uint32(len(downloadedGhostFileHeader)))
 
 	return downloadedGhostFileHeader[:]
-}
-
-func isPlayerInfoValid(playerInfoString string) bool {
-	playerInfoByteArray, err := common.DecodeGameSpyBase64(playerInfoString, common.GameSpyBase64EncodingURLSafe)
-	if err != nil {
-		return false
-	}
-
-	if len(playerInfoByteArray) != playerInfoSize {
-		return false
-	}
-
-	var playerInfo playerInfo
-	reader := bytes.NewReader(playerInfoByteArray)
-	err = binary.Read(reader, binary.BigEndian, &playerInfo)
-	if err != nil {
-		return false
-	}
-
-	if playerInfo.MiiData.RFLCalculateCRC() != 0x0000 {
-		return false
-	}
-
-	controllerId := common.MarioKartWiiControllerId(playerInfo.ControllerId)
-
-	return controllerId.IsValid()
 }
 
 func getMultipartBoundary(contentType string) string {
