@@ -71,7 +71,7 @@ var commonDeviceIds = []uint32{
 
 func verifySignature(moduleName string, authToken string, signature string) uint32 {
 	sigBytes, err := common.Base64DwcEncoding.DecodeString(signature)
-	if err != nil || len(sigBytes) != 0x144 {
+	if err != nil || (len(sigBytes) != 0x144 && len(sigBytes) != 0x148) {
 		return 0
 	}
 
@@ -95,6 +95,10 @@ func verifySignature(moduleName string, authToken string, signature string) uint
 	ngSignature := sigBytes[0x090:0x0CC]
 	apPublicKey := sigBytes[0x0CC:0x108]
 	apSignature := sigBytes[0x108:0x144]
+	apTimestamp := []byte{0, 0, 0, 0}
+	if len(sigBytes) == 0x148 {
+		apTimestamp = sigBytes[0x144:0x148]
+	}
 
 	ngIssuer := fmt.Sprintf("Root-CA%02x%02x%02x%02x-MS%02x%02x%02x%02x", caId[0], caId[1], caId[2], caId[3], msId[0], msId[1], msId[2], msId[3])
 	ngName := fmt.Sprintf("NG%02x%02x%02x%02x", ngId[0], ngId[1], ngId[2], ngId[3])
@@ -123,7 +127,7 @@ func verifySignature(moduleName string, authToken string, signature string) uint
 	apCertBlob = append(apCertBlob, 0x00, 0x00, 0x00, 0x02)
 	apCertBlob = append(apCertBlob, []byte(apName)...)
 	apCertBlob = append(apCertBlob, make([]byte, 0x40-len(apName))...)
-	apCertBlob = append(apCertBlob, 0x00, 0x00, 0x00, 0x00)
+	apCertBlob = append(apCertBlob, apTimestamp...)
 	apCertBlob = append(apCertBlob, apPublicKey...)
 	apCertBlob = append(apCertBlob, make([]byte, 0x3C)...)
 	apCertBlobHash := sha1.Sum(apCertBlob)
