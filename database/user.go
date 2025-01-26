@@ -20,9 +20,10 @@ const (
 	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
 	DeleteUserSession       = `DELETE FROM sessions WHERE profile_id = $1`
 	GetUserProfileID        = `SELECT profile_id, ng_device_id, email, unique_nick, firstname, lastname, open_host FROM users WHERE user_id = $1 AND gsbrcd = $2`
+    GetUserLastIPAddress    = `SELECT last_ip_address FROM users WHERE profile_id = $1`
 	UpdateUserLastIPAddress = `UPDATE users SET last_ip_address = $2, last_ingamesn = $3 WHERE profile_id = $1`
 	UpdateUserBan           = `UPDATE users SET has_ban = true, ban_issued = $2, ban_expires = $3, ban_reason = $4, ban_reason_hidden = $5, ban_moderator = $6, ban_tos = $7 WHERE profile_id = $1`
-	SearchUserBan           = `SELECT has_ban, ban_tos, ng_device_id FROM users WHERE has_ban = true AND (profile_id = $1 OR ng_device_id = $2 OR last_ip_address = $3) AND (ban_expires IS NULL OR ban_expires > $4) ORDER BY ban_tos DESC LIMIT 1`
+	SearchUserBan           = `SELECT has_ban, ban_tos, ng_device_id FROM users WHERE has_ban = true AND (profile_id = $1 OR last_ip_address = $2) AND (ban_expires IS NULL OR ban_expires > $3) ORDER BY ban_tos DESC LIMIT 1`
 	DisableUserBan          = `UPDATE users SET has_ban = false WHERE profile_id = $1`
 
 	GetMKWFriendInfoQuery    = `SELECT mariokartwii_friend_info FROM users WHERE profile_id = $1`
@@ -155,6 +156,15 @@ func BanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32, tos bool
 func UnbanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32) bool {
 	_, err := pool.Exec(ctx, DisableUserBan, profileId)
 	return err == nil
+}
+
+func GetUserIP(pool *pgxpool.Pool, ctx context.Context, profileId uint32) string {
+	var ip string
+	err := pool.QueryRow(ctx, GetUserLastIPAddress, profileId).Scan(&ip)
+	if err != nil {
+		return "Unknown"
+	}
+	return ip
 }
 
 func GetMKWFriendInfo(pool *pgxpool.Pool, ctx context.Context, profileId uint32) string {
