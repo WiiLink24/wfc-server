@@ -114,16 +114,25 @@ func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter ht
 	}
 	
 	
+	// ***********************************************************************************************************
+	//	PiporGames patch for small DBs
+	//
+	//  Set max nº of increments for time to do when searching (setting a random value might help with ghost variety)
+	increments := rand.Intn(20) + 1
+	//
+	//	Set debug messages (setting to false will prevent spamming the console when failing whole courseIds or time increments iterations.
+	detailedDebugLog := true
+	// ***********************************************************************************************************
+	
+	
 	// try vanilla behaviour first
-
 	ghost, err := database.GetMarioKartWiiGhostFile(pool, ctx, courseId, time, pid)
 	if err != nil {
 		logging.Error(moduleName, "Failed to get a ghost file from the database:", err)
-		logging.Info(moduleName, "courseId request cannot be served, choosing random courseId instead...")
+		logging.Warn(moduleName, "courseId request failed, testing with random courseIds and incremental times.")
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
 		
-		// we failed. choose a random one.
-		
+		// we failed. choose a random courseId one.
 		// choose courseId max (vanilla) up to 31
 		allCourses := make([]int, 32) // 32 para incluir el 31
 		for i := 0; i < 32; i++ {
@@ -133,38 +142,57 @@ func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter ht
 		// Random shuffle
 		rand.Shuffle(len(allCourses), func(i, j int) { allCourses[i], allCourses[j] = allCourses[j], allCourses[i] })
 
-		// Cycle all courseIds
-		for _, courseIdranInt := range allCourses {
-			
-			//logging.Info(moduleName, "Testing with", courseIdranInt, "...")
-			
-			// Test that the courseId chosen is good and convert it.
-			courseIdran := common.MarioKartWiiCourseId(courseIdranInt)
-			if !courseId.IsValid() {
-				logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdranInt))
-				responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
-				break // we cannot continue, this is not normal behaviour.
-			}
-			
-			// If courseId is good, download.
-			ghost, err = database.GetMarioKartWiiGhostFile(pool, ctx, courseIdran, time, pid)
-			if err != nil || len(ghost) <= 0 {
-				continue // ghost cannot be found or invalid, continue.
-			}
-			
-			// no errors, we are good!
-			logging.Info(moduleName, "Valid ghost found with randomized courseId:", courseIdranInt)
-			break
-		}
+		// increments for up to N times until reaching max score.
+		// max score is 360000 (noted in above code)
+		timeqntAdd := (360000 - time) / increments
+		for time < 360000 {
 
+			// Cycle all courseIds
+			for _, courseIdranInt := range allCourses {
+				
+				//logging.Info(moduleName, "Testing with", courseIdranInt, "...")
+				
+				// Test that the courseId chosen is good and convert it.
+				courseIdran := common.MarioKartWiiCourseId(courseIdranInt)
+				if !courseId.IsValid() {
+					logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdranInt))
+					responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
+					break // we cannot continue, this is not normal behaviour.
+				}
+				
+				// If courseId is good, download.
+				ghost, err = database.GetMarioKartWiiGhostFile(pool, ctx, courseIdran, time, pid)
+				if err != nil || len(ghost) <= 0 {
+					continue // ghost cannot be found or invalid, continue.
+				}
+				
+				// no errors, we are good!
+				logging.Info(moduleName, "Valid ghost found with randomized courseId:", courseIdranInt, ", time:", time)
+				break
+			}
+			
+			// check if we run out of courseIds
+			if err != nil {
+				if detailedDebugLog == true {
+					logging.Error(moduleName, "No courseIds left, no ghost matches criteria:", err)
+					responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
+					logging.Warn(moduleName, "Retrying with a higher time:", time)
+				}
+				time = time + timeqntAdd // try another time
+			} else {
+				break
+			}
+		}
+		
+		// check if we run out of time increments
 		if err != nil {
-			logging.Error(moduleName, "No courseIds left or failed to get a ghost file from the database:", err)
+			logging.Error(moduleName, "No time increments left, no ghost matches criteria:", err)
 			responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
 			return
 		}
 		
 	}
-	
+		
 	responseBody := append(downloadedGhostFileHeader(), ghost...)
 
 	responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultSuccess))
