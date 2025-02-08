@@ -11,6 +11,7 @@ import (
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
+	"math/rand"
 
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -86,19 +87,6 @@ func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter ht
 		return
 	}
 
-	courseIdInt, err := strconv.Atoi(courseIdString)
-	if err != nil {
-		logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdString))
-		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
-		return
-	}
-	courseId := common.MarioKartWiiCourseId(courseIdInt)
-	if !courseId.IsValid() {
-		logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdString))
-		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
-		return
-	}
-
 	pid, err := strconv.Atoi(pidString)
 	if err != nil || pid <= 0 {
 		logging.Error(moduleName, "Invalid profile ID:", aurora.Cyan(pidString))
@@ -112,14 +100,71 @@ func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter ht
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
+	
+	courseIdInt, err := strconv.Atoi(courseIdString)
+	if err != nil {
+		logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdString))
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
+		return
+	}
+	courseId := common.MarioKartWiiCourseId(courseIdInt)
+	if !courseId.IsValid() {
+		logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdString))		
+		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))		
+	}
+	
+	
+	// try vanilla behaviour first
 
 	ghost, err := database.GetMarioKartWiiGhostFile(pool, ctx, courseId, time, pid)
 	if err != nil {
 		logging.Error(moduleName, "Failed to get a ghost file from the database:", err)
+		logging.Info(moduleName, "courseId request cannot be served, choosing random courseId instead...")
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
-		return
-	}
+		
+		// we failed. choose a random one.
+		
+		// choose courseId max (vanilla) up to 31
+		allCourses := make([]int, 32) // 32 para incluir el 31
+		for i := 0; i < 32; i++ {
+			allCourses[i] = i
+		}
+		
+		// Random shuffle
+		rand.Shuffle(len(allCourses), func(i, j int) { allCourses[i], allCourses[j] = allCourses[j], allCourses[i] })
 
+		// Cycle all courseIds
+		for _, courseIdranInt := range allCourses {
+			
+			//logging.Info(moduleName, "Testing with", courseIdranInt, "...")
+			
+			// Test that the courseId chosen is good and convert it.
+			courseIdran := common.MarioKartWiiCourseId(courseIdranInt)
+			if !courseId.IsValid() {
+				logging.Error(moduleName, "Invalid course ID:", aurora.Cyan(courseIdranInt))
+				responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
+				break // we cannot continue, this is not normal behaviour.
+			}
+			
+			// If courseId is good, download.
+			ghost, err = database.GetMarioKartWiiGhostFile(pool, ctx, courseIdran, time, pid)
+			if err != nil || len(ghost) <= 0 {
+				continue // ghost cannot be found or invalid, continue.
+			}
+			
+			// no errors, we are good!
+			logging.Info(moduleName, "Valid ghost found with randomized courseId:", courseIdranInt)
+			break
+		}
+
+		if err != nil {
+			logging.Error(moduleName, "No courseIds left or failed to get a ghost file from the database:", err)
+			responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
+			return
+		}
+		
+	}
+	
 	responseBody := append(downloadedGhostFileHeader(), ghost...)
 
 	responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultSuccess))
