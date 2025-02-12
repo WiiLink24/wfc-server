@@ -167,15 +167,15 @@ var (
 )
 
 var (
-	// WWFC errors with custom messages
+	// Errores de WWFC con mensajes personalizados
 	WWFCMsgUnknownLoginError = WWFCErrorMessage{
 		ErrorCode: 22000,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"An unknown error has occurred\n" +
-				"while logging in to WiiLink WFC.\n" +
+				"Ha ocurrido un error desconocido\n" +
+				"al iniciar sesión en PiporGames Network® WFC.\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -183,11 +183,11 @@ var (
 		ErrorCode: 22001,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"Additional setup is required\n" +
-				"to use WiiLink WFC on Dolphin.\n" +
-				"Visit wfc.wiilink24.com/dolphin\n" +
+				"Se requiere configuración adicional\n" +
+				"para usar PiporGames Network® WFC en Dolphin.\n" +
+				"Visita pgnweb.ddns.net/legal\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -195,13 +195,12 @@ var (
 		ErrorCode: 22002,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"You are banned from WiiLink WFC\n" +
-				"due to a violation of the\n" +
-				"Terms of Service.\n" +
-				"Visit wfc.wiilink24.com/tos\n" +
+				"Has sido expulsado de PiporGames Network®\n" +
+				"por violar los Términos de Servicio.\n" +
+				"Visita pgnweb.ddns.net/legal\n" +
 				"\n" +
-				"Error Code: %[1]d\n" +
-				"Support Info: NG%08[2]x",
+				"Código de error: %[1]d\n" +
+				"Información de soporte: NG%08[2]x",
 		},
 	}
 
@@ -209,13 +208,13 @@ var (
 		ErrorCode: 22002,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"You have been banned from\n" +
-				"WiiLink WFC due to a violation\n" +
-				"of the Terms of Service.\n" +
-				"Visit wfc.wiilink24.com/tos\n" +
+				"Has sido expulsado de\n" +
+				"PiporGames Network® por violar\n" +
+				"los Términos de Servicio.\n" +
+				"Visita pgnweb.ddns.net/legal\n" +
 				"\n" +
-				"Error Code: %[1]d\n" +
-				"Support Info: NG%08[2]x",
+				"Código de error: %[1]d\n" +
+				"Información de soporte: NG%08[2]x",
 		},
 	}
 
@@ -223,13 +222,13 @@ var (
 		ErrorCode: 22003,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"You are banned from public\n" +
-				"matches due to a violation\n" +
-				"of the WiiLink WFC Rules.\n" +
-				"Visit wfc.wiilink24.com/rules\n" +
+				"No puedes jugar partidas públicas\n" +
+				"debido a una violación de las reglas\n" +
+				"de PiporGames Network® WFC.\n" +
+				"Visita pgnweb.ddns.net/legal\n" +
 				"\n" +
-				"Error Code: %[1]d\n" +
-				"Support Info: NG%08[2]x",
+				"Código de error: %[1]d\n" +
+				"Información de soporte: NG%08[2]x",
 		},
 	}
 
@@ -237,13 +236,12 @@ var (
 		ErrorCode: 22003,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"You have been banned from public\n" +
-				"matches due to a violation\n" +
-				"of the WiiLink WFC Rules.\n" +
-				"Visit wfc.wiilink24.com/rules\n" +
+				"Has sido expulsado de las partidas públicas\n" +
+				"por violar las reglas de PiporGames Network® WFC.\n" +
+				"Visita pgnweb.ddns.net/legal\n" +
 				"\n" +
-				"Error Code: %[1]d\n" +
-				"Support Info: NG%08[2]x",
+				"Código de error: %[1]d\n" +
+				"Información de soporte: NG%08[2]x",
 		},
 	}
 
@@ -251,10 +249,10 @@ var (
 		ErrorCode: 22004,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"You have been kicked from\n" +
-				"WiiLink WFC.\n" +
+				"Has sido expulsado de\n" +
+				"PiporGames Network® WFC.\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -262,11 +260,11 @@ var (
 		ErrorCode: 22004,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"You have been kicked from\n" +
-				"WiiLink WFC by a moderator.\n" +
-				"Visit wfc.wiilink24.com/rules\n" +
+				"Has sido expulsado de\n" +
+				"PiporGames Network® WFC por un moderador.\n" +
+				"Visita pgnweb.ddns.net/legal\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -274,10 +272,10 @@ var (
 		ErrorCode: 22004,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"You have been kicked from the\n" +
-				"friend room by the room creator.\n" +
+				"Has sido expulsado de la sala de amigos\n" +
+				"por el creador de la sala.\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -285,11 +283,11 @@ var (
 		ErrorCode: 22005,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"The console you are using is not\n" +
-				"the device used to register this\n" +
-				"profile.\n" +
+				"La consola que estás usando no es\n" +
+				"el dispositivo con el que se registró\n" +
+				"este perfil.\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -297,12 +295,12 @@ var (
 		ErrorCode: 22005,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"The console you are using is not\n" +
-				"the device used to register this\n" +
-				"profile. Please make sure you've\n" +
-				"set up your NAND correctly.\n" +
+				"La consola que estás usando no es\n" +
+				"el dispositivo con el que se registró\n" +
+				"este perfil. Asegúrate de haber configurado\n" +
+				"correctamente tu NAND.\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -310,11 +308,11 @@ var (
 		ErrorCode: 22006,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"The profile ID you are trying to\n" +
-				"register is invalid.\n" +
-				"Please create a new license.\n" +
+				"El ID de perfil que intentas registrar\n" +
+				"no es válido.\n" +
+				"Por favor, crea una nueva licencia.\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -322,10 +320,10 @@ var (
 		ErrorCode: 22007,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"The friend code you are trying to\n" +
-				"register is already in use.\n" +
+				"El código de amigo que intentas registrar\n" +
+				"ya está en uso.\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -333,10 +331,10 @@ var (
 		ErrorCode: 22008,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"The WiiLink WFC payload is invalid.\n" +
-				"Try restarting your game.\n" +
+				"La carga de datos de PiporGames Network® WFC es inválida.\n" +
+				"Intenta reiniciar el juego.\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -344,11 +342,11 @@ var (
 		ErrorCode: 22009,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"You were disconnected from\n" +
-				"WiiLink WFC due to an invalid\n" +
-				"VR or BR value.\n" +
+				"Fuiste desconectado de\n" +
+				"PiporGames Network® WFC debido a un\n" +
+				"valor de VR o BR inválido.\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 
@@ -356,15 +354,16 @@ var (
 		ErrorCode: 22010,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"Your game is dropping too many frames.\n" +
-				"Please remove any modifications that may\n" +
-				"be causing frame rate problems to avoid\n" +
-				"being banned from WiiLink Wi-Fi Connection.\n" +
+				"Tu juego está perdiendo demasiados fotogramas.\n" +
+				"Elimina cualquier modificación que pueda\n" +
+				"estar causando problemas de rendimiento para\n" +
+				"evitar ser expulsado de PiporGames Network® WFC.\n" +
 				"\n" +
-				"Error Code: %[1]d",
+				"Código de error: %[1]d",
 		},
 	}
 )
+
 
 func (err GPError) GetMessage() string {
 	command := common.GameSpyCommand{
