@@ -144,6 +144,11 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+    if r.URL.Path == "/api/count" {
+        api.HandlePlayerCount(w, r)
+        return
+    }
+
 	// Check for /api/stats
 	if r.URL.Path == "/api/stats" {
 		api.HandleStats(w, r)

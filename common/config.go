@@ -53,7 +53,7 @@ func GetConfig() Config {
 
 	var config Config
 	config.AllowDefaultDolphinKeys = true
-	config.ServerName = "WiiLink"
+	config.ServerName = "Cosmos"
 
 	err = xml.Unmarshal(data, &config)
 	if err != nil {
