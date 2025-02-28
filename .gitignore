@@ -20,6 +20,10 @@ state
 # Executables
 *.exe
 *.exe~
+wwfc
+
+#Mii folder
+mii
 
 # Editor files
 .vscode

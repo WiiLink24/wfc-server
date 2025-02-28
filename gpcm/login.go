@@ -213,7 +213,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 				logging.Error(g.ModuleName, "Using DNS for incompatible game:", aurora.Cyan(g.GameName))
 				g.replyError(GPError{
 					ErrorCode:   ErrLogin.ErrorCode,
-					ErrorString: "The client is not patched to use Cosmos WFC.",
+					ErrorString: "The client is not patched to use PGN WFC.",
 					Fatal:       true,
 				})
 				return

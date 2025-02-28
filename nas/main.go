@@ -144,10 +144,10 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    if r.URL.Path == "/api/count" {
-        api.HandlePlayerCount(w, r)
-        return
-    }
+	if r.URL.Path == "/api/count" {
+		api.HandlePlayerCount(w, r)
+		return
+	}
 
 	// Check for /api/stats
 	if r.URL.Path == "/api/stats" {
@@ -170,6 +170,24 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	// Check for /api/kick
 	if r.URL.Path == "/api/kick" {
 		api.HandleKick(w, r)
+		return
+	}
+
+	// Check for /api/leaderboards
+	if r.URL.Path == "/api/leaderboards" {
+		api.HandleMKWiiLeaderboards(w, r)
+		return
+	}
+
+	// Check for /api/registered
+	if r.URL.Path == "/api/registered" {
+		api.HandleRegisteredAccounts(w, r)
+		return
+	}
+
+	// Check for /api/mii
+	if r.URL.Path == "/api/mii" {
+		api.HandleGetMii(w, r)
 		return
 	}
 
