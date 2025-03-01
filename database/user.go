@@ -22,8 +22,28 @@ const (
 	GetUserProfileID        = `SELECT profile_id, ng_device_id, email, unique_nick, firstname, lastname, open_host FROM users WHERE user_id = $1 AND gsbrcd = $2`
 	UpdateUserLastIPAddress = `UPDATE users SET last_ip_address = $2, last_ingamesn = $3 WHERE profile_id = $1`
 	UpdateUserBan           = `UPDATE users SET has_ban = true, ban_issued = $2, ban_expires = $3, ban_reason = $4, ban_reason_hidden = $5, ban_moderator = $6, ban_tos = $7 WHERE profile_id = $1`
-	SearchUserBan           = `SELECT has_ban, ban_tos, ng_device_id FROM users WHERE has_ban = true AND (profile_id = $1 OR ng_device_id = $2 OR last_ip_address = $3) AND (ban_expires IS NULL OR ban_expires > $4) ORDER BY ban_tos DESC LIMIT 1`
 	DisableUserBan          = `UPDATE users SET has_ban = false WHERE profile_id = $1`
+
+	SearchUserBan = `WITH known_ng_device_ids AS (
+		WITH RECURSIVE device_tree AS (
+			SELECT unnest(ng_device_id) AS device_id
+				FROM users
+				WHERE ng_device_id && $1
+			UNION
+			SELECT unnest(ng_device_id)
+				FROM users
+				JOIN device_tree dt
+				ON ng_device_id && array[dt.device_id]
+		) SELECT array_agg(DISTINCT device_id) FROM device_tree
+	)
+	SELECT has_ban, ban_tos, ng_device_id 
+		FROM users
+		WHERE has_ban = true
+			AND (profile_id = $2
+				OR ng_device_id && (SELECT * FROM known_ng_device_ids)
+				OR last_ip_address = $3)
+			AND (ban_expires IS NULL OR ban_expires > $4)
+			ORDER BY ban_tos DESC LIMIT 1`
 
 	GetMKWFriendInfoQuery    = `SELECT mariokartwii_friend_info FROM users WHERE profile_id = $1`
 	UpdateMKWFriendInfoQuery = `UPDATE users SET mariokartwii_friend_info = $2 WHERE profile_id = $1`
@@ -33,7 +53,7 @@ type User struct {
 	ProfileId          uint32
 	UserId             uint64
 	GsbrCode           string
-	NgDeviceId         uint32
+	NgDeviceId         []uint32
 	Email              string
 	UniqueNick         string
 	FirstName          string
@@ -89,15 +109,6 @@ func (user *User) UpdateProfileID(pool *pgxpool.Pool, ctx context.Context, newPr
 	_, err = pool.Exec(ctx, UpdateUserProfileID, user.UserId, user.GsbrCode, newProfileId)
 	if err == nil {
 		user.ProfileId = newProfileId
-	}
-
-	return err
-}
-
-func (user *User) UpdateDeviceID(pool *pgxpool.Pool, ctx context.Context, newDeviceId uint32) error {
-	_, err := pool.Exec(ctx, UpdateUserNGDeviceID, user.ProfileId, newDeviceId)
-	if err == nil {
-		user.NgDeviceId = newDeviceId
 	}
 
 	return err

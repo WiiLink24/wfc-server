@@ -439,6 +439,8 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 	g.User = user
 
 	if err != nil {
+		logging.Error(g.ModuleName, "DB error:", err)
+
 		if err == database.ErrProfileIDInUse {
 			g.replyError(GPError{
 				ErrorCode:   ErrLogin.ErrorCode,

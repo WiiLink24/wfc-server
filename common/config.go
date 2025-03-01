@@ -40,19 +40,29 @@ type Config struct {
 
 	APISecret string `xml:"apiSecret"`
 
-	AllowDefaultDolphinKeys bool `xml:"allowDefaultDolphinKeys"`
+	AllowDefaultDolphinKeys     bool `xml:"allowDefaultDolphinKeys"`
+	AllowMultipleDeviceIDs      bool `xml:"allowMultipleDeviceIDs"`
+	AllowConnectWithoutDeviceID bool `xml:"allowConnectWithoutDeviceID"`
 
 	ServerName string `xml:"serverName,omitempty"`
 }
 
+var config Config
+var configLoaded bool
+
 func GetConfig() Config {
+	if configLoaded {
+		return config
+	}
+
 	data, err := os.ReadFile("config.xml")
 	if err != nil {
 		panic(err)
 	}
 
-	var config Config
 	config.AllowDefaultDolphinKeys = true
+	config.AllowMultipleDeviceIDs = false
+	config.AllowConnectWithoutDeviceID = false
 	config.ServerName = "WiiLink"
 
 	err = xml.Unmarshal(data, &config)

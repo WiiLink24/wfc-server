@@ -50,6 +50,16 @@ ALTER TABLE ONLY public.users
     ADD IF NOT EXISTS ban_tos boolean,
 	ADD IF NOT EXISTS open_host boolean DEFAULT false;
 
+--
+-- Change ng_device_id from bigint to bigint[]
+--
+DO $$ 
+BEGIN
+    IF (SELECT data_type FROM information_schema.columns WHERE table_name='users' AND column_name='ng_device_id') != 'ARRAY' THEN
+        ALTER TABLE public.users
+            ALTER COLUMN ng_device_id TYPE bigint[] using array[ng_device_id];
+    END IF;
+END $$;
 
 ALTER TABLE public.users OWNER TO wiilink;
 
@@ -82,7 +92,7 @@ ALTER TABLE public.mario_kart_wii_sake OWNER TO wiilink;
 
 CREATE SEQUENCE IF NOT EXISTS public.users_profile_id_seq
     AS integer
-    START WITH 1
+    START WITH 1000000000
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE

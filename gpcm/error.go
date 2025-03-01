@@ -430,8 +430,8 @@ func (g *GameSpySession) replyError(err GPError) {
 	}
 
 	deviceId := g.User.RestrictedDeviceId
-	if deviceId == 0 {
-		deviceId = g.User.NgDeviceId
+	if deviceId == 0 && len(g.User.NgDeviceId) > 0 {
+		deviceId = g.User.NgDeviceId[0]
 	}
 
 	msg := err.GetMessageTranslate(g.GameName, g.Region, g.Language, g.ConsoleFriendCode, deviceId)
