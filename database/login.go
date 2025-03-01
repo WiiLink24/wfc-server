@@ -42,7 +42,7 @@ var (
 	ErrProfileBannedTOS = errors.New("profile is banned for violating the Terms of Service")
 )
 
-func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsbrcd string, profileId uint32, ngDeviceId uint32, ipAddress string, ingamesn string) (User, error) {
+func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsbrcd string, profileId uint32, ngDeviceId uint32, ipAddress string, ingamesn string, deviceAuth bool) (User, error) {
 	var exists bool
 	err := pool.QueryRow(ctx, DoesUserExist, userId, gsbrcd).Scan(&exists)
 	if err != nil {
@@ -123,7 +123,7 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 
 			user.NgDeviceId = append(user.NgDeviceId, ngDeviceId)
 			_, err = pool.Exec(ctx, UpdateUserNGDeviceID, user.ProfileId, user.NgDeviceId)
-		} else if !validDeviceId && ngDeviceId == 0 {
+		} else if deviceAuth && !validDeviceId && ngDeviceId == 0 {
 			if len(user.NgDeviceId) > 0 && !common.GetConfig().AllowConnectWithoutDeviceID {
 				logging.Error("DATABASE", "NG device ID not provided for profile", aurora.Cyan(user.ProfileId), "- expected one of {", deviceIdList[:len(deviceIdList)-2], "} but got", aurora.Cyan("00000000"))
 				return User{}, ErrDeviceIDMismatch
@@ -154,9 +154,11 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 	}
 
 	// Update the user's last IP address and ingamesn
-	_, err = pool.Exec(ctx, UpdateUserLastIPAddress, user.ProfileId, ipAddress, ingamesn)
-	if err != nil {
-		return User{}, err
+	if deviceAuth {
+		_, err = pool.Exec(ctx, UpdateUserLastIPAddress, user.ProfileId, ipAddress, ingamesn)
+		if err != nil {
+			return User{}, err
+		}
 	}
 
 	emptyString := ""

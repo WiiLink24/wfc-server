@@ -261,7 +261,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		cmdProfileId = uint32(cmdProfileId2)
 	}
 
-	if !g.performLoginWithDatabase(userId, gsbrcd, cmdProfileId, deviceId) {
+	if !g.performLoginWithDatabase(userId, gsbrcd, cmdProfileId, deviceId, deviceAuth) {
 		return
 	}
 
@@ -353,7 +353,7 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 		return
 	}
 
-	if !g.performLoginWithDatabase(g.User.UserId, g.User.GsbrCode, 0, deviceId) {
+	if !g.performLoginWithDatabase(g.User.UserId, g.User.GsbrCode, 0, deviceId, true) {
 		return
 	}
 
@@ -428,14 +428,14 @@ func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authTo
 	return deviceId
 }
 
-func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string, profileId uint32, deviceId uint32) bool {
+func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string, profileId uint32, deviceId uint32, deviceAuth bool) bool {
 	// Get IP address without port
 	ipAddress := g.RemoteAddr
 	if strings.Contains(ipAddress, ":") {
 		ipAddress = ipAddress[:strings.Index(ipAddress, ":")]
 	}
 
-	user, err := database.LoginUserToGPCM(pool, ctx, userId, gsbrCode, profileId, deviceId, ipAddress, g.InGameName)
+	user, err := database.LoginUserToGPCM(pool, ctx, userId, gsbrCode, profileId, deviceId, ipAddress, g.InGameName, deviceAuth)
 	g.User = user
 
 	if err != nil {
