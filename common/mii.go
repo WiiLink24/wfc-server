@@ -29,6 +29,10 @@ func (data Mii) RFLCalculateCRC() uint16 {
 	return crc
 }
 
+func (data Mii) GetPlayerName() string {
+	return string(data[0x02:0x15])
+}
+
 var officialMiiList = []uint64{
 	0x80000000ECFF82D2,
 	0x80000001ECFF82D2,
