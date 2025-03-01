@@ -47,7 +47,8 @@ ALTER TABLE ONLY public.users
     ADD IF NOT EXISTS ban_reason character varying,
     ADD IF NOT EXISTS ban_reason_hidden character varying,
     ADD IF NOT EXISTS ban_moderator character varying,
-    ADD IF NOT EXISTS ban_tos boolean;
+    ADD IF NOT EXISTS ban_tos boolean,
+	ADD IF NOT EXISTS open_host boolean DEFAULT false;
 
 
 ALTER TABLE public.users OWNER TO wiilink;
@@ -101,12 +102,6 @@ ALTER SEQUENCE public.users_profile_id_seq OWNED BY public.users.profile_id;
 --
 
 ALTER TABLE ONLY public.users ALTER COLUMN profile_id SET DEFAULT nextval('public.users_profile_id_seq'::regclass);
-
---
--- Set the profile_id start point to 1'000'000'000
---
-
-ALTER SEQUENCE public.users_profile_id_seq RESTART WITH 1000000000;
 
 --
 -- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: wiilink
