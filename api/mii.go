@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"regexp"
 	"strconv"
 	"wwfc/common"
 	"wwfc/logging"
@@ -114,16 +113,13 @@ func HandleGetMii(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get playername from Mii
-		unsafePlayername, err := getPlayerNameFromMii(miiBase64)
+		playername, err := getPlayerNameFromMii(miiBase64)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Error getting playername from Mii"))
 			logging.Error("WEB-GM", "Error getting playername from Mii")
 			return
 		}
-
-		// Sanitize playername for file name
-		playername := sanitizeString(unsafePlayername)
 
 		miiImage := getMiiCached(playername)
 		if miiImage == nil {
@@ -154,16 +150,6 @@ func HandleGetMii(w http.ResponseWriter, r *http.Request) {
 		return
 
 	}
-}
-
-func sanitizeString(name string) string {
-	// Convert from UTF16 to UTF8
-	utf16Name := []rune(name)
-	utf8Name := string(utf16Name)
-
-	// Replace any non-alphanumeric character with an empty string
-	re := regexp.MustCompile(`[^\w]`)
-	return re.ReplaceAllString(utf8Name, "")
 }
 
 func getMiiCached(playername string) []byte {
@@ -291,12 +277,15 @@ func getPlayerNameFromMii(base string) (string, error) {
 	if err != nil {
 		return "", errors.New("error decoding Mii Base64")
 	}
+	logging.Info("WEB-GM", "Mii binary:", base)
 
 	// Convert Mii binary to Mii data
 	miiData := common.Mii(miiBinary)
 
 	// Get playername from Mii data
-	return miiData.GetPlayerName(), nil
+	playerName := miiData.GetPlayerName()
+
+	return playerName, nil
 }
 
 /* func HandleGetMii(w http.ResponseWriter, r *http.Request) {

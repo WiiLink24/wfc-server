@@ -30,7 +30,21 @@ func (data Mii) RFLCalculateCRC() uint16 {
 }
 
 func (data Mii) GetPlayerName() string {
-	return string(data[0x02:0x15])
+	nameData := data[0x02:0x16] // 10 characters, 2 bytes each (UTF-16) -> 20 bytes
+	playerName := ""
+
+	for i := 0; i < 20; i++ {
+		if (i%2 == 0) || (nameData[i] == 0x00) {
+			continue
+		}
+		playerName += string(nameData[i])
+	}
+
+	//logging.Info("Player hex u16:", data[0x02:0x16])
+	//logging.Info("Player hex u8:", []byte(playerName))
+	//logging.Info("Player name:", playerName)
+
+	return playerName
 }
 
 var officialMiiList = []uint64{
