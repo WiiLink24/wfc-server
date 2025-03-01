@@ -13,6 +13,30 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 )
 
+const (
+	SearchUserBan = `WITH known_ng_device_ids AS (
+		WITH RECURSIVE device_tree AS (
+			SELECT unnest(ng_device_id) AS device_id
+				FROM users
+				WHERE ng_device_id && $1
+			UNION
+			SELECT unnest(ng_device_id)
+				FROM users
+				JOIN device_tree dt
+				ON ng_device_id && array[dt.device_id]
+		) SELECT array_agg(DISTINCT device_id) FROM device_tree
+	)
+	SELECT has_ban, ban_tos, ng_device_id 
+		FROM users
+		WHERE has_ban = true
+			AND (profile_id = $2
+				OR ng_device_id && (SELECT * FROM known_ng_device_ids)
+				OR last_ip_address = $3
+				OR ($4 != '' AND last_ip_address = $4))
+			AND (ban_expires IS NULL OR ban_expires > $5)
+			ORDER BY ban_tos DESC LIMIT 1`
+)
+
 var (
 	ErrDeviceIDMismatch = errors.New("NG device ID mismatch")
 	ErrProfileBannedTOS = errors.New("profile is banned for violating the Terms of Service")
@@ -29,6 +53,8 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		UserId:   userId,
 		GsbrCode: gsbrcd,
 	}
+
+	var lastIPAddress *string
 
 	if !exists {
 		user.ProfileId = profileId
@@ -50,7 +76,8 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 	} else {
 		var firstName *string
 		var lastName *string
-		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost)
+
+		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress)
 		if err != nil {
 			return User{}, err
 		}
@@ -83,10 +110,14 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		}
 
 		if !validDeviceId && ngDeviceId != 0 {
-			if len(user.NgDeviceId) > 0 && !common.GetConfig().AllowMultipleDeviceIDs {
-				logging.Error("DATABASE", "NG device ID mismatch for profile", aurora.Cyan(user.ProfileId), "- expected one of {", deviceIdList[:len(deviceIdList)-2], "} but got", aurora.Cyan(fmt.Sprintf("%08x", ngDeviceId)))
-				return User{}, ErrDeviceIDMismatch
-			} else if len(user.NgDeviceId) > 0 {
+			if len(user.NgDeviceId) > 0 && common.GetConfig().AllowMultipleDeviceIDs != "always" {
+				if common.GetConfig().AllowMultipleDeviceIDs == "SameIPAddress" && (lastIPAddress == nil || ipAddress != *lastIPAddress) {
+					logging.Error("DATABASE", "NG device ID mismatch for profile", aurora.Cyan(user.ProfileId), "- expected one of {", deviceIdList[:len(deviceIdList)-2], "} but got", aurora.Cyan(fmt.Sprintf("%08x", ngDeviceId)))
+					return User{}, ErrDeviceIDMismatch
+				}
+			}
+
+			if len(user.NgDeviceId) > 0 {
 				logging.Warn("DATABASE", "Adding NG device ID", aurora.Cyan(fmt.Sprintf("%08x", ngDeviceId)), "to profile", aurora.Cyan(user.ProfileId))
 			}
 
@@ -128,12 +159,17 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		return User{}, err
 	}
 
+	emptyString := ""
+	if lastIPAddress == nil {
+		lastIPAddress = &emptyString
+	}
+
 	// Find ban from device ID or IP address
 	var banExists bool
 	var banTOS bool
 	var bannedDeviceIdList []uint32
 	timeNow := time.Now()
-	err = pool.QueryRow(ctx, SearchUserBan, user.NgDeviceId, user.ProfileId, ipAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceIdList)
+	err = pool.QueryRow(ctx, SearchUserBan, user.NgDeviceId, user.ProfileId, ipAddress, *lastIPAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceIdList)
 	if err != nil {
 		if err != pgx.ErrNoRows {
 			return User{}, err
@@ -183,7 +219,8 @@ func LoginUserToGameStats(pool *pgxpool.Pool, ctx context.Context, userId uint64
 
 	var firstName *string
 	var lastName *string
-	err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost)
+	var lastIPAddress *string
+	err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress)
 	if err != nil {
 		return User{}, err
 	}

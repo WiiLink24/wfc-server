@@ -19,31 +19,10 @@ const (
 	DoesUserExist           = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
 	DeleteUserSession       = `DELETE FROM sessions WHERE profile_id = $1`
-	GetUserProfileID        = `SELECT profile_id, ng_device_id, email, unique_nick, firstname, lastname, open_host FROM users WHERE user_id = $1 AND gsbrcd = $2`
+	GetUserProfileID        = `SELECT profile_id, ng_device_id, email, unique_nick, firstname, lastname, open_host, last_ip_address FROM users WHERE user_id = $1 AND gsbrcd = $2`
 	UpdateUserLastIPAddress = `UPDATE users SET last_ip_address = $2, last_ingamesn = $3 WHERE profile_id = $1`
 	UpdateUserBan           = `UPDATE users SET has_ban = true, ban_issued = $2, ban_expires = $3, ban_reason = $4, ban_reason_hidden = $5, ban_moderator = $6, ban_tos = $7 WHERE profile_id = $1`
 	DisableUserBan          = `UPDATE users SET has_ban = false WHERE profile_id = $1`
-
-	SearchUserBan = `WITH known_ng_device_ids AS (
-		WITH RECURSIVE device_tree AS (
-			SELECT unnest(ng_device_id) AS device_id
-				FROM users
-				WHERE ng_device_id && $1
-			UNION
-			SELECT unnest(ng_device_id)
-				FROM users
-				JOIN device_tree dt
-				ON ng_device_id && array[dt.device_id]
-		) SELECT array_agg(DISTINCT device_id) FROM device_tree
-	)
-	SELECT has_ban, ban_tos, ng_device_id 
-		FROM users
-		WHERE has_ban = true
-			AND (profile_id = $2
-				OR ng_device_id && (SELECT * FROM known_ng_device_ids)
-				OR last_ip_address = $3)
-			AND (ban_expires IS NULL OR ban_expires > $4)
-			ORDER BY ban_tos DESC LIMIT 1`
 
 	GetMKWFriendInfoQuery    = `SELECT mariokartwii_friend_info FROM users WHERE profile_id = $1`
 	UpdateMKWFriendInfoQuery = `UPDATE users SET mariokartwii_friend_info = $2 WHERE profile_id = $1`
