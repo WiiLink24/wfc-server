@@ -480,8 +480,8 @@ func (rkgd RKGhostData) IsRKGDFileValid(moduleName string, expectedCourse MarioK
 		return false
 	}
 
-	if consumed+3 < len(szsData)-0x10 {
-		logging.Error(moduleName, "Too much padding at end of RKGD")
+	if consumed+4 < len(szsData)-0x10 { // original extra padding is 3 bytes. Increased to 4 due to +1 byte in some rare cases
+		logging.Error(moduleName, "Too much padding at end of RKGD: consumed", consumed, "actual:", len(szsData)-0x10, "diff:", len(szsData)-0x10-consumed)
 		return false
 	}
 

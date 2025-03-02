@@ -277,7 +277,6 @@ func getPlayerNameFromMii(base string) (string, error) {
 	if err != nil {
 		return "", errors.New("error decoding Mii Base64")
 	}
-	logging.Info("WEB-GM", "Mii binary:", base)
 
 	// Convert Mii binary to Mii data
 	miiData := common.Mii(miiBinary)
