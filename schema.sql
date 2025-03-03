@@ -87,6 +87,20 @@ ALTER TABLE ONLY public.mario_kart_wii_sake
 ALTER TABLE public.mario_kart_wii_sake OWNER TO wiilink;
 
 --
+-- Name: gamestats_public_data; Type: TABLE; Schema: public; Owner: wiilink
+--
+
+CREATE TABLE IF NOT EXISTS public.gamestats_public_data (
+    profile_id bigint NOT NULL,
+    dindex character varying NOT NULL,
+    ptype character varying NOT NULL,
+    pdata character varying NOT NULL,
+    modified_time timestamp without time zone NOT NULL,
+
+    CONSTRAINT one_pdata_constraint UNIQUE (profile_id, dindex, ptype)
+);
+
+--
 -- Name: users_profile_id_seq; Type: SEQUENCE; Schema: public; Owner: wiilink
 --
 
