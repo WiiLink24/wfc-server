@@ -2,57 +2,94 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
-	"net/url"
 	"strconv"
+	"wwfc/database"
 	"wwfc/gpcm"
 )
 
 func HandleKick(w http.ResponseWriter, r *http.Request) {
-	errorString := handleKickImpl(w, r)
-	if errorString != "" {
-		jsonData, _ := json.Marshal(map[string]string{"error": errorString})
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-		w.Write(jsonData)
+	var user *database.User
+	var success bool
+	var err string
+	var statusCode int
+
+	if r.Method == http.MethodPost {
+		user, success, err, statusCode = handleKickImpl(w, r)
 	} else {
-		jsonData, _ := json.Marshal(map[string]string{"success": "true"})
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-		w.Write(jsonData)
+		err = "Incorrect request. POST or HEAD only."
+		statusCode = http.StatusBadRequest
+	}
+
+	if user == nil {
+		user = &database.User{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if r.Method == http.MethodHead {
+		w.WriteHeader(statusCode)
+	} else {
+		json, _ := json.Marshal(UserActionResponse{*user, success, err})
+		w.Header().Set("Content-Length", strconv.Itoa(len(json)))
+		w.WriteHeader(statusCode)
+		w.Write(json)
 	}
 }
 
-func handleKickImpl(w http.ResponseWriter, r *http.Request) string {
+type KickRequestSpec struct {
+	Secret string
+	Reason string
+	Pid    uint32
+}
+
+func handleKickImpl(w http.ResponseWriter, r *http.Request) (*database.User, bool, string, int) {
 	// TODO: Actual authentication rather than a fixed secret
-	// TODO: Use POST instead of GET
 
-	u, err := url.Parse(r.URL.String())
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return "Bad request"
+		return nil, false, "Unable to read request body", http.StatusBadRequest
 	}
 
-	query, err := url.ParseQuery(u.RawQuery)
+	var req KickRequestSpec
+	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return "Bad request"
+		return nil, false, err.Error(), http.StatusBadRequest
 	}
 
-	if apiSecret == "" || query.Get("secret") != apiSecret {
-		return "Invalid API secret"
+	if apiSecret == "" || req.Secret != apiSecret {
+		return nil, false, "Invalid API secret in request", http.StatusUnauthorized
 	}
 
-	pidStr := query.Get("pid")
-	if pidStr == "" {
-		return "Missing pid in request"
+	if req.Pid == 0 {
+		return nil, false, "pid missing or 0 in request", http.StatusBadRequest
 	}
 
-	pid, err := strconv.ParseUint(pidStr, 10, 32)
-	if err != nil {
-		return "Invalid pid"
+	if req.Reason == "" {
+		return nil, false, "Missing kick reason in request", http.StatusBadRequest
 	}
 
-	gpcm.KickPlayer(uint32(pid), "moderator_kick")
-	return ""
+	gpcm.KickPlayerCustomMessage(req.Pid, "moderator_kick", gpcm.WWFCErrorMessage{
+		ErrorCode: 22004,
+		MessageRMC: map[byte]string{
+			gpcm.LangEnglish: "" +
+				"You have been kicked from\n" +
+				"WiiLink WFC by a moderator.\n" +
+				"Reason: " + req.Reason + "\n" +
+				"Error Code: %[1]d",
+		},
+	})
+
+	var message string
+	user, success := database.GetProfile(pool, ctx, req.Pid)
+
+	if success {
+		message = ""
+	} else {
+		message = "Unable to query user data from the database"
+	}
+
+	return &user, success, message, http.StatusOK
 }
