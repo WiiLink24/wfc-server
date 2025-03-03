@@ -98,7 +98,7 @@ func handleBanImpl(w http.ResponseWriter, r *http.Request) (*database.User, bool
 		ErrorCode: 22002,
 		MessageRMC: map[byte]string{
 			gpcm.LangEnglish: "" +
-				"You have been banned from Retro WFC\n" +
+				"You have been banned from WiiLink WFC\n" +
 				"Reason: " + req.Reason + "\n" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x",

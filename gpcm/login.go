@@ -480,7 +480,7 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 					ErrorCode: 22002,
 					MessageRMC: map[byte]string{
 						LangEnglish: "" +
-							"You are banned from Retro WFC\n" +
+							"You are banned from WiiLink WFC\n" +
 							"Reason: " + user.BanReason + "\n" +
 							"Error Code: %[1]d\n" +
 							"Support Info: NG%08[2]x",

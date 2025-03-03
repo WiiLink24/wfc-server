@@ -76,7 +76,7 @@ func handleKickImpl(w http.ResponseWriter, r *http.Request) (*database.User, boo
 		MessageRMC: map[byte]string{
 			gpcm.LangEnglish: "" +
 				"You have been kicked from\n" +
-				"Retro WFC by a moderator.\n" +
+				"WiiLink WFC by a moderator.\n" +
 				"Reason: " + req.Reason + "\n" +
 				"Error Code: %[1]d",
 		},

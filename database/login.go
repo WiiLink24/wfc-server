@@ -26,7 +26,7 @@ const (
 				ON ng_device_id && array[dt.device_id]
 		) SELECT array_agg(DISTINCT device_id) FROM device_tree
 	)
-	SELECT has_ban, ban_tos, ng_device_id 
+	SELECT has_ban, ban_tos, ng_device_id, ban_reason
 		FROM users
 		WHERE has_ban = true
 			AND (profile_id = $2
@@ -170,8 +170,10 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 	var banExists bool
 	var banTOS bool
 	var bannedDeviceIdList []uint32
+	var banReason string
+
 	timeNow := time.Now()
-	err = pool.QueryRow(ctx, SearchUserBan, user.NgDeviceId, user.ProfileId, ipAddress, *lastIPAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceIdList)
+	err = pool.QueryRow(ctx, SearchUserBan, user.NgDeviceId, user.ProfileId, ipAddress, *lastIPAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceIdList, &banReason)
 
 	if err != nil {
 		if err != pgx.ErrNoRows {
@@ -203,12 +205,13 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 
 		if banTOS {
 			logging.Warn("DATABASE", "Profile", aurora.Cyan(user.ProfileId), "is banned")
-			return User{RestrictedDeviceId: bannedDeviceId}, ErrProfileBannedTOS
+			return User{RestrictedDeviceId: bannedDeviceId, BanReason: banReason}, ErrProfileBannedTOS
 		}
 
 		logging.Warn("DATABASE", "Profile", aurora.Cyan(user.ProfileId), "is restricted")
 		user.Restricted = true
 		user.RestrictedDeviceId = bannedDeviceId
+		user.BanReason = banReason
 	}
 
 	return user, nil
