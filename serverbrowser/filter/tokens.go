@@ -172,9 +172,8 @@ func (this OperatorPrecedence) All() []string {
 }
 
 var operators = OperatorPrecedence{
-	{"^"},
 	{"*", "/", "%"},
-	{"+", "-"},
+	{"+", "-", "&", "^", "|"},
 	{"==", "=", "!=", ">=", "<=", ">", "<"},
 	{"&&", "and"},
 	{"||", "or", "like"},
