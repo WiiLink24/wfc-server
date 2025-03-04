@@ -91,16 +91,7 @@ func handleBanImpl(r *http.Request) (bool, string, int) {
 		return false, "Failed to ban user", http.StatusInternalServerError
 	}
 
-	gpcm.KickPlayerCustomMessage(req.Pid, req.Reason, gpcm.WWFCErrorMessage{
-		ErrorCode: 22002,
-		MessageRMC: map[byte]string{
-			gpcm.LangEnglish: "" +
-				"You have been banned from WiiLink WFC\n" +
-				"Reason: " + req.Reason + "\n" +
-				"Error Code: %[1]d\n" +
-				"Support Info: NG%08[2]x",
-		},
-	})
+	gpcm.KickPlayerCustomMessage(req.Pid, req.Reason, gpcm.WWFCMsgProfileRestrictedCustom)
 
 	return true, "", http.StatusOK
 }

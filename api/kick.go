@@ -67,16 +67,7 @@ func handleKickImpl(r *http.Request) (bool, string, int) {
 		return false, "Missing kick reason in request", http.StatusBadRequest
 	}
 
-	gpcm.KickPlayerCustomMessage(req.Pid, "moderator_kick", gpcm.WWFCErrorMessage{
-		ErrorCode: 22004,
-		MessageRMC: map[byte]string{
-			gpcm.LangEnglish: "" +
-				"You have been kicked from\n" +
-				"WiiLink WFC by a moderator.\n" +
-				"Reason: " + req.Reason + "\n" +
-				"Error Code: %[1]d",
-		},
-	})
+	gpcm.KickPlayerCustomMessage(req.Pid, req.Reason, gpcm.WWFCMsgKickedCustom)
 
 	return true, "", http.StatusOK
 }

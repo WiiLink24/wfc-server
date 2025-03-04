@@ -35,6 +35,7 @@ type GPError struct {
 	ErrorString string
 	Fatal       bool
 	WWFCMessage WWFCErrorMessage
+	Reason      string
 }
 
 func MakeGPError(errorCode int, errorString string, fatal bool) GPError {
@@ -247,6 +248,17 @@ var (
 		},
 	}
 
+	WWFCMsgProfileRestrictedCustom = WWFCErrorMessage{
+		ErrorCode: 22002,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You have been banned from WiiLink WFC\n" +
+				"Error Code: %[1]d\n" +
+				"Support Info: NG%08[2]x\n" +
+				"Reason: %s",
+		},
+	}
+
 	WWFCMsgKickedGeneric = WWFCErrorMessage{
 		ErrorCode: 22004,
 		MessageRMC: map[byte]string{
@@ -278,6 +290,17 @@ var (
 				"friend room by the room creator.\n" +
 				"\n" +
 				"Error Code: %[1]d",
+		},
+	}
+
+	WWFCMsgKickedCustom = WWFCErrorMessage{
+		ErrorCode: 22002,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You have been kicked from WiiLink WFC\n" +
+				"Error Code: %[1]d\n" +
+				"Support Info: NG%08[2]x\n" +
+				"Reason: %s",
 		},
 	}
 
@@ -405,7 +428,7 @@ func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, 
 				errMsg = err.WWFCMessage.MessageRMC[LangEnglish]
 			}
 
-			errMsg = fmt.Sprintf(errMsg, err.WWFCMessage.ErrorCode, ngid)
+			errMsg = fmt.Sprintf(errMsg, err.WWFCMessage.ErrorCode, ngid, err.Reason)
 			errMsgUTF16 := utf16.Encode([]rune(errMsg))
 			errMsgByteArray := common.UTF16ToByteArray(errMsgUTF16)
 

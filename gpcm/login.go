@@ -474,18 +474,10 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 		} else if err == database.ErrProfileBannedTOS {
 			g.replyError(GPError{
 				ErrorCode:   ErrLogin.ErrorCode,
-				ErrorString: "The profile is banned from the service.",
+				ErrorString: "The profile is banned from the service. Reason: " + user.BanReason,
 				Fatal:       true,
-				WWFCMessage: WWFCErrorMessage{
-					ErrorCode: 22002,
-					MessageRMC: map[byte]string{
-						LangEnglish: "" +
-							"You are banned from WiiLink WFC\n" +
-							"Reason: " + user.BanReason + "\n" +
-							"Error Code: %[1]d\n" +
-							"Support Info: NG%08[2]x",
-					},
-				},
+				WWFCMessage: WWFCMsgKickedCustom,
+				Reason:      user.BanReason,
 			})
 		} else {
 			g.replyError(GPError{
