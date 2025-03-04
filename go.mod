@@ -6,7 +6,7 @@ require (
 	github.com/jackc/pgx/v4 v4.18.2
 	github.com/logrusorgru/aurora/v3 v3.0.0
 	github.com/sasha-s/go-deadlock v0.3.1
-	golang.org/x/net v0.23.0
+	golang.org/x/net v0.33.0
 )
 
 require (
