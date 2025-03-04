@@ -2,8 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 	"wwfc/database"
@@ -11,116 +11,87 @@ import (
 )
 
 func HandleBan(w http.ResponseWriter, r *http.Request) {
-	errorString := handleBanImpl(w, r)
-	if errorString != "" {
-		jsonData, _ := json.Marshal(map[string]string{"error": errorString})
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-		w.Write(jsonData)
+	var success bool
+	var err string
+	var statusCode int
+
+	if r.Method == http.MethodPost {
+		success, err, statusCode = handleBanImpl(r)
 	} else {
-		jsonData, _ := json.Marshal(map[string]string{"success": "true"})
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-		w.Write(jsonData)
+		err = "Incorrect request. POST only."
+		statusCode = http.StatusBadRequest
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	var jsonData []byte
+	if success {
+		jsonData, _ = json.Marshal(map[string]string{"success": "true"})
+	} else {
+		jsonData, _ = json.Marshal(map[string]string{"error": err})
+	}
+
+	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
+	w.WriteHeader(statusCode)
+	w.Write(jsonData)
 }
 
-func handleBanImpl(w http.ResponseWriter, r *http.Request) string {
+type BanRequestSpec struct {
+	Secret       string
+	Pid          uint32
+	Days         uint64
+	Hours        uint64
+	Minutes      uint64
+	Tos          bool
+	Reason       string
+	ReasonHidden string
+	Moderator    string
+}
+
+func handleBanImpl(r *http.Request) (bool, string, int) {
 	// TODO: Actual authentication rather than a fixed secret
-	// TODO: Use POST instead of GET
 
-	u, err := url.Parse(r.URL.String())
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return "Bad request"
+		return false, "Unable to read request body", http.StatusBadRequest
 	}
 
-	query, err := url.ParseQuery(u.RawQuery)
+	var req BanRequestSpec
+	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return "Bad request"
+		return false, err.Error(), http.StatusBadRequest
 	}
 
-	if apiSecret == "" || query.Get("secret") != apiSecret {
-		return "Invalid API secret"
+	if apiSecret == "" || req.Secret != apiSecret {
+		return false, "Invalid API secret in request", http.StatusUnauthorized
 	}
 
-	pidStr := query.Get("pid")
-	if pidStr == "" {
-		return "Missing pid in request"
+	if req.Pid == 0 {
+		return false, "pid missing or 0 in request", http.StatusBadRequest
 	}
 
-	pid, err := strconv.ParseUint(pidStr, 10, 32)
-	if err != nil {
-		return "Invalid pid"
+	if req.Reason == "" {
+		return false, "Missing ban reason in request", http.StatusBadRequest
 	}
 
-	tosStr := query.Get("tos")
-	if tosStr == "" {
-		return "Missing tos in request"
-	}
-
-	tos, err := strconv.ParseBool(tosStr)
-	if err != nil {
-		return "Invalid tos"
-	}
-
-	minutes := uint64(0)
-	if query.Get("minutes") != "" {
-		minutesStr := query.Get("minutes")
-		minutes, err = strconv.ParseUint(minutesStr, 10, 32)
-		if err != nil {
-			return "Invalid minutes"
-		}
-	}
-
-	hours := uint64(0)
-	if query.Get("hours") != "" {
-		hoursStr := query.Get("hours")
-		hours, err = strconv.ParseUint(hoursStr, 10, 32)
-		if err != nil {
-			return "Invalid hours"
-		}
-	}
-
-	days := uint64(0)
-	if query.Get("days") != "" {
-		daysStr := query.Get("days")
-		days, err = strconv.ParseUint(daysStr, 10, 32)
-		if err != nil {
-			return "Invalid days"
-		}
-	}
-
-	reason := query.Get("reason")
-	if "reason" == "" {
-		return "Missing ban reason"
-	}
-
-	// reason_hidden is optional
-	reasonHidden := query.Get("reason_hidden")
-
-	moderator := query.Get("moderator")
-	if "moderator" == "" {
+	moderator := req.Moderator
+	if moderator == "" {
 		moderator = "admin"
 	}
 
-	minutes = days*24*60 + hours*60 + minutes
+	minutes := req.Days*24*60 + req.Hours*60 + req.Minutes
 	if minutes == 0 {
-		return "Missing ban length"
+		return false, "Ban length missing or 0", http.StatusBadRequest
 	}
 
 	length := time.Duration(minutes) * time.Minute
 
-	if !database.BanUser(pool, ctx, uint32(pid), tos, length, reason, reasonHidden, moderator) {
-		return "Failed to ban user"
+	if !database.BanUser(pool, ctx, req.Pid, req.Tos, length, req.Reason, req.ReasonHidden, moderator) {
+		return false, "Failed to ban user", http.StatusInternalServerError
 	}
 
-	if tos {
-		gpcm.KickPlayer(uint32(pid), "banned")
-	} else {
-		gpcm.KickPlayer(uint32(pid), "restricted")
-	}
+	gpcm.KickPlayerCustomMessage(req.Pid, req.Reason, gpcm.WWFCMsgProfileRestrictedCustom)
 
-	return ""
+	return true, "", http.StatusOK
 }

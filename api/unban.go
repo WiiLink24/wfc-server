@@ -2,57 +2,69 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"wwfc/database"
 )
 
 func HandleUnban(w http.ResponseWriter, r *http.Request) {
-	errorString := handleUnbanImpl(w, r)
-	if errorString != "" {
-		jsonData, _ := json.Marshal(map[string]string{"error": errorString})
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-		w.Write(jsonData)
+	var success bool
+	var err string
+	var statusCode int
+
+	if r.Method == http.MethodPost {
+		success, err, statusCode = handleUnbanImpl(r)
 	} else {
-		jsonData, _ := json.Marshal(map[string]string{"success": "true"})
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-		w.Write(jsonData)
+		err = "Incorrect request. POST only."
+		statusCode = http.StatusBadRequest
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	var jsonData []byte
+	if success {
+		jsonData, _ = json.Marshal(map[string]string{"success": "true"})
+	} else {
+		jsonData, _ = json.Marshal(map[string]string{"error": err})
+	}
+
+	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
+	w.WriteHeader(statusCode)
+	w.Write(jsonData)
 }
 
-func handleUnbanImpl(w http.ResponseWriter, r *http.Request) string {
+type UnbanRequestSpec struct {
+	Secret string
+	Pid    uint32
+}
+
+func handleUnbanImpl(r *http.Request) (bool, string, int) {
 	// TODO: Actual authentication rather than a fixed secret
-	// TODO: Use POST instead of GET
 
-	u, err := url.Parse(r.URL.String())
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return "Bad request"
+		return false, "Unable to read request body", http.StatusBadRequest
 	}
 
-	query, err := url.ParseQuery(u.RawQuery)
+	var req UnbanRequestSpec
+	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return "Bad request"
+		return false, err.Error(), http.StatusBadRequest
 	}
 
-	if apiSecret == "" || query.Get("secret") != apiSecret {
-		return "Invalid API secret"
+	if apiSecret == "" || req.Secret != apiSecret {
+		return false, "Invalid API secret in request", http.StatusUnauthorized
 	}
 
-	pidStr := query.Get("pid")
-	if pidStr == "" {
-		return "Missing pid in request"
+	if req.Pid == 0 {
+		return false, "pid missing or 0 in request", http.StatusBadRequest
 	}
 
-	pid, err := strconv.ParseUint(pidStr, 10, 32)
-	if err != nil {
-		return "Invalid pid"
+	if !database.UnbanUser(pool, ctx, req.Pid) {
+		return false, "Failed to unban user", http.StatusInternalServerError
 	}
 
-	database.UnbanUser(pool, ctx, uint32(pid))
-	return ""
+	return true, "", http.StatusOK
 }

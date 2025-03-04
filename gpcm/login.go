@@ -474,9 +474,10 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 		} else if err == database.ErrProfileBannedTOS {
 			g.replyError(GPError{
 				ErrorCode:   ErrLogin.ErrorCode,
-				ErrorString: "The profile is banned from the service.",
+				ErrorString: "The profile is banned from the service. Reason: " + user.BanReason,
 				Fatal:       true,
-				WWFCMessage: WWFCMsgProfileBannedTOS,
+				WWFCMessage: WWFCMsgKickedCustom,
+				Reason:      user.BanReason,
 			})
 		} else {
 			g.replyError(GPError{
