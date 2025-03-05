@@ -37,18 +37,17 @@ func (this *expression) eval(basenode *TreeNode) int64 {
 			return this.getNumber(node)
 
 		case CatOther:
-			this.switchOther(node)
+			return this.switchOther(node)
 		}
 	}
 	panic("eval failed")
 }
 
-func (this *expression) switchOther(node *TreeNode) {
+func (this *expression) switchOther(node *TreeNode) int64 {
 	switch v1 := node.Value.(type) {
 	case *GroupToken:
 		if v1.GroupType == "()" {
-			this.eval(node)
-			return
+			return this.eval(node)
 		}
 	}
 	panic("invalid node " + node.String())
