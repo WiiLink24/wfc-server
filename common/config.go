@@ -40,19 +40,29 @@ type Config struct {
 
 	APISecret string `xml:"apiSecret"`
 
-	AllowDefaultDolphinKeys bool `xml:"allowDefaultDolphinKeys"`
+	AllowDefaultDolphinKeys     bool   `xml:"allowDefaultDolphinKeys"`
+	AllowMultipleDeviceIDs      string `xml:"allowMultipleDeviceIDs"`
+	AllowConnectWithoutDeviceID bool   `xml:"allowConnectWithoutDeviceID"`
 
 	ServerName string `xml:"serverName,omitempty"`
 }
 
+var config Config
+var configLoaded bool
+
 func GetConfig() Config {
+	if configLoaded {
+		return config
+	}
+
 	data, err := os.ReadFile("config.xml")
 	if err != nil {
 		panic(err)
 	}
 
-	var config Config
 	config.AllowDefaultDolphinKeys = true
+	config.AllowMultipleDeviceIDs = "never"
+	config.AllowConnectWithoutDeviceID = false
 	config.ServerName = "PGN"
 
 	err = xml.Unmarshal(data, &config)
@@ -109,6 +119,12 @@ func GetConfig() Config {
 
 	if config.BackendFrontendAddress == "" {
 		config.BackendFrontendAddress = config.FrontendAddress
+	}
+
+	if config.AllowMultipleDeviceIDs == "true" || config.AllowMultipleDeviceIDs == "yes" {
+		config.AllowMultipleDeviceIDs = "always"
+	} else if config.AllowMultipleDeviceIDs != "SameIPAddress" {
+		config.AllowMultipleDeviceIDs = "never"
 	}
 
 	return config

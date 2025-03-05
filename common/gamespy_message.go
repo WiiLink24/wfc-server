@@ -3,6 +3,7 @@ package common
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -14,9 +15,10 @@ type GameSpyCommand struct {
 
 var (
 	ErrInvalidGameSpyCommand = errors.New("invalid GameSpy command received")
+	ErrNoGameStatsDataLength = errors.New("no data length found in GameStats message")
 )
 
-func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {
+func parseGameSpyMessage(msg string, gameStats bool) ([]GameSpyCommand, error) {
 	if !strings.Contains(msg, `\final\`) {
 		return nil, ErrInvalidGameSpyCommand
 	}
@@ -43,7 +45,26 @@ func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {
 				break
 			}
 
-			if strings.Contains(msg, `\`) {
+			if gameStats && key == "data" {
+				if g.OtherValues["length"] == "" {
+					return nil, ErrNoGameStatsDataLength
+				}
+
+				dataLength, err := strconv.Atoi(g.OtherValues["length"])
+				if err != nil {
+					return nil, err
+				}
+
+				if len(msg) < dataLength+1 {
+					return nil, ErrInvalidGameSpyCommand
+				}
+
+				value = msg[:dataLength]
+				msg = msg[dataLength:]
+				if msg[0] == '\\' {
+					msg = msg[1:]
+				}
+			} else if strings.Contains(msg, `\`) {
 				if msg[0] != '\\' {
 					valueEnd := strings.Index(msg[1:], `\`)
 					value = msg[:valueEnd+1]
@@ -70,11 +91,26 @@ func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {
 	return commands, nil
 }
 
+func ParseGameSpyMessage(msg string) ([]GameSpyCommand, error) {
+	return parseGameSpyMessage(msg, false)
+}
+
+func ParseGameStatsMessage(msg string) ([]GameSpyCommand, error) {
+	return parseGameSpyMessage(msg, true)
+}
+
 func CreateGameSpyMessage(command GameSpyCommand) string {
 	query := ""
+	endQuery := ""
 	for k, v := range command.OtherValues {
-		query += fmt.Sprintf(`\%s\%s`, k, v)
+		if command.Command == "getpdr" && k == "data" {
+			endQuery += fmt.Sprintf(`\%s\%s`, k, v)
+		} else {
+			query += fmt.Sprintf(`\%s\%s`, k, v)
+		}
 	}
+
+	query += endQuery
 
 	if command.Command != "" {
 		query = fmt.Sprintf(`\%s\%s%s`, command.Command, command.CommandValue, query)

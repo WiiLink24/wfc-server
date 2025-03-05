@@ -25,6 +25,18 @@ func UpdateTables(pool *pgxpool.Pool, ctx context.Context) {
 
 	pool.Exec(ctx, `
 
+	DO $$ 
+	BEGIN
+    	IF (SELECT data_type FROM information_schema.columns WHERE table_name='users' AND column_name='ng_device_id') != 'ARRAY' THEN
+        	ALTER TABLE public.users
+            	ALTER COLUMN ng_device_id TYPE bigint[] using array[ng_device_id];
+    	END IF;
+	END $$;
+
+	`)
+
+	pool.Exec(ctx, `
+
 	ALTER TABLE ONLY public.mario_kart_wii_sake
         ADD IF NOT EXISTS id serial PRIMARY KEY,
 		ADD IF NOT EXISTS upload_time timestamp without time zone;

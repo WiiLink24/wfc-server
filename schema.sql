@@ -47,8 +47,19 @@ ALTER TABLE ONLY public.users
     ADD IF NOT EXISTS ban_reason character varying,
     ADD IF NOT EXISTS ban_reason_hidden character varying,
     ADD IF NOT EXISTS ban_moderator character varying,
-    ADD IF NOT EXISTS ban_tos boolean;
+    ADD IF NOT EXISTS ban_tos boolean,
+	ADD IF NOT EXISTS open_host boolean DEFAULT false;
 
+--
+-- Change ng_device_id from bigint to bigint[]
+--
+DO $$ 
+BEGIN
+    IF (SELECT data_type FROM information_schema.columns WHERE table_name='users' AND column_name='ng_device_id') != 'ARRAY' THEN
+        ALTER TABLE public.users
+            ALTER COLUMN ng_device_id TYPE bigint[] using array[ng_device_id];
+    END IF;
+END $$;
 
 ALTER TABLE public.users OWNER TO wiilink;
 
@@ -76,12 +87,26 @@ ALTER TABLE ONLY public.mario_kart_wii_sake
 ALTER TABLE public.mario_kart_wii_sake OWNER TO wiilink;
 
 --
+-- Name: gamestats_public_data; Type: TABLE; Schema: public; Owner: wiilink
+--
+
+CREATE TABLE IF NOT EXISTS public.gamestats_public_data (
+    profile_id bigint NOT NULL,
+    dindex character varying NOT NULL,
+    ptype character varying NOT NULL,
+    pdata character varying NOT NULL,
+    modified_time timestamp without time zone NOT NULL,
+
+    CONSTRAINT one_pdata_constraint UNIQUE (profile_id, dindex, ptype)
+);
+
+--
 -- Name: users_profile_id_seq; Type: SEQUENCE; Schema: public; Owner: wiilink
 --
 
 CREATE SEQUENCE IF NOT EXISTS public.users_profile_id_seq
     AS integer
-    START WITH 1
+    START WITH 1000000000
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
@@ -101,12 +126,6 @@ ALTER SEQUENCE public.users_profile_id_seq OWNED BY public.users.profile_id;
 --
 
 ALTER TABLE ONLY public.users ALTER COLUMN profile_id SET DEFAULT nextval('public.users_profile_id_seq'::regclass);
-
---
--- Set the profile_id start point to 1'000'000'000
---
-
-ALTER SEQUENCE public.users_profile_id_seq RESTART WITH 1000000000;
 
 --
 -- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: wiilink

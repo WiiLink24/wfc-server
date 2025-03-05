@@ -35,6 +35,7 @@ type GPError struct {
 	ErrorString string
 	Fatal       bool
 	WWFCMessage WWFCErrorMessage
+	Reason      string
 }
 
 func MakeGPError(errorCode int, errorString string, fatal bool) GPError {
@@ -245,6 +246,28 @@ var (
 		},
 	}
 
+	WWFCMsgProfileRestrictedCustom = WWFCErrorMessage{
+		ErrorCode: 22002,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You are banned from public matches.\n" +
+				"Reason: %s" +
+				"Error Code: %[1]d\n" +
+				"Support Info: NG%08[2]x\n",
+		},
+	}
+
+	WWFCMsgProfileRestrictedNowCustom = WWFCErrorMessage{
+		ErrorCode: 22002,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You have been banned from public matches.\n" +
+				"Reason: %s" +
+				"Error Code: %[1]d\n" +
+				"Support Info: NG%08[2]x\n",
+		},
+	}
+
 	WWFCMsgKickedGeneric = WWFCErrorMessage{
 		ErrorCode: 22004,
 		MessageRMC: map[byte]string{
@@ -276,6 +299,17 @@ var (
 				"por el creador de la sala.\n" +
 				"\n" +
 				"Código de error: %[1]d",
+		},
+	}
+
+	WWFCMsgKickedCustom = WWFCErrorMessage{
+		ErrorCode: 22002,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"You have been kicked from WiiLink WFC.\n" +
+				"Reason: %s" +
+				"Error Code: %[1]d\n" +
+				"Support Info: NG%08[2]x\n",
 		},
 	}
 
@@ -399,17 +433,45 @@ func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, 
 	if err.Fatal && err.WWFCMessage.ErrorCode != 0 {
 		switch gameName {
 		case "mariokartwii":
-			errMsg := err.WWFCMessage.MessageRMC[lang]
-			if errMsg == "" {
-				errMsg = err.WWFCMessage.MessageRMC[LangEnglish]
+			reason := err.Reason
+			wwfcMessage := err.WWFCMessage
+
+			if reason == "" {
+				reason = "None provided."
+
+				engMsg := err.WWFCMessage.MessageRMC[LangEnglish]
+
+				if engMsg == WWFCMsgKickedCustom.MessageRMC[LangEnglish] {
+					wwfcMessage = WWFCMsgKickedModerator
+				} else if engMsg == WWFCMsgProfileRestrictedCustom.MessageRMC[LangEnglish] {
+					wwfcMessage = WWFCMsgProfileRestricted
+				} else if engMsg == WWFCMsgProfileRestrictedNowCustom.MessageRMC[LangEnglish] {
+					wwfcMessage = WWFCMsgProfileRestrictedNow
+				}
 			}
 
-			errMsg = fmt.Sprintf(errMsg, err.WWFCMessage.ErrorCode, ngid)
-			errMsgUTF16 := utf16.Encode([]rune(errMsg))
-			errMsgByteArray := common.UTF16ToByteArray(errMsgUTF16)
+			errMsg := wwfcMessage.MessageRMC[lang]
+			if errMsg == "" && lang != LangEnglish {
+				if lang == LangSpanishEU {
+					errMsg = wwfcMessage.MessageRMC[LangSpanish]
+				} else if lang == LangFrenchEU {
+					errMsg = wwfcMessage.MessageRMC[LangFrench]
+				}
 
-			command.OtherValues["wwfc_err"] = strconv.Itoa(err.WWFCMessage.ErrorCode)
-			command.OtherValues["wwfc_errmsg"] = common.Base64DwcEncoding.EncodeToString(errMsgByteArray)
+				if errMsg == "" {
+					errMsg = wwfcMessage.MessageRMC[LangEnglish]
+				}
+			}
+
+			if errMsg != "" {
+				errMsg = fmt.Sprintf(errMsg, wwfcMessage.ErrorCode, ngid, reason)
+				errMsgUTF16 := utf16.Encode([]rune(errMsg))
+				errMsgByteArray := common.UTF16ToByteArray(errMsgUTF16)
+				command.OtherValues["wwfc_errmsg"] = common.Base64DwcEncoding.EncodeToString(errMsgByteArray)
+			}
+
+			command.OtherValues["wwfc_err"] = strconv.Itoa(wwfcMessage.ErrorCode)
+
 		}
 	}
 
@@ -429,8 +491,8 @@ func (g *GameSpySession) replyError(err GPError) {
 	}
 
 	deviceId := g.User.RestrictedDeviceId
-	if deviceId == 0 {
-		deviceId = g.User.NgDeviceId
+	if deviceId == 0 && len(g.User.NgDeviceId) > 0 {
+		deviceId = g.User.NgDeviceId[0]
 	}
 
 	msg := err.GetMessageTranslate(g.GameName, g.Region, g.Language, g.ConsoleFriendCode, deviceId)

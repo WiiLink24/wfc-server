@@ -222,7 +222,7 @@ func HandlePacket(index uint64, data []byte) {
 	message := decrypted.String()
 	session.ReadBuffer = []byte{}
 
-	commands, err := common.ParseGameSpyMessage(message)
+	commands, err := common.ParseGameStatsMessage(message)
 	if err != nil {
 		logging.Error(session.ModuleName, "Error parsing message:", err.Error())
 		logging.Error(session.ModuleName, "Raw data:", message)

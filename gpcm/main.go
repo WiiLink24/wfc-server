@@ -261,7 +261,7 @@ func HandlePacket(index uint64, data []byte) {
 		data := []byte{}
 		logged := false
 		for c := 0; c < len(session.WriteBuffer); c++ {
-			if session.WriteBuffer[c] > 0xff || session.WriteBuffer[c] == 0x00 {
+			if session.WriteBuffer[c] == 0x00 {
 				if !logged {
 					logging.Warn(session.ModuleName, "Non-char or null byte in response packet:", session.WriteBuffer)
 					logged = true

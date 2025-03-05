@@ -2,57 +2,82 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"wwfc/gpcm"
 )
 
 func HandleKick(w http.ResponseWriter, r *http.Request) {
-	errorString := handleKickImpl(w, r)
-	if errorString != "" {
-		jsonData, _ := json.Marshal(map[string]string{"error": errorString})
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-		w.Write(jsonData)
+	var success bool
+	var err string
+	var statusCode int
+
+	if r.Method == http.MethodPost {
+		success, err, statusCode = handleKickImpl(r)
+	} else if r.Method == http.MethodOptions {
+		statusCode = http.StatusNoContent
+		w.Header().Set("Access-Control-Allow-Methods", "POST")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	} else {
-		jsonData, _ := json.Marshal(map[string]string{"success": "true"})
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-		w.Write(jsonData)
+		err = "Incorrect request. POST only."
+		statusCode = http.StatusMethodNotAllowed
+		w.Header().Set("Allow", "POST")
 	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	var jsonData []byte
+
+	if statusCode != http.StatusNoContent {
+		w.Header().Set("Content-Type", "application/json")
+
+		if success {
+			jsonData, _ = json.Marshal(map[string]string{"success": "true"})
+		} else {
+			jsonData, _ = json.Marshal(map[string]string{"error": err})
+		}
+	}
+
+	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
+
+	w.WriteHeader(statusCode)
+	w.Write(jsonData)
 }
 
-func handleKickImpl(w http.ResponseWriter, r *http.Request) string {
+type KickRequestSpec struct {
+	Secret    string `json:"secret"`
+	Reason    string `json:"reason"`
+	ProfileID uint32 `json:"pid"`
+}
+
+func handleKickImpl(r *http.Request) (bool, string, int) {
 	// TODO: Actual authentication rather than a fixed secret
-	// TODO: Use POST instead of GET
 
-	u, err := url.Parse(r.URL.String())
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return "Bad request"
+		return false, "Unable to read request body", http.StatusBadRequest
 	}
 
-	query, err := url.ParseQuery(u.RawQuery)
+	var req KickRequestSpec
+	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return "Bad request"
+		return false, err.Error(), http.StatusBadRequest
 	}
 
-	if apiSecret == "" || query.Get("secret") != apiSecret {
-		return "Invalid API secret"
+	if apiSecret == "" || req.Secret != apiSecret {
+		return false, "Invalid API secret in request", http.StatusUnauthorized
 	}
 
-	pidStr := query.Get("pid")
-	if pidStr == "" {
-		return "Missing pid in request"
+	if req.ProfileID == 0 {
+		return false, "Profile ID missing or 0 in request", http.StatusBadRequest
 	}
 
-	pid, err := strconv.ParseUint(pidStr, 10, 32)
-	if err != nil {
-		return "Invalid pid"
+	if req.Reason == "" {
+		return false, "Missing kick reason in request", http.StatusBadRequest
 	}
 
-	gpcm.KickPlayer(uint32(pid), "moderator_kick")
-	return ""
+	gpcm.KickPlayerCustomMessage(req.ProfileID, req.Reason, gpcm.WWFCMsgKickedCustom)
+
+	return true, "", http.StatusOK
 }

@@ -37,18 +37,17 @@ func (this *expression) eval(basenode *TreeNode) int64 {
 			return this.getNumber(node)
 
 		case CatOther:
-			this.switchOther(node)
+			return this.switchOther(node)
 		}
 	}
 	panic("eval failed")
 }
 
-func (this *expression) switchOther(node *TreeNode) {
+func (this *expression) switchOther(node *TreeNode) int64 {
 	switch v1 := node.Value.(type) {
 	case *GroupToken:
 		if v1.GroupType == "()" {
-			this.eval(node)
-			return
+			return this.eval(node)
 		}
 	}
 	panic("invalid node " + node.String())
@@ -76,6 +75,16 @@ func (this *expression) switchFunction(node *TreeNode) int64 {
 		return this.evalMathOperator(this.evalMathPlus, node.Items())
 	case "-":
 		return this.evalMathOperator(this.evalMathMinus, node.Items())
+	case "&":
+		return this.evalMathOperator(this.evalMathAnd, node.Items())
+	case "|":
+		return this.evalMathOperator(this.evalMathOr, node.Items())
+	case "^":
+		return this.evalMathOperator(this.evalMathXor, node.Items())
+	case "<<":
+		return this.evalMathOperator(this.evalMathLShift, node.Items())
+	case ">>":
+		return this.evalMathOperator(this.evalMathRShift, node.Items())
 
 	case "and":
 		return this.evalAnd(node.Items())
@@ -290,6 +299,26 @@ func (this *expression) evalMathLessOrEqual(val1, val2 int64) int64 {
 		return 1
 	}
 	return 0
+}
+
+func (this *expression) evalMathAnd(val1, val2 int64) int64 {
+	return val1 & val2
+}
+
+func (this *expression) evalMathOr(val1, val2 int64) int64 {
+	return val1 | val2
+}
+
+func (this *expression) evalMathXor(val1, val2 int64) int64 {
+	return val1 ^ val2
+}
+
+func (this *expression) evalMathLShift(val1, val2 int64) int64 {
+	return val1 << val2
+}
+
+func (this *expression) evalMathRShift(val1, val2 int64) int64 {
+	return val1 >> val2
 }
 
 func (this *expression) evalLike(args []*TreeNode) int64 {
