@@ -379,7 +379,7 @@ func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
 	if miiGroupCount != 2 {
 		logging.Error(moduleName, "Received USER packet with unexpected Mii group count", aurora.Cyan(miiGroupCount))
 		// Kick the client
-		gpErrorCallback(senderPid, "malpacket")
+		gpErrorCallback(senderPid, "bad_packet")
 		return
 	}
 
@@ -396,7 +396,7 @@ func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
 		mii := common.Mii(packet[index : index+0x4C])
 		if mii.RFLCalculateCRC() != 0x0000 {
 			logging.Error(moduleName, "Received USER packet with invalid Mii data CRC")
-			gpErrorCallback(senderPid, "malpacket")
+			gpErrorCallback(senderPid, "bad_packet")
 			return
 		}
 
@@ -408,7 +408,7 @@ func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
 			decodedName, err := common.GetWideString(packet[index+0x2:index+0x2+20], binary.BigEndian)
 			if err != nil {
 				logging.Error(moduleName, "Failed to parse Mii name:", err)
-				gpErrorCallback(senderPid, "malpacket")
+				gpErrorCallback(senderPid, "bad_packet")
 				return
 			}
 
@@ -487,11 +487,13 @@ func ProcessMKWSelectRecord(profileId uint32, key string, value string) {
 		return
 	}
 
+	keyColored := aurora.BrightCyan(key).String()
+
 	switch key {
-	case "mkw_select_course":
+	case "wl:mkw_select_course":
 		courseId, err := strconv.ParseUint(value, 10, 32)
 		if err != nil {
-			logging.Error(moduleName, "Error decoding mkw_select_course:", err.Error())
+			logging.Error(moduleName, "Error decoding", keyColored+":", err.Error())
 			return
 		}
 
@@ -505,10 +507,10 @@ func ProcessMKWSelectRecord(profileId uint32, key string, value string) {
 		group.MKWEngineClassID = -1
 		return
 
-	case "mkw_select_cc":
+	case "wl:mkw_select_cc":
 		ccId, err := strconv.ParseUint(value, 10, 32)
 		if err != nil {
-			logging.Error(moduleName, "Error decoding mkw_select_cc:", err.Error())
+			logging.Error(moduleName, "Error decoding", keyColored+":", err.Error())
 			return
 		}
 
