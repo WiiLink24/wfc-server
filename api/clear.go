@@ -8,14 +8,14 @@ import (
 	"wwfc/database"
 )
 
-func HandleUnban(w http.ResponseWriter, r *http.Request) {
+func HandleClear(w http.ResponseWriter, r *http.Request) {
 	var user *database.User
 	var success bool
 	var err string
 	var statusCode int
 
 	if r.Method == http.MethodPost {
-		user, success, err, statusCode = handleUnbanImpl(r)
+		user, success, err, statusCode = handleClearImpl(r)
 	} else if r.Method == http.MethodOptions {
 		statusCode = http.StatusNoContent
 		w.Header().Set("Access-Control-Allow-Methods", "POST")
@@ -44,12 +44,12 @@ func HandleUnban(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonData)
 }
 
-type UnbanRequestSpec struct {
-	Secret    string `json:"secret"`
-	ProfileID uint32 `json:"pid"`
+type ClearRequestSpec struct {
+	Secret    string
+	ProfileID uint32
 }
 
-func handleUnbanImpl(r *http.Request) (*database.User, bool, string, int) {
+func handleClearImpl(r *http.Request) (*database.User, bool, string, int) {
 	// TODO: Actual authentication rather than a fixed secret
 
 	body, err := io.ReadAll(r.Body)
@@ -57,7 +57,7 @@ func handleUnbanImpl(r *http.Request) (*database.User, bool, string, int) {
 		return nil, false, "Unable to read request body", http.StatusBadRequest
 	}
 
-	var req UnbanRequestSpec
+	var req ClearRequestSpec
 	err = json.Unmarshal(body, &req)
 	if err != nil {
 		return nil, false, err.Error(), http.StatusBadRequest
@@ -67,22 +67,12 @@ func handleUnbanImpl(r *http.Request) (*database.User, bool, string, int) {
 		return nil, false, "Invalid API secret in request", http.StatusUnauthorized
 	}
 
-	if req.ProfileID == 0 {
-		return nil, false, "pid missing or 0 in request", http.StatusBadRequest
+	user, success := database.ClearProfile(pool, ctx, req.ProfileID)
+
+	if !success {
+		return nil, false, "Unable to query user data from the database", http.StatusInternalServerError
 	}
 
-	if !database.UnbanUser(pool, ctx, req.ProfileID) {
-		return nil, false, "Failed to unban user", http.StatusInternalServerError
-	}
-
-	var message string
-	user, success := database.GetProfile(pool, ctx, req.ProfileID)
-
-	if success {
-		message = ""
-	} else {
-		message = "Unable to query user data from the database"
-	}
-
-	return &user, success, message, http.StatusOK
+	// Don't return empty JSON, this is placeholder for now.
+	return &user, true, "", http.StatusOK
 }
