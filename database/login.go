@@ -30,7 +30,6 @@ const (
 		FROM users
 		WHERE has_ban = true
 			AND (profile_id = $2
-				OR ng_device_id && (SELECT * FROM known_ng_device_ids)
 				OR last_ip_address = $3
 				OR ($4 != '' AND last_ip_address = $4))
 			AND (ban_expires IS NULL OR ban_expires > $5)
