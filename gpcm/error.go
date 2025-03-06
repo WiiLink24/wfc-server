@@ -468,12 +468,11 @@ func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, 
 				errMsg = fmt.Sprintf(errMsg, wwfcMessage.ErrorCode, ngid, reason)
 				errMsgUTF16 := utf16.Encode([]rune(errMsg))
 				errMsgByteArray := common.UTF16ToByteArray(errMsgUTF16)
-				command.OtherValues["wwfc_errmsg"] = common.Base64DwcEncoding.EncodeToString(errMsgByteArray)
+				command.OtherValues["wl:errmsg"] = common.Base64DwcEncoding.EncodeToString(errMsgByteArray)
 			}
-
-			command.OtherValues["wwfc_err"] = strconv.Itoa(wwfcMessage.ErrorCode)
-
 		}
+
+		command.OtherValues["wl:err"] = strconv.Itoa(err.WWFCMessage.ErrorCode)
 	}
 
 	return common.CreateGameSpyMessage(command)

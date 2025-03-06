@@ -182,11 +182,11 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	g.InGameName = ingamesn
 	g.UnitCode = unitcd
 
-	_, payloadVerExists := command.OtherValues["payload_ver"]
-	_, signatureExists := command.OtherValues["wwfc_sig"]
+	_, payloadVerExists := command.OtherValues["wl:ver"]
+	_, signatureExists := command.OtherValues["wl:sig"]
 	deviceId := uint32(0)
 
-	if hostPlatform, exists := command.OtherValues["wwfc_host"]; exists {
+	if hostPlatform, exists := command.OtherValues["wl:host"]; exists {
 		g.HostPlatform = hostPlatform
 	} else {
 		if g.UnitCode == UnitCodeDS {
@@ -329,7 +329,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		} else {
 			motdUTF16 := utf16.Encode([]rune(motd))
 			motdByteArray := common.UTF16ToByteArray(motdUTF16)
-			otherValues["wwfc_motd"] = common.Base64DwcEncoding.EncodeToString(motdByteArray)
+			otherValues["wl:motd"] = common.Base64DwcEncoding.EncodeToString(motdByteArray)
 		}
 	}
 
@@ -362,8 +362,8 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 }
 
 func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authToken string) uint32 {
-	payloadVer, payloadVerExists := command.OtherValues["payload_ver"]
-	signature, signatureExists := command.OtherValues["wwfc_sig"]
+	payloadVer, payloadVerExists := command.OtherValues["wl:ver"]
+	signature, signatureExists := command.OtherValues["wl:sig"]
 	deviceId := uint32(0)
 
 	if !payloadVerExists || payloadVer != "4" {
