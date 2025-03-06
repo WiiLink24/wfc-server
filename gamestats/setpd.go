@@ -27,7 +27,7 @@ func (g *GameStatsSession) setpd(command common.GameSpyCommand) {
 
 	errMsg := common.GameSpyCommand{
 		Command:      "setpdr",
-		CommandValue: "0",
+		CommandValue: "1",
 		OtherValues: map[string]string{
 			"pid": command.OtherValues["pid"],
 			"lid": strconv.Itoa(g.LoginID),

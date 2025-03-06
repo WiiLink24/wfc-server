@@ -13,7 +13,7 @@ import (
 func (g *GameStatsSession) getpd(command common.GameSpyCommand) {
 	errMsg := common.GameSpyCommand{
 		Command:      "getpdr",
-		CommandValue: "0",
+		CommandValue: "1",
 		OtherValues: map[string]string{
 			"pid": command.OtherValues["pid"],
 			"lid": strconv.Itoa(g.LoginID),
