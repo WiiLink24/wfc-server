@@ -235,7 +235,7 @@ func HandlePacket(index uint64, data []byte) {
 		common.SendPacket(ServerName, session.ConnIndex, []byte(`\ka\\final\`))
 	})
 	commands = session.handleCommand("login", commands, session.login)
-	commands = session.handleCommand("wwfc_exlogin", commands, session.exLogin)
+	commands = session.handleCommand("wl:exlogin", commands, session.exLogin)
 	commands = session.ignoreCommand("logout", commands)
 
 	if len(commands) != 0 && !session.LoggedIn {
@@ -244,7 +244,7 @@ func HandlePacket(index uint64, data []byte) {
 		return
 	}
 
-	commands = session.handleCommand("wwfc_report", commands, session.handleWWFCReport)
+	commands = session.handleCommand("wl:report", commands, session.handleWWFCReport)
 	commands = session.handleCommand("updatepro", commands, session.updateProfile)
 	commands = session.handleCommand("status", commands, session.setStatus)
 	commands = session.handleCommand("addbuddy", commands, session.addFriend)

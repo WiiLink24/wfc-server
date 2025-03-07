@@ -549,33 +549,6 @@ var (
 				"Code Erreur: %[1]d",
 		},
 	}
-
-	WWFCMsgTooManyFramesDropped = WWFCErrorMessage{
-		ErrorCode: 22010,
-		MessageRMC: map[byte]string{
-			LangEnglish: "" +
-				"Your game is dropping too many frames.\n" +
-				"Please remove any modifications that may\n" +
-				"be causing frame rate problems to avoid\n" +
-				"being banned from Retro WFC.\n" +
-				"\n" +
-				"Error Code: %[1]d",
-			LangJapanese: "" +
-				"ゲームのフレームレートがおそすぎます \n" +
-				"Retro WFCから BANされないように\n" +
-				"フレームレートが落ちるような\n" +
-				"プログラムを けしてください\n" +
-				"\n" +
-				"エラーコード： %[1]d",
-			LangFrenchEU: "" +
-				"Votre jeu perd trop de FPS.\n" +
-				"Veuillez retirer toute modification qui peut\n" +
-				"causer ce problème de performance pour éviter\n" +
-				"de vous faire bannir de Retro WFC.\n" +
-				"\n" +
-				"Code Erreur: %[1]d",
-		},
-	}
 )
 
 func (err GPError) GetMessage() string {
@@ -646,12 +619,11 @@ func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, 
 				errMsg = fmt.Sprintf(errMsg, wwfcMessage.ErrorCode, ngid, reason)
 				errMsgUTF16 := utf16.Encode([]rune(errMsg))
 				errMsgByteArray := common.UTF16ToByteArray(errMsgUTF16)
-				command.OtherValues["wwfc_errmsg"] = common.Base64DwcEncoding.EncodeToString(errMsgByteArray)
+				command.OtherValues["wl:errmsg"] = common.Base64DwcEncoding.EncodeToString(errMsgByteArray)
 			}
-
-			command.OtherValues["wwfc_err"] = strconv.Itoa(wwfcMessage.ErrorCode)
-
 		}
+
+		command.OtherValues["wl:err"] = strconv.Itoa(err.WWFCMessage.ErrorCode)
 	}
 
 	return common.CreateGameSpyMessage(command)

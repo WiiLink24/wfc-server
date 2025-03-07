@@ -25,9 +25,6 @@ func kickPlayer(profileID uint32, reason string) {
 		case "invalid_elo":
 			errorMessage = WWFCMsgInvalidELO
 
-		case "too_many_frames_dropped":
-			errorMessage = WWFCMsgTooManyFramesDropped
-
 		case "network_error":
 			// No error message
 			common.CloseConnection(ServerName, session.ConnIndex)
