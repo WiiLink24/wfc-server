@@ -320,9 +320,9 @@ var (
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
 				"You are banned from public matches.\n" +
-				"Reason: %s" +
+				"Reason: %[3]s\n" +
 				"Error Code: %[1]d\n" +
-				"Support Info: NG%08[2]x\n",
+				"Support Info: NG%08[2]x",
 		},
 	}
 
@@ -331,9 +331,9 @@ var (
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
 				"You have been banned from public matches.\n" +
-				"Reason: %s" +
+				"Reason: %[3]s\n" +
 				"Error Code: %[1]d\n" +
-				"Support Info: NG%08[2]x\n",
+				"Support Info: NG%08[2]x",
 		},
 	}
 
@@ -404,7 +404,7 @@ var (
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
 				"You have been kicked from Retro WFC.\n" +
-				"Reason: %s" +
+				"Reason: %[3]s\n" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x\n",
 		},
