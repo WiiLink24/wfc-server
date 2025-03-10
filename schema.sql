@@ -48,7 +48,7 @@ ALTER TABLE ONLY public.users
     ADD IF NOT EXISTS ban_reason_hidden character varying,
     ADD IF NOT EXISTS ban_moderator character varying,
     ADD IF NOT EXISTS ban_tos boolean,
-	ADD IF NOT EXISTS open_host boolean DEFAULT false;
+    ADD IF NOT EXISTS open_host boolean DEFAULT false;
 
 --
 -- Change ng_device_id from bigint to bigint[]
@@ -134,6 +134,18 @@ ALTER TABLE ONLY public.users ALTER COLUMN profile_id SET DEFAULT nextval('publi
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (profile_id);
 
+
+CREATE TABLE IF NOT EXISTS public.hashes (
+    pack_id integer,
+    version integer,
+    hash_ntscu character(40) NOT NULL,
+    hash_ntscj character(40) NOT NULL,
+    hash_ntsck character(40) NOT NULL,
+    hash_pal character(40) NOT NULL,
+    CONSTRAINT one_hash_per_version_per_pack UNIQUE (pack_id, version)
+);
+
+ALTER TABLE public.hashes OWNER TO wiilink;
 
 --
 -- PostgreSQL database dump complete

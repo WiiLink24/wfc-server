@@ -196,6 +196,75 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		}
 	}
 
+	if g.GameName == "mariokartwii" {
+		packIDStr, exists := command.OtherValues["pack_id"]
+		if exists {
+			logging.Info(g.ModuleName, "pack_id:", aurora.Cyan(packIDStr))
+		} else {
+			logging.Error(g.ModuleName, "Missing pack_id")
+			g.replyError(ErrLoginBadPackID)
+			return
+		}
+
+		packVerStr, exists := command.OtherValues["pack_ver"]
+		if exists {
+			logging.Info(g.ModuleName, "pack_ver:", aurora.Cyan(packVerStr))
+		} else {
+			logging.Error(g.ModuleName, "Missing pack_ver")
+			g.replyError(ErrLoginBadPackVersion)
+			return
+		}
+
+		packHashStr, exists := command.OtherValues["pack_hash"]
+		if exists {
+			logging.Info(g.ModuleName, "pack_hash:", aurora.Cyan(packHashStr))
+		} else {
+			logging.Error(g.ModuleName, "Missing pack_hash")
+			g.replyError(ErrLoginBadHash)
+			return
+		}
+
+		if len(packHashStr) != 20 {
+			logging.Error(g.ModuleName, "Invalid pack_hash: Mismatched len,", aurora.Cyan(len(packHashStr)))
+			g.replyError(ErrLoginBadHash)
+			return
+		}
+
+		packID, err := strconv.ParseUint(packIDStr, 10, 32)
+		if err != nil {
+			logging.Error(g.ModuleName, "Invalid pack_id:", aurora.Cyan(packID))
+			g.replyError(ErrLoginBadPackID)
+			return
+		}
+
+		packVer, err := strconv.ParseUint(packIDStr, 10, 32)
+		if err != nil {
+			logging.Error(g.ModuleName, "Invalid pack_ver:", aurora.Cyan(packVer))
+			g.replyError(ErrLoginBadPackID)
+			return
+		}
+
+		var region database.Region
+		switch gamecd {
+		case "RMCE":
+			region = database.R_NTSCU
+		case "RMCJ":
+			region = database.R_NTSCJ
+		case "RMCP":
+			region = database.R_PAL
+		default:
+			logging.Error(g.ModuleName, "Invalid gamecd:", aurora.Cyan(gamecd))
+			g.replyError(ErrLoginBadRegion)
+			return
+		}
+
+		if !database.ValidateHash(uint32(packID), uint32(packVer), region, packHashStr) {
+			logging.Error(g.ModuleName, "Invalid pack_hash: Mismatched len,", aurora.Cyan(len(packHashStr)))
+			g.replyError(ErrLoginBadHash)
+			return
+		}
+	}
+
 	g.LoginInfoSet = true
 
 	expectedUnitCode := common.GetExpectedUnitCode(g.GameName)

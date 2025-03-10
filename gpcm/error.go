@@ -74,6 +74,10 @@ var (
 	ErrLoginBadPreAuth         = MakeGPError(0x010A, "There was an error validating the pre-authentication.", true)
 	ErrLoginLoginTicketInvalid = MakeGPError(0x010B, "The login ticket was unable to be validated.", true)
 	ErrLoginLoginTicketExpired = MakeGPError(0x010C, "The login ticket had expired and could not be used.", true)
+	ErrLoginBadPackID          = MakeGPError(0x010D, "The provided Pack ID was invalid.", true)
+	ErrLoginBadPackVersion     = MakeGPError(0x010E, "The provided Pack Version was invalid.", true)
+	ErrLoginBadRegion          = MakeGPError(0x0110, "The provided Region was invalid for the provided Pack ID.", true)
+	ErrLoginBadHash            = MakeGPError(0x0111, "The hash for the provided Pack ID and Version was invalid.", true)
 
 	// New user errors
 	ErrNewUser                  = MakeGPError(0x0200, "There was an error creating a new user.", true)

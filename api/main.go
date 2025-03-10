@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"wwfc/common"
+	"wwfc/database"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -28,6 +29,11 @@ func StartServer(reload bool) {
 	}
 
 	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
+	if err != nil {
+		panic(err)
+	}
+
+	err = database.HashInit(pool, ctx)
 	if err != nil {
 		panic(err)
 	}
