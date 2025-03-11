@@ -34,6 +34,16 @@ var (
 				"tijdens het verbinden met Retro WFC.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"Retro WFC에 연결 도중\n" +
+				"알 수 없는 오류가 발생했습니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
+			LangRussian: "" +
+				"Произошла неизвестная ошибка\n" +
+				"во время входа на Retro WFC.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"Une erreur inconnue s'est produite\n" +
 				"pendant la connexion à Retro WFC.\n" +
@@ -75,6 +85,16 @@ var (
 				"om Retro WFC op Dolphin te gebruiken.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"돌핀에서 Retro WFC를 사용하려면\n" +
+				"추가 작업이 필요합니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
+			LangRussian: "" +
+				"Необходим доп. сетап\n" +
+				"чтобы играть по Retro WFC на Dolphin.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"Une installation additionnelle est requise\n" +
 				"pour utiliser Retro WFC sur Dolphin\n." +
@@ -127,6 +147,13 @@ var (
 				"\n" +
 				"Foutcode: %[1]d\n" +
 				"Ondersteuningsinformatie: NG%08[2]x",
+			LangKorean: "" +
+				"이용약관 위반으로\n" +
+				"Retro WFC 계정이\n" +
+				"정지됐습니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d\n" +
+				"지원 정보: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) de Retro WFC" +
 				"à cause d'une violation des" +
@@ -181,6 +208,13 @@ var (
 				"\n" +
 				"Foutcode: %[1]d\n" +
 				"Ondersteuningsinformatie: NG%08[2]x",
+			LangKorean: "" +
+				"이용약관 위반으로\n" +
+				"Retro WFC 계정이\n" +
+				"정지됐습니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d\n" +
+				"지원 정보: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) de Retro WFC" +
 				"à cause d'une violation des" +
@@ -235,6 +269,12 @@ var (
 				"\n" +
 				"Foutcode: %[1]d\n" +
 				"Ondersteuningsinformatie: NG%08[2]x",
+			LangKorean: "" +
+				"Retro WFC 규정 위반으로\n" +
+				"공개 경기에서 차단됐습니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d\n" +
+				"지원 정보: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs\n" +
 				"public à cause d'un violation d'une\n" +
@@ -289,6 +329,12 @@ var (
 				"\n" +
 				"Foutcode: %[1]d\n" +
 				"Ondersteuningsinformatie: NG%08[2]x",
+			LangKorean: "" +
+				"Retro WFC 규정 위반으로\n" +
+				"공개 경기에서 차단됐습니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d\n" +
+				"지원 정보: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs\n" +
 				"publics à cause d'un violation d'une\n" +
@@ -322,6 +368,11 @@ var (
 				"Reden: %[3]s\n" +
 				"Foutcode: %[1]d\n" +
 				"Ondersteuningsinformatie: NG%08[2]x",
+			LangKorean: "" +
+				"공개 경기에서 차단됐습니다.\n" +
+				"사유: %[3]s\n" +
+				"에러 코드: %[1]d\n" +
+				"지원 정보: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous êtes banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
@@ -353,6 +404,11 @@ var (
 				"Reden: %[3]s\n" +
 				"Foutcode: %[1]d\n" +
 				"Ondersteuningsinformatie: NG%08[2]x",
+			LangKorean: "" +
+				"공개 경기에서 차단됐습니다.\n" +
+				"사유: %[3]s\n" +
+				"에러 코드: %[1]d\n" +
+				"지원 정보: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous êtes banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
@@ -392,6 +448,10 @@ var (
 				"geschopt.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"Retro WFC에서 추방됐습니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de\n" +
 				"Retro WFC." +
@@ -433,6 +493,11 @@ var (
 				"geschopt door een moderator.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"관리자에 의해 Retro WFC에서\n" +
+				"추방됐습니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de\n" +
 				"Retro WFC par un modérateur.\n" +
@@ -474,6 +539,10 @@ var (
 				"geschopt door de gastheer.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"방장에 의해 추방됐습니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de la salle\n" +
 				"par le créateur." +
@@ -505,6 +574,11 @@ var (
 				"Reden: %[3]s\n" +
 				"Foutcode: %[1]d\n" +
 				"Ondersteuningsinformatie: NG%08[2]x",
+			LangKorean: "" +
+				"공개 경기에서 차단됐습니다.\n" +
+				"사유: %[3]s\n" +
+				"에러 코드: %[1]d\n" +
+				"지원 정보: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
@@ -552,6 +626,11 @@ var (
 				"profiel te registreren.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"사용중인 콘솔이 프로필에\n" +
+				"등록된 기기 정보와 다릅니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
 			LangFrenchEU: "" +
 				"La console que vous utilisé\n" +
 				"n'est pas l'appareil utilisé pour\n" +
@@ -606,6 +685,13 @@ var (
 				"NAND juist is ingesteld.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"사용중인 콘솔이 프로필에\n" +
+				"등록된 기기가 아닙니다.\n" +
+				"NAND가 제대로 설치 됐는지\n" +
+				"확인해 주십시오.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
 			LangFrenchEU: "" +
 				"La consonle que vous utilisé\n" +
 				"n'est pas l'appareil utilisé pour\n" +
@@ -655,6 +741,12 @@ var (
 				"Maak een nieuw profiel aan.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"사용하시려는 프로필 ID는\n" +
+				"등록하실 수 없습니다.\n" +
+				"새로운 라이센스를 만드십시오.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
 			LangFrenchEU: "" +
 				"L'ID du profil que vous essayez\n" +
 				"d'enregistrer est invalide.\n" +
@@ -697,6 +789,10 @@ var (
 				"registreren is al in gebruik.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"해당 친구 코드는 이미 사용중입니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
 			LangFrenchEU: "" +
 				"Le code ami que vous essayez\n" +
 				"d'enregistrer est déjà utilisé.\n" +
@@ -738,6 +834,11 @@ var (
 				"Probeer het spel opnieuw op te starten.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"Retro WFC 페이로드가 잘못됐습니다.\n" +
+				"게임을 재시작 하십시오.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
 			LangFrenchEU: "" +
 				"Le payload Retro WFC est invalide.\n" +
 				"Veuillez redémarrer votre jeu.\n" +
@@ -782,6 +883,11 @@ var (
 				"vanwege een ongeldige rp- of gp-waarde.\n" +
 				"\n" +
 				"Foutcode: %[1]d",
+			LangKorean: "" +
+				"잘못된 VR 또는 BR 값으로 인해\n" +
+				"Retro WFC 연결이 끊어졌습니다.\n" +
+				"\n" +
+				"에러 코드: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été déconnecté de\n" +
 				"Retro WFC à cause d'une valeur invalide\n" +

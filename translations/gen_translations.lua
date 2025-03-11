@@ -20,14 +20,14 @@ local SHEET_LANG_TO_WWFC_LANG = {
     French = "LangFrenchEU",
     -- LangSpanishEU -- We only have Americas Spanish
 
-    -- Not included in WWFC:
-    -- Czech
-    -- Norwegian
-    -- Russian
-    -- Portiguese
-    -- Arabic
-    -- Turkish
-    -- Finnish
+    -- Custom Languages:
+    Czech = "LangCzech",
+    Norwegian = "LangNorwegian",
+    Russian = "LangRussian",
+    Arabic = "LangArabic",
+    Turkish = "LangTurkish",
+    Finnish = "LangFinnish",
+    Portuguese = "LangPortugueseEU",
 }
 
 local ORDERED_MESSAGES = {
@@ -60,7 +60,19 @@ local ORDERED_LANGUAGES = {
     "Dutch",
     "Chinese (Simplified)",
     "Korean",
+
+    -- Custom
+    "Czech",
+    "Norwegian",
+    "Russian",
+    "Arabic",
+    "Turkish",
+    "Finnish",
+
+    -- EU
     "French",
+    -- Custom
+    "Portuguese",
 }
 
 local headers, stream = assert(http_request.new_from_uri(SHEETS_CSV_URL):go())

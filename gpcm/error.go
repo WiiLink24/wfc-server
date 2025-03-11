@@ -20,9 +20,21 @@ const (
 	LangTradChinese = 0x08
 	LangKorean      = 0x09
 
+	// Custom Languages
+	LangCzech      = 0x0A
+	LangNorwegian  = 0x0B
+	LangRussian    = 0x0C
+	LangPortuguese = 0x0D
+	LangArabic     = 0x0E
+	LangTurkish    = 0x10
+	LangFinnish    = 0x11
+
 	LangEnglishEU = 0x81
 	LangFrenchEU  = 0x83
 	LangSpanishEU = 0x84
+
+	// Custom Languages
+	LangPortugueseEU = 0x85
 )
 
 type WWFCErrorMessage struct {
