@@ -224,7 +224,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 			return
 		}
 
-		if len(packHashStr) != 20 {
+		if len(packHashStr) != 40 {
 			logging.Error(g.ModuleName, "Invalid pack_hash: Mismatched len,", aurora.Cyan(len(packHashStr)))
 			g.replyError(ErrLoginBadHash)
 			return
