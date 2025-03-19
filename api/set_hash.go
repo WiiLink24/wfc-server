@@ -11,13 +11,13 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 )
 
-func HandleHash(w http.ResponseWriter, r *http.Request) {
+func HandleSetHash(w http.ResponseWriter, r *http.Request) {
 	var success bool
 	var err string
 	var statusCode int
 
 	if r.Method == http.MethodPost {
-		success, err, statusCode = handleHashImpl(r)
+		success, err, statusCode = handleSetHashImpl(r)
 	} else if r.Method == http.MethodOptions {
 		statusCode = http.StatusNoContent
 		w.Header().Set("Access-Control-Allow-Methods", "POST")
@@ -57,7 +57,7 @@ type HashResponse struct {
 	Error   string
 }
 
-func handleHashImpl(r *http.Request) (bool, string, int) {
+func handleSetHashImpl(r *http.Request) (bool, string, int) {
 	// TODO: Actual authentication rather than a fixed secret
 
 	body, err := io.ReadAll(r.Body)

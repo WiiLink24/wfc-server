@@ -178,8 +178,18 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Path == "/api/hash" {
-		api.HandleHash(w, r)
+	if r.URL.Path == "/api/set_hash" {
+		api.HandleSetHash(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/get_hash" {
+		api.HandleGetHash(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/remove_hash" {
+		api.HandleRemoveHash(w, r)
 		return
 	}
 

@@ -2,6 +2,8 @@ package database
 
 import (
 	"context"
+	"errors"
+	"regexp"
 	"wwfc/logging"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -10,12 +12,13 @@ import (
 )
 
 const (
-	GetHashes  = `SELECT * FROM hashes`
-	InsertHash = `INSERT
+	QueryHashes = `SELECT * FROM hashes`
+	InsertHash  = `INSERT
 		INTO hashes (pack_id, version, hash_ntscu, hash_ntscj, hash_ntsck, hash_pal)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (pack_id, version)
 		DO UPDATE SET hash_ntscu = $3, hash_ntscj = $4, hash_ntsck = $5, hash_pal = $6`
+	DeleteHash = `DELETE FROM hashes WHERE pack_id = $1 AND version = $2`
 )
 
 type Region byte
@@ -27,18 +30,56 @@ const (
 	R_PAL
 )
 
+func IndexByRegionByte(hbr HashesByRegion, b Region) string {
+	switch b {
+	case R_NTSCU:
+		return hbr.NTSCU
+	case R_NTSCJ:
+		return hbr.NTSCJ
+	case R_NTSCK:
+		return hbr.NTSCK
+	case R_PAL:
+		return hbr.PAL
+	default:
+		return ""
+	}
+}
+
+type HashesByRegion struct {
+	NTSCU string
+	NTSCJ string
+	NTSCK string
+	PAL   string
+}
+
+type HashStore map[uint32]map[uint32]HashesByRegion
+
 var (
-	mutex  = deadlock.Mutex{}
-	hashes = map[uint32]map[uint32]map[Region]string{}
+	mutex       = deadlock.Mutex{}
+	hashes      = HashStore{}
+	emptyRegexp *regexp.Regexp
 )
+
+// Used to flatten the 40-wide empty strings returned by the db, and to filter
+// whitespace potentially submitted over the api
+func flattenBlank(str string) string {
+	if emptyRegexp.MatchString(str) {
+		return ""
+	}
+
+	return str
+}
 
 func HashInit(pool *pgxpool.Pool, ctx context.Context) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	logging.Info("DB", "Populating hashes from the database")
+	// Populate regexp once
+	emptyRegexp = regexp.MustCompile("^\\s+$")
 
-	rows, err := pool.Query(ctx, GetHashes)
+	logging.Info("DATABASE", "Populating hashes from the database")
+
+	rows, err := pool.Query(ctx, QueryHashes)
 	defer rows.Close()
 	if err != nil {
 		return err
@@ -60,28 +101,60 @@ func HashInit(pool *pgxpool.Pool, ctx context.Context) error {
 		versions, exists := hashes[packID]
 
 		if !exists {
-			temp := map[uint32]map[Region]string{}
+			temp := map[uint32]HashesByRegion{}
 			hashes[packID] = temp
 			versions = temp
 		}
 
-		regions, exists := versions[version]
-
-		if !exists {
-			temp := map[Region]string{}
-			versions[version] = temp
-			regions = temp
+		versions[version] = HashesByRegion{
+			NTSCU: flattenBlank(hashNTSCU),
+			NTSCJ: flattenBlank(hashNTSCJ),
+			NTSCK: flattenBlank(hashNTSCK),
+			PAL:   flattenBlank(hashPAL),
 		}
 
-		regions[R_NTSCU] = hashNTSCU
-		regions[R_NTSCJ] = hashNTSCJ
-		regions[R_NTSCK] = hashNTSCK
-		regions[R_PAL] = hashPAL
-
-		logging.Info("DB", "Populated hashes for PackID:", aurora.Cyan(packID), "Version:", aurora.Cyan(version), "\nNTSCU:", aurora.Cyan(hashNTSCU), "\nNTSCJ:", aurora.Cyan(hashNTSCJ), "\nNTSCK:", aurora.Cyan(hashNTSCK), "\nPAL:", aurora.Cyan(hashPAL))
+		logging.Info("DATABASE", "Populated hashes for PackID:", aurora.Cyan(packID), "Version:", aurora.Cyan(version), "\nNTSCU:", aurora.Cyan(hashNTSCU), "\nNTSCJ:", aurora.Cyan(hashNTSCJ), "\nNTSCK:", aurora.Cyan(hashNTSCK), "\nPAL:", aurora.Cyan(hashPAL))
 	}
 
 	return nil
+}
+
+func GetHashes() HashStore {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// Create a copy while the mutex is locked. Defer runs before return
+	ret := hashes
+
+	return ret
+}
+
+var (
+	ErrPackIDMissing  = errors.New("The specified PackID does not exist")
+	ErrVersionMissing = errors.New("The specified version does not exist")
+)
+
+func RemoveHash(pool *pgxpool.Pool, ctx context.Context, packID uint32, version uint32) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if versions, exists := hashes[packID]; exists {
+		if _, exists := versions[version]; exists {
+			delete(versions, version)
+		} else {
+			return ErrVersionMissing
+		}
+	} else {
+		return ErrPackIDMissing
+	}
+
+	_, err := pool.Exec(ctx, DeleteHash, packID, version)
+	if err != nil {
+		logging.Error("DATABASE", "Failure to remove hash for PackID:", aurora.Cyan(packID), "Version:", aurora.Cyan(version), "Error:", err.Error())
+	} else {
+		logging.Warn("DATABASE", "Removed hashes for PackID:", aurora.Cyan(packID), "Version:", aurora.Cyan(version))
+	}
+	return err
 }
 
 func UpdateHash(pool *pgxpool.Pool, ctx context.Context, packID uint32, version uint32, hashNTSCU string, hashNTSCJ string, hashNTSCK string, hashPAL string) error {
@@ -91,30 +164,24 @@ func UpdateHash(pool *pgxpool.Pool, ctx context.Context, packID uint32, version 
 	versions, exists := hashes[packID]
 
 	if !exists {
-		temp := map[uint32]map[Region]string{}
+		temp := map[uint32]HashesByRegion{}
 		hashes[packID] = temp
 		versions = temp
 	}
 
-	regions, exists := versions[packID]
-
-	if !exists {
-		temp := map[Region]string{}
-		versions[packID] = temp
-		regions = temp
+	versions[version] = HashesByRegion{
+		NTSCU: flattenBlank(hashNTSCU),
+		NTSCJ: flattenBlank(hashNTSCJ),
+		NTSCK: flattenBlank(hashNTSCK),
+		PAL:   flattenBlank(hashPAL),
 	}
-
-	regions[R_NTSCU] = hashNTSCU
-	regions[R_NTSCJ] = hashNTSCJ
-	regions[R_NTSCK] = hashNTSCK
-	regions[R_PAL] = hashPAL
 
 	_, err := pool.Exec(ctx, InsertHash, packID, version, hashNTSCU, hashNTSCJ, hashNTSCK, hashPAL)
 
 	if err != nil {
-		logging.Error("DB", "Failed to update hashes for PackID:", aurora.Cyan(packID), "Version:", aurora.Cyan(version), "error:", err.Error())
+		logging.Error("DATABASE", "Failed to update hashes for PackID:", aurora.Cyan(packID), "Version:", aurora.Cyan(version), "error:", err.Error())
 	} else {
-		logging.Info("DB", "Successfully updated hashes for PackID:", aurora.Cyan(packID), "Version:", aurora.Cyan(version))
+		logging.Info("DATABASE", "Successfully updated hashes for PackID:", aurora.Cyan(packID), "Version:", aurora.Cyan(version))
 	}
 
 	return err
@@ -126,9 +193,9 @@ func ValidateHash(packID uint32, version uint32, region Region, hash string) boo
 
 	if versions, exists := hashes[packID]; exists {
 		if regions, exists := versions[version]; exists {
-			if hash_real, exists := regions[region]; exists {
-				return hash_real != "" && hash_real == hash
-			}
+			hash_real := IndexByRegionByte(regions, region)
+
+			return hash_real != "" && hash_real == hash
 		}
 	}
 
