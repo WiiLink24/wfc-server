@@ -65,11 +65,11 @@ func HashInit(pool *pgxpool.Pool, ctx context.Context) error {
 			versions = temp
 		}
 
-		regions, exists := versions[packID]
+		regions, exists := versions[version]
 
 		if !exists {
 			temp := map[Region]string{}
-			versions[packID] = temp
+			versions[version] = temp
 			regions = temp
 		}
 
