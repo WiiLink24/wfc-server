@@ -161,8 +161,9 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		return
 	}
 
-	gamecd, issueTime, userId, gsbrcd, cfc, region, lang, ingamesn, challenge, unitcd, isLocalhost, err := common.UnmarshalNASAuthToken(authToken)
+	gamecd, issueTime, userId, gsbrcd, cfc, region, lang, ingamesn, challenge, unitcd, isLocalhost, csnum, err := common.UnmarshalNASAuthToken(authToken)
 	if err != nil {
+		logging.Error(g.ModuleName, "UnmarshalNASAuthToken failure", err.Error())
 		g.replyError(ErrLogin)
 		return
 	}
@@ -237,7 +238,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 			return
 		}
 
-		packVer, err := strconv.ParseUint(packIDStr, 10, 32)
+		packVer, err := strconv.ParseUint(packVerStr, 10, 32)
 		if err != nil {
 			logging.Error(g.ModuleName, "Invalid pack_ver:", aurora.Cyan(packVer))
 			g.replyError(ErrLoginBadPackID)
@@ -258,8 +259,10 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 			return
 		}
 
+		logging.Info(g.ModuleName, "Gamecd:", aurora.Cyan(gamecd), "CD Region:", aurora.Cyan(region))
+
 		if !database.ValidateHash(uint32(packID), uint32(packVer), region, packHashStr) {
-			logging.Error(g.ModuleName, "Invalid pack_hash: Mismatched len,", aurora.Cyan(len(packHashStr)))
+			logging.Error(g.ModuleName, "Invalid pack_hash, failed to validate with stored hashes")
 			g.replyError(ErrLoginBadHash)
 			return
 		}
