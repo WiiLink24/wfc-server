@@ -39,6 +39,11 @@ var (
 				"알 수 없는 오류가 발생했습니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"Při přihlašování k Retro WFC\n" +
+				"došlo k neznámé chybě.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"Произошла неизвестная ошибка\n" +
 				"во время входа на Retro WFC.\n" +
@@ -90,6 +95,11 @@ var (
 				"추가 작업이 필요합니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"K použití Retro WFC na Dolphinu\n" +
+				"je nutné další nastavení.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"Необходим доп. сетап\n" +
 				"чтобы играть по Retro WFC на Dolphin.\n" +
@@ -154,6 +164,13 @@ var (
 				"\n" +
 				"에러 코드: %[1]d\n" +
 				"지원 정보: NG%08[2]x",
+			LangCzech: "" +
+				"Máš zákaz Retro WFC\n" +
+				"z důvodu porušení\n" +
+				"Podmínek Služby.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d\n" +
+				"Informace o Podpoře: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) de Retro WFC" +
 				"à cause d'une violation des" +
@@ -215,6 +232,13 @@ var (
 				"\n" +
 				"에러 코드: %[1]d\n" +
 				"지원 정보: NG%08[2]x",
+			LangCzech: "" +
+				"Máš zákaz Retro WFC\n" +
+				"z důvodu porušení\n" +
+				"Podmínek Služby.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d\n" +
+				"Informace o Podpoře: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) de Retro WFC" +
 				"à cause d'une violation des" +
@@ -275,6 +299,13 @@ var (
 				"\n" +
 				"에러 코드: %[1]d\n" +
 				"지원 정보: NG%08[2]x",
+			LangCzech: "" +
+				"Máš zákaz veřejných\n" +
+				"zápasů z důvodu porušení\n" +
+				"pravidel Retro WFC.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d\n" +
+				"Informace o Podpoře: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs\n" +
 				"public à cause d'un violation d'une\n" +
@@ -335,6 +366,13 @@ var (
 				"\n" +
 				"에러 코드: %[1]d\n" +
 				"지원 정보: NG%08[2]x",
+			LangCzech: "" +
+				"Máš zákaz veřejných\n" +
+				"zápasů z důvodu porušení\n" +
+				"pravidel Retro WFC.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d\n" +
+				"Informace o Podpoře: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs\n" +
 				"publics à cause d'un violation d'une\n" +
@@ -363,6 +401,11 @@ var (
 				"Grund: %[3]s\n" +
 				"Fehlercode: %[1]d\n" +
 				"Support-Info: NG%08[2]x",
+			LangItalian: "" +
+				"Sei bannato dalle corse pubbliche.\n" +
+				"Motivo: %[3]s\n" +
+				"Codice Errore: %[1]d\n" +
+				"Supporto Informativo: NG%08[2]x",
 			LangDutch: "" +
 				"Je bent verbannen van openbare wedstrijden.\n" +
 				"Reden: %[3]s\n" +
@@ -373,6 +416,11 @@ var (
 				"사유: %[3]s\n" +
 				"에러 코드: %[1]d\n" +
 				"지원 정보: NG%08[2]x",
+			LangCzech: "" +
+				"Máš zákaz veřejných zápasů.\n" +
+				"Důvod: %[3]s\n" +
+				"Kód Chyby: %[1]d\n" +
+				"Informace o Podpoře: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous êtes banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
@@ -399,6 +447,11 @@ var (
 				"Grund: %[3]s\n" +
 				"Fehlercode: %[1]d\n" +
 				"Support-Info: NG%08[2]x",
+			LangItalian: "" +
+				"Sei bannato dalle corse pubbliche.\n" +
+				"Motivo: %[3]s\n" +
+				"Codice Errore: %[1]d\n" +
+				"Supporto Informativo: NG%08[2]x",
 			LangDutch: "" +
 				"Je bent verbannen van openbare wedstrijden.\n" +
 				"Reden: %[3]s\n" +
@@ -409,6 +462,11 @@ var (
 				"사유: %[3]s\n" +
 				"에러 코드: %[1]d\n" +
 				"지원 정보: NG%08[2]x",
+			LangCzech: "" +
+				"Máš zákaz veřejných zápasů.\n" +
+				"Důvod: %[3]s\n" +
+				"Kód Chyby: %[1]d\n" +
+				"Informace o Podpoře: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous êtes banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
@@ -452,6 +510,11 @@ var (
 				"Retro WFC에서 추방됐습니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"Byl jsi vyhozen z\n" +
+				"Retro WFC.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d\n",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de\n" +
 				"Retro WFC." +
@@ -498,6 +561,11 @@ var (
 				"추방됐습니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"Byl jsi vyhozen z\n" +
+				"Retro WFC moderátorem.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d\n",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de\n" +
 				"Retro WFC par un modérateur.\n" +
@@ -543,6 +611,11 @@ var (
 				"방장에 의해 추방됐습니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"Hostitel tě vyhodil\n" +
+				"z místnosti.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d\n",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de la salle\n" +
 				"par le créateur." +
@@ -569,6 +642,11 @@ var (
 				"Grund: %[3]s\n" +
 				"Fehlercode: %[1]d\n" +
 				"Support-Info: NG%08[2]x",
+			LangItalian: "" +
+				"Sei stato bannato dalle corse pubbliche.\n" +
+				"Motivo: %[3]s\n" +
+				"Codice Errore: %[1]d\n" +
+				"Supporto Informativo: NG%08[2]x",
 			LangDutch: "" +
 				"Je bent verbannen van openbare wedstrijden,\n" +
 				"Reden: %[3]s\n" +
@@ -579,6 +657,11 @@ var (
 				"사유: %[3]s\n" +
 				"에러 코드: %[1]d\n" +
 				"지원 정보: NG%08[2]x",
+			LangCzech: "" +
+				"Máš zákaz veřejných zápasů.\n" +
+				"Důvod: %[3]s\n" +
+				"Kód Chyby: %[1]d\n" +
+				"Informace o Podpoře: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
