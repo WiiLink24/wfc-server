@@ -46,7 +46,7 @@ func appendString(blob []byte, value string, maxlen int) []byte {
 	return blob
 }
 
-func MarshalNASAuthToken(gamecd string, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, unitcd byte, isLocalhost bool) (string, string) {
+func MarshalNASAuthToken(gamecd string, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, unitcd byte, isLocalhost bool, csnum string) (string, string) {
 	blob := binary.LittleEndian.AppendUint64([]byte{}, uint64(time.Now().Unix()))
 
 	blob = appendString(blob, gamecd, 4)
@@ -73,6 +73,10 @@ func MarshalNASAuthToken(gamecd string, userid uint64, gsbrcd string, cfc uint64
 		blob = append(blob, 0x00)
 	}
 
+	// Set max length to 15 for padding
+	blob = append(blob, byte(min(len([]byte(csnum)), 15)))
+	blob = appendString(blob, csnum, 15)
+
 	blob = append(blob, authTokenMagic...)
 
 	block, err := aes.NewCipher(authTokenKey)
@@ -84,7 +88,7 @@ func MarshalNASAuthToken(gamecd string, userid uint64, gsbrcd string, cfc uint64
 	return "NDS" + Base64DwcEncoding.EncodeToString(blob), challenge
 }
 
-func UnmarshalNASAuthToken(token string) (gamecd string, issuetime time.Time, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, challenge string, unitcd byte, isLocalhost bool, err error) {
+func UnmarshalNASAuthToken(token string) (gamecd string, issuetime time.Time, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, challenge string, unitcd byte, isLocalhost bool, csnum string, err error) {
 	err = nil
 
 	if !strings.HasPrefix(token, "NDS") {
@@ -97,7 +101,7 @@ func UnmarshalNASAuthToken(token string) (gamecd string, issuetime time.Time, us
 		return
 	}
 
-	if len(blob) != 0x90 {
+	if len(blob) != 0xA0 {
 		err = errors.New("invalid auth token length")
 		return
 	}
@@ -109,7 +113,7 @@ func UnmarshalNASAuthToken(token string) (gamecd string, issuetime time.Time, us
 
 	cipher.NewCBCDecrypter(block, authTokenIV).CryptBlocks(blob, blob)
 
-	if !bytes.Equal(blob[0x90-len(authTokenMagic):0x90], authTokenMagic) {
+	if !bytes.Equal(blob[0xA0-len(authTokenMagic):0xA0], authTokenMagic) {
 		err = errors.New("invalid auth token magic")
 		return
 	}
@@ -125,6 +129,7 @@ func UnmarshalNASAuthToken(token string) (gamecd string, issuetime time.Time, us
 	challenge = string(blob[0x78:0x80])
 	unitcd = blob[0x80]
 	isLocalhost = blob[0x81] == 0x01
+	csnum = string(blob[0x83 : 0x83+min(blob[0x82], 15)])
 	return
 }
 

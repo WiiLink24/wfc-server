@@ -44,6 +44,8 @@ type Config struct {
 	AllowMultipleDeviceIDs      string `xml:"allowMultipleDeviceIDs"`
 	AllowConnectWithoutDeviceID bool   `xml:"allowConnectWithoutDeviceID"`
 
+	AllowMultipleCsnums string `xml:"allowMultipleCsnums"`
+
 	ServerName string `xml:"serverName,omitempty"`
 }
 

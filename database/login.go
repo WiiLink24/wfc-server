@@ -39,9 +39,52 @@ const (
 var (
 	ErrDeviceIDMismatch = errors.New("NG device ID mismatch")
 	ErrProfileBannedTOS = errors.New("profile is banned for violating the Terms of Service")
+	ErrCsnumMismatch    = errors.New("csnum mismatch")
 )
 
-func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsbrcd string, profileId uint32, ngDeviceId uint32, ipAddress string, ingamesn string, deviceAuth bool) (User, error) {
+func handleCsnum(pool *pgxpool.Pool, ctx context.Context, user *User, csnum string, lastIPAddress *string, ipAddress string) (bool, error) {
+	success := false
+	csnumList := ""
+	var err error
+
+	for i, validCsnum := range user.Csnum {
+		if validCsnum == csnum {
+			success = true
+			break
+		}
+
+		if validCsnum == "" {
+			user.Csnum[i] = csnum
+			_, err = pool.Exec(ctx, UpdateUserCsnum, user.ProfileId, csnum)
+			success = true
+			break
+		}
+
+		csnumList += aurora.Cyan(validCsnum).String() + ", "
+	}
+
+	if !success && csnum != "" {
+		if len(user.Csnum) > 0 && common.GetConfig().AllowMultipleCsnums != "always" {
+			if common.GetConfig().AllowMultipleCsnums == "SameIPAddress" && (lastIPAddress == nil || ipAddress != *lastIPAddress) {
+				logging.Error("DATABASE", "Csnum mismatch for profile", aurora.Cyan(user.ProfileId), "- expected one of {", csnumList[:len(csnumList)-2], "} but got", aurora.Cyan(csnum))
+				return success, ErrCsnumMismatch
+			}
+		}
+
+		if len(user.Csnum) > 0 {
+			logging.Warn("DATABASE", "Adding csnum", aurora.Cyan(csnum), "to profile", aurora.Cyan(user.ProfileId))
+		}
+
+		user.Csnum = append(user.Csnum, csnum)
+		_, err = pool.Exec(ctx, UpdateUserCsnum, user.ProfileId, user.Csnum)
+
+		success = err == nil
+	}
+
+	return success, err
+}
+
+func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsbrcd string, profileId uint32, ngDeviceId uint32, ipAddress string, ingamesn string, deviceAuth bool, csnum string) (User, error) {
 	var exists bool
 	err := pool.QueryRow(ctx, DoesUserExist, userId, gsbrcd).Scan(&exists)
 	if err != nil {
@@ -63,6 +106,7 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		}
 		user.UniqueNick = common.Base32Encode(userId) + gsbrcd
 		user.Email = user.UniqueNick + "@nds"
+		user.Csnum = []string{csnum}
 
 		// Create the GPCM account
 		err := user.CreateUser(pool, ctx)
@@ -76,7 +120,7 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		var firstName *string
 		var lastName *string
 
-		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress)
+		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress, &user.Csnum)
 		if err != nil {
 			return User{}, err
 		}
@@ -131,6 +175,16 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 
 		if err != nil {
 			return User{}, err
+		}
+
+		success, err := handleCsnum(pool, ctx, &user, csnum, lastIPAddress, ipAddress)
+
+		if !success {
+			if err != nil {
+				return User{}, err
+			}
+
+			return User{}, ErrCsnumMismatch
 		}
 
 		if profileId != 0 && user.ProfileId != profileId {
@@ -225,7 +279,7 @@ func LoginUserToGameStats(pool *pgxpool.Pool, ctx context.Context, userId uint64
 	var firstName *string
 	var lastName *string
 	var lastIPAddress *string
-	err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress)
+	err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress, &user.Csnum)
 	if err != nil {
 		return User{}, err
 	}

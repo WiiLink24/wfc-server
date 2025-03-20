@@ -10,18 +10,18 @@ import (
 )
 
 const (
-	// NOTE: SearchUserBan is only used in one place, so we can change it for Retro Rewind with no issues
-	InsertUser              = `INSERT INTO users (user_id, gsbrcd, password, ng_device_id, email, unique_nick) VALUES ($1, $2, $3, $4, $5, $6) RETURNING profile_id`
-	InsertUserWithProfileID = `INSERT INTO users (profile_id, user_id, gsbrcd, password, ng_device_id, email, unique_nick) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	InsertUser              = `INSERT INTO users (user_id, gsbrcd, password, ng_device_id, email, unique_nick, csnum) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING profile_id`
+	InsertUserWithProfileID = `INSERT INTO users (profile_id, user_id, gsbrcd, password, ng_device_id, email, unique_nick, csnum) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	UpdateUserTable         = `UPDATE users SET firstname = CASE WHEN $3 THEN $2 ELSE firstname END, lastname = CASE WHEN $5 THEN $4 ELSE lastname END, open_host = CASE WHEN $7 THEN $6 ELSE open_host END WHERE profile_id = $1`
 	UpdateUserProfileID     = `UPDATE users SET profile_id = $3 WHERE user_id = $1 AND gsbrcd = $2`
 	UpdateUserNGDeviceID    = `UPDATE users SET ng_device_id = $2 WHERE profile_id = $1`
-	GetUser                 = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn FROM users WHERE profile_id = $1`
-	ClearProfileQuery       = `DELETE FROM users WHERE profile_id = $1 RETURNING user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn`
+	UpdateUserCsnum         = `UPDATE users SET csnum = $2 WHERE profile_id = $1`
+	GetUser                 = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn, csnum FROM users WHERE profile_id = $1`
+	ClearProfileQuery       = `DELETE FROM users WHERE profile_id = $1 RETURNING user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn, csnum`
 	DoesUserExist           = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
 	DeleteUserSession       = `DELETE FROM sessions WHERE profile_id = $1`
-	GetUserProfileID        = `SELECT profile_id, ng_device_id, email, unique_nick, firstname, lastname, open_host, last_ip_address FROM users WHERE user_id = $1 AND gsbrcd = $2`
+	GetUserProfileID        = `SELECT profile_id, ng_device_id, email, unique_nick, firstname, lastname, open_host, last_ip_address, csnum FROM users WHERE user_id = $1 AND gsbrcd = $2`
 	UpdateUserLastIPAddress = `UPDATE users SET last_ip_address = $2, last_ingamesn = $3 WHERE profile_id = $1`
 	UpdateUserBan           = `UPDATE users SET has_ban = true, ban_issued = $2, ban_expires = $3, ban_reason = $4, ban_reason_hidden = $5, ban_moderator = $6, ban_tos = $7 WHERE profile_id = $1`
 	DisableUserBan          = `UPDATE users SET has_ban = false WHERE profile_id = $1`
@@ -45,6 +45,7 @@ type User struct {
 	OpenHost           bool
 	LastInGameSn       string
 	LastIPAddress      string
+	Csnum              []string
 }
 
 var (
@@ -54,7 +55,7 @@ var (
 
 func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) error {
 	if user.ProfileId == 0 {
-		return pool.QueryRow(ctx, InsertUser, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick).Scan(&user.ProfileId)
+		return pool.QueryRow(ctx, InsertUser, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick, user.Csnum).Scan(&user.ProfileId)
 	}
 
 	if user.ProfileId >= 1000000000 {
@@ -71,7 +72,7 @@ func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) error {
 		return ErrProfileIDInUse
 	}
 
-	_, err = pool.Exec(ctx, InsertUserWithProfileID, user.ProfileId, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick)
+	_, err = pool.Exec(ctx, InsertUserWithProfileID, user.ProfileId, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick, user.Csnum)
 	return err
 }
 
@@ -133,7 +134,7 @@ func (user *User) UpdateProfile(pool *pgxpool.Pool, ctx context.Context, data ma
 func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, bool) {
 	user := User{}
 	row := pool.QueryRow(ctx, GetUser, profileId)
-	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName, &user.OpenHost, &user.LastIPAddress, &user.LastInGameSn)
+	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName, &user.OpenHost, &user.LastIPAddress, &user.LastInGameSn, &user.Csnum)
 	if err != nil {
 		return User{}, false
 	}
@@ -145,7 +146,7 @@ func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User
 func ClearProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, bool) {
 	user := User{}
 	row := pool.QueryRow(ctx, ClearProfileQuery, profileId)
-	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName, &user.OpenHost, &user.LastIPAddress, &user.LastInGameSn)
+	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName, &user.OpenHost, &user.LastIPAddress, &user.LastInGameSn, &user.Csnum)
 
 	if err != nil {
 		return User{}, false
