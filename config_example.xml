@@ -41,6 +41,19 @@
     <!-- Allow default Dolphin device keys to be used -->
     <allowDefaultDolphinKeys>true</allowDefaultDolphinKeys>
 
+    <!-- Allow multiple device IDs to access the same profile
+        always: Do not verify device IDs
+        SameIPAddress: Allow multiple deviceIDs only if the deviceID is registered with the most recent IP
+    -->
+    <allowMultipleDeviceIDs>SameIPAddress</allowMultipleDeviceIDs>
+
+
+    <!-- Allow multiple console serial numbers to access the same profile
+        always: Do not verify csnums
+        SameIPAddress: Allow multiple csnums only if the csnums is registered with the most recent IP
+    -->
+    <allowMultipleCsnums>SameIPAddress</allowMultipleCsnums>
+
     <!-- Database Credentials -->
     <username>username</username>
     <password>password</password>
