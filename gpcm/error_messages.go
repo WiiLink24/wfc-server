@@ -45,8 +45,8 @@ var (
 				"\n" +
 				"Kód Chyby: %[1]d",
 			LangRussian: "" +
-				"Произошла неизвестная ошибка\n" +
-				"во время входа на Retro WFC.\n" +
+				"Во время входа в Retro WFC\n" +
+				"произошла ошибка.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
@@ -101,8 +101,9 @@ var (
 				"\n" +
 				"Kód Chyby: %[1]d",
 			LangRussian: "" +
-				"Необходим доп. сетап\n" +
-				"чтобы играть по Retro WFC на Dolphin.\n" +
+				"Чтобы играть по Retro WFC\n" +
+				"в Dolphin, необходимо провести\n" +
+				"дополнительную настройку.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
@@ -171,6 +172,13 @@ var (
 				"\n" +
 				"Kód Chyby: %[1]d\n" +
 				"Informace o Podpoře: NG%08[2]x",
+			LangRussian: "" +
+				"Вам запрещено играть в Retro\n" +
+				"WFC из-за нарушения условий\n" +
+				"использования сервиса.\n" +
+				"\n" +
+				"Код ошибки: %[1]d\n" +
+				"Информация для поддержки: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) de Retro WFC" +
 				"à cause d'une violation des" +
@@ -239,6 +247,13 @@ var (
 				"\n" +
 				"Kód Chyby: %[1]d\n" +
 				"Informace o Podpoře: NG%08[2]x",
+			LangRussian: "" +
+				"Отныне вам запрещено играть\n" +
+				"в Retro WFC из-за нарушения\n" +
+				"условий использования сервиса.\n" +
+				"\n" +
+				"Код ошибки: %[1]d\n" +
+				"Информация для поддержки: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) de Retro WFC" +
 				"à cause d'une violation des" +
@@ -306,6 +321,13 @@ var (
 				"\n" +
 				"Kód Chyby: %[1]d\n" +
 				"Informace o Podpoře: NG%08[2]x",
+			LangRussian: "" +
+				"Вам запрещено участвовать\n" +
+				"в публичных играх из-за\n" +
+				"нарушения правил Retro WFC.\n" +
+				"\n" +
+				"Код ошибки: %[1]d\n" +
+				"Информация для поддержки: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs\n" +
 				"public à cause d'un violation d'une\n" +
@@ -373,6 +395,13 @@ var (
 				"\n" +
 				"Kód Chyby: %[1]d\n" +
 				"Informace o Podpoře: NG%08[2]x",
+			LangRussian: "" +
+				"Отныне вам запрещено участвовать\n" +
+				"в публичных играх из-за нарушения\n" +
+				"правил Retro WFC.\n" +
+				"\n" +
+				"Код ошибки: %[1]d\n" +
+				"Информация для поддержки: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs\n" +
 				"publics à cause d'un violation d'une\n" +
@@ -421,6 +450,13 @@ var (
 				"Důvod: %[3]s\n" +
 				"Kód Chyby: %[1]d\n" +
 				"Informace o Podpoře: NG%08[2]x",
+			LangRussian: "" +
+				"Вам запрещено участвовать\n" +
+				"в публичных играх.\n" +
+				"\n" +
+				"Причина: %[3]s\n" +
+				"Код ошибки: %[1]d\n" +
+				"Информация для поддержки: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous êtes banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
@@ -467,6 +503,13 @@ var (
 				"Důvod: %[3]s\n" +
 				"Kód Chyby: %[1]d\n" +
 				"Informace o Podpoře: NG%08[2]x",
+			LangRussian: "" +
+				"Отныне вам запрещено\n" +
+				"участвовать в публичных играх.\n" +
+				"\n" +
+				"Причина: %[3]s\n" +
+				"Код ошибки: %[1]d\n" +
+				"Информация для поддержки: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous êtes banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
@@ -515,6 +558,10 @@ var (
 				"Retro WFC.\n" +
 				"\n" +
 				"Kód Chyby: %[1]d\n",
+			LangRussian: "" +
+				"Вас выгнали из Retro WFC.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de\n" +
 				"Retro WFC." +
@@ -566,6 +613,11 @@ var (
 				"Retro WFC moderátorem.\n" +
 				"\n" +
 				"Kód Chyby: %[1]d\n",
+			LangRussian: "" +
+				"Модератор выгнал вас\n" +
+				"из Retro WFC.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de\n" +
 				"Retro WFC par un modérateur.\n" +
@@ -616,6 +668,10 @@ var (
 				"z místnosti.\n" +
 				"\n" +
 				"Kód Chyby: %[1]d\n",
+			LangRussian: "" +
+				"Создатель группы выгнал вас.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de la salle\n" +
 				"par le créateur." +
@@ -662,6 +718,11 @@ var (
 				"Důvod: %[3]s\n" +
 				"Kód Chyby: %[1]d\n" +
 				"Informace o Podpoře: NG%08[2]x",
+			LangRussian: "" +
+				"Вас выгнали из Retro WFC.\n" +
+				"\n" +
+				"Причина: %[3]s\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
@@ -714,6 +775,11 @@ var (
 				"등록된 기기 정보와 다릅니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangRussian: "" +
+				"Ваш профиль был зарегистрирован\n" +
+				"на другой консоли.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"La console que vous utilisé\n" +
 				"n'est pas l'appareil utilisé pour\n" +
@@ -775,6 +841,12 @@ var (
 				"확인해 주십시오.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangRussian: "" +
+				"Ваш профиль был зарегистрирован\n" +
+				"на другой консоли. Проверьте, что\n" +
+				"память NAND настроена правильно.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"La consonle que vous utilisé\n" +
 				"n'est pas l'appareil utilisé pour\n" +
@@ -830,6 +902,12 @@ var (
 				"새로운 라이센스를 만드십시오.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangRussian: "" +
+				"ID профиля, который вы пытаетесь\n" +
+				"зарегистрировать, — некорректный.\n" +
+				"Создайте новое удостоверение.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"L'ID du profil que vous essayez\n" +
 				"d'enregistrer est invalide.\n" +
@@ -876,6 +954,11 @@ var (
 				"해당 친구 코드는 이미 사용중입니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangRussian: "" +
+				"Код друга, который вы пытаетесь\n" +
+				"зарегистрировать, уже занят.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"Le code ami que vous essayez\n" +
 				"d'enregistrer est déjà utilisé.\n" +
@@ -922,6 +1005,11 @@ var (
 				"게임을 재시작 하십시오.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangRussian: "" +
+				"Запущен некорректный пейлоад.\n" +
+				"Retro WFC. Перезапустите игру.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"Le payload Retro WFC est invalide.\n" +
 				"Veuillez redémarrer votre jeu.\n" +
@@ -971,6 +1059,12 @@ var (
 				"Retro WFC 연결이 끊어졌습니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangRussian: "" +
+				"Вас отключили от Retro WFC\n" +
+				"из-за некорректного значения\n" +
+				"ГР или БР.\n" +
+				"\n" +
+				"Код ошибки: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été déconnecté de\n" +
 				"Retro WFC à cause d'une valeur invalide\n" +
