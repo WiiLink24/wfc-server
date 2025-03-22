@@ -548,13 +548,13 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 				ErrorCode:   ErrLogin.ErrorCode,
 				ErrorString: "The profile is banned from the service. Reason: " + user.BanReason,
 				Fatal:       true,
-				WWFCMessage: WWFCMsgProfileBannedTOS,
+				WWFCMessage: WWFCMsgProfileRestrictedCustom,
 				Reason:      user.BanReason,
 			})
 		} else {
 			g.replyError(GPError{
 				ErrorCode:   ErrLogin.ErrorCode,
-				ErrorString: "There was an error logging in to the GP backend.",
+				ErrorString: "There was an error logging in to the GP backend. Reason: " + err.Error(),
 				Fatal:       true,
 				WWFCMessage: WWFCMsgUnknownLoginError,
 			})
