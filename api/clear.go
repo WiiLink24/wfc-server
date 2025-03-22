@@ -45,8 +45,8 @@ func HandleClear(w http.ResponseWriter, r *http.Request) {
 }
 
 type ClearRequestSpec struct {
-	Secret    string
-	ProfileID uint32
+	Secret    string `json:"secret"`
+	ProfileID uint32 `json:"pid"`
 }
 
 func handleClearImpl(r *http.Request) (*database.User, bool, string, int) {

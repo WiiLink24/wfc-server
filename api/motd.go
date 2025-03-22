@@ -51,8 +51,8 @@ func HandleMotd(w http.ResponseWriter, r *http.Request) {
 }
 
 type MotdRequestSpec struct {
-	Secret string
-	Motd   string
+	Secret string `json:"secret"`
+	Motd   string `json:"motd"`
 }
 
 type MotdResponse struct {
