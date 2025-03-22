@@ -14,28 +14,15 @@ import (
 )
 
 const (
-	SearchUserBan = `WITH known_ng_device_ids AS (
-		WITH RECURSIVE device_tree AS (
-			SELECT unnest(ng_device_id) AS device_id
-				FROM users
-				WHERE ng_device_id && $2
-			UNION
-			SELECT unnest(ng_device_id)
-				FROM users
-				JOIN device_tree dt
-				ON ng_device_id && array[dt.device_id]
-		) SELECT array_agg(DISTINCT device_id) FROM device_tree
-	)
-	SELECT has_ban, ban_tos, ng_device_id, ban_reason
+	SearchUserBan = `SELECT has_ban, ban_tos, ng_device_id, ban_reason
 		FROM users
 		WHERE has_ban = true
-			AND (profile_id = $3
-				OR (ng_device_id && (SELECT * FROM known_ng_device_ids)
-					AND $1 != 67349608)
-				OR last_ip_address = $4
-				OR ($4 != '' AND last_ip_address = $5)
-				OR $7 && csnum)
-			AND (ban_expires IS NULL OR ban_expires > $6)
+			AND (profile_id = $2
+				OR (ng_device_id && (SELECT array_agg(the_id) FROM UNNEST($1::bigint[]) AS x(the_id) WHERE x.the_id != 67349608))
+				OR last_ip_address = $3
+				OR ($3 != '' AND last_ip_address = $4)
+				OR $6 && csnum)
+			AND (ban_expires IS NULL OR ban_expires > $5)
 			ORDER BY ban_tos DESC LIMIT 1`
 )
 
@@ -229,7 +216,7 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 	var banReason string
 
 	timeNow := time.Now()
-	err = pool.QueryRow(ctx, SearchUserBan, ngDeviceId, user.NgDeviceId, user.ProfileId, ipAddress, *lastIPAddress, timeNow, user.Csnum).Scan(&banExists, &banTOS, &bannedDeviceIdList, &banReason)
+	err = pool.QueryRow(ctx, SearchUserBan, user.NgDeviceId, user.ProfileId, ipAddress, *lastIPAddress, timeNow, user.Csnum).Scan(&banExists, &banTOS, &bannedDeviceIdList, &banReason)
 
 	if err != nil {
 		if err != pgx.ErrNoRows {
