@@ -10,18 +10,17 @@ import (
 
 func HandleGetHash(w http.ResponseWriter, r *http.Request) {
 	var store database.HashStore
-	var success bool
-	var err string
 	var statusCode int
+	var err error
 
 	if r.Method == http.MethodPost {
-		store, success, err, statusCode = handleGetHashImpl(r)
+		store, statusCode, err = handleGetHashImpl(r)
 	} else if r.Method == http.MethodOptions {
 		statusCode = http.StatusNoContent
 		w.Header().Set("Access-Control-Allow-Methods", "POST")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	} else {
-		err = "Incorrect request. POST only."
+		err = ErrPostOnly
 		statusCode = http.StatusMethodNotAllowed
 		w.Header().Set("Allow", "POST")
 	}
@@ -32,7 +31,7 @@ func HandleGetHash(w http.ResponseWriter, r *http.Request) {
 
 	if statusCode != http.StatusNoContent {
 		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ = json.Marshal(GetHashResponse{success, err, store})
+		jsonData, _ = json.Marshal(GetHashResponse{err == nil, resolveError(err), store})
 	}
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
@@ -50,23 +49,21 @@ type GetHashResponse struct {
 	Hashes  database.HashStore
 }
 
-func handleGetHashImpl(r *http.Request) (database.HashStore, bool, string, int) {
-	ret := database.HashStore{}
-
+func handleGetHashImpl(r *http.Request) (database.HashStore, int, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return ret, false, "Unable to read request body", http.StatusBadRequest
+		return nil, http.StatusBadRequest, ErrRequestBody
 	}
 
 	var req GetHashRequestSpec
 	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return ret, false, err.Error(), http.StatusBadRequest
+		return nil, http.StatusBadRequest, err
 	}
 
 	if apiSecret == "" || req.Secret != apiSecret {
-		return nil, false, "Invalid API secret in request", http.StatusUnauthorized
+		return nil, http.StatusUnauthorized, ErrInvalidSecret
 	}
 
-	return database.GetHashes(), true, "", http.StatusOK
+	return database.GetHashes(), http.StatusOK, nil
 }

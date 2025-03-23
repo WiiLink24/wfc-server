@@ -10,20 +10,18 @@ import (
 
 func HandleMotd(w http.ResponseWriter, r *http.Request) {
 	var motd string
-	var success bool
-	var err string
 	var statusCode int
+	var err error
 
 	if r.Method == http.MethodPost {
-		success, err, statusCode = handleMotdImpl(r)
+		statusCode, err = handleMotdImpl(r)
 	} else if r.Method == http.MethodGet {
 		_motd, motdErr := gpcm.GetMessageOfTheDay()
 		if motdErr != nil {
-			err = motdErr.Error()
+			err = motdErr
 			statusCode = http.StatusInternalServerError
 		} else {
 			motd = _motd
-			success = true
 			statusCode = http.StatusOK
 		}
 	} else if r.Method == http.MethodOptions {
@@ -31,7 +29,7 @@ func HandleMotd(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	} else {
-		err = "Incorrect request. POST and GET only."
+		err = ErrPostGetOnly
 		statusCode = http.StatusMethodNotAllowed
 		w.Header().Set("Allow", "POST, GET")
 	}
@@ -42,7 +40,7 @@ func HandleMotd(w http.ResponseWriter, r *http.Request) {
 
 	if statusCode != http.StatusNoContent {
 		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ = json.Marshal(MotdResponse{motd, success, err})
+		jsonData, _ = json.Marshal(MotdResponse{motd, err == nil, resolveError(err)})
 	}
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
@@ -61,29 +59,28 @@ type MotdResponse struct {
 	Error   string
 }
 
-func handleMotdImpl(r *http.Request) (bool, string, int) {
+func handleMotdImpl(r *http.Request) (int, error) {
 	// TODO: Actual authentication rather than a fixed secret
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return false, "Unable to read request body", http.StatusBadRequest
+		return http.StatusBadRequest, ErrRequestBody
 	}
 
 	var req MotdRequestSpec
 	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return false, err.Error(), http.StatusBadRequest
+		return http.StatusBadRequest, err
 	}
 
 	if apiSecret == "" || req.Secret != apiSecret {
-		return false, "Invalid API secret in request", http.StatusUnauthorized
+		return http.StatusUnauthorized, ErrInvalidSecret
 	}
 
 	err = gpcm.SetMessageOfTheDay(req.Motd)
 	if err != nil {
-		return false, err.Error(), http.StatusInternalServerError
+		return http.StatusInternalServerError, err
 	}
 
-	// Don't return empty JSON, this is placeholder for now.
-	return true, "", http.StatusOK
+	return http.StatusOK, nil
 }

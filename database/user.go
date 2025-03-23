@@ -16,7 +16,7 @@ const (
 	UpdateUserProfileID     = `UPDATE users SET profile_id = $3 WHERE user_id = $1 AND gsbrcd = $2`
 	UpdateUserNGDeviceID    = `UPDATE users SET ng_device_id = $2 WHERE profile_id = $1`
 	UpdateUserCsnum         = `UPDATE users SET csnum = $2 WHERE profile_id = $1`
-	GetUser                 = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn, csnum, has_ban, ban_reason, ban_issued, ban_expires FROM users WHERE profile_id = $1`
+	GetUser                 = `SELECT user_id, gsbrcd, ng_device_id, email, unique_nick, firstname, lastname, has_ban, ban_reason, open_host, last_ingamesn, last_ip_address, csnum, ban_moderator, ban_issued, ban_expires FROM users WHERE profile_id = $1`
 	ClearProfileQuery       = `DELETE FROM users WHERE profile_id = $1 RETURNING user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn, csnum`
 	DoesUserExist           = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
@@ -47,8 +47,9 @@ type User struct {
 	LastIPAddress      string
 	Csnum              []string
 	// Two fields only used in GetUser query
-	BanIssued  time.Time
-	BanExpires time.Time
+	BanModerator string
+	BanIssued    *time.Time
+	BanExpires   *time.Time
 }
 
 var (
@@ -137,12 +138,47 @@ func (user *User) UpdateProfile(pool *pgxpool.Pool, ctx context.Context, data ma
 func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, bool) {
 	user := User{}
 	row := pool.QueryRow(ctx, GetUser, profileId)
-	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName, &user.OpenHost, &user.LastIPAddress, &user.LastInGameSn, &user.Csnum, &user.Restricted, &user.BanReason, &user.BanIssued, &user.BanExpires)
+
+	// May be null
+	var firstName *string
+	var lastName *string
+	var banReason *string
+	var lastInGameSn *string
+	var lastIPAddress *string
+	var banModerator *string
+
+	err := row.Scan(&user.UserId, &user.GsbrCode, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.Restricted, &banReason, &user.OpenHost, &lastInGameSn, &lastIPAddress, &user.Csnum, &banModerator, &user.BanIssued, &user.BanExpires)
+
 	if err != nil {
 		return User{}, false
 	}
 
 	user.ProfileId = profileId
+
+	if firstName != nil {
+		user.FirstName = *firstName
+	}
+
+	if lastName != nil {
+		user.LastName = *lastName
+	}
+
+	if banReason != nil {
+		user.BanReason = *banReason
+	}
+
+	if lastInGameSn != nil {
+		user.LastInGameSn = *lastInGameSn
+	}
+
+	if lastIPAddress != nil {
+		user.LastIPAddress = *lastIPAddress
+	}
+
+	if banModerator != nil {
+		user.BanModerator = *banModerator
+	}
+
 	return user, true
 }
 

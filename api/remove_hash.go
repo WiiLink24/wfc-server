@@ -9,18 +9,17 @@ import (
 )
 
 func HandleRemoveHash(w http.ResponseWriter, r *http.Request) {
-	var success bool
-	var err string
 	var statusCode int
+	var err error
 
 	if r.Method == http.MethodPost {
-		success, err, statusCode = handleRemoveHashImpl(r)
+		statusCode, err = handleRemoveHashImpl(r)
 	} else if r.Method == http.MethodOptions {
 		statusCode = http.StatusNoContent
 		w.Header().Set("Access-Control-Allow-Methods", "POST")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	} else {
-		err = "Incorrect request. POST only."
+		err = ErrPostOnly
 		statusCode = http.StatusMethodNotAllowed
 		w.Header().Set("Allow", "POST")
 	}
@@ -31,7 +30,7 @@ func HandleRemoveHash(w http.ResponseWriter, r *http.Request) {
 
 	if statusCode != http.StatusNoContent {
 		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ = json.Marshal(RemoveHashResponse{success, err})
+		jsonData, _ = json.Marshal(RemoveHashResponse{err == nil, resolveError(err)})
 	}
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
@@ -50,26 +49,26 @@ type RemoveHashResponse struct {
 	Error   string
 }
 
-func handleRemoveHashImpl(r *http.Request) (bool, string, int) {
+func handleRemoveHashImpl(r *http.Request) (int, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return false, "Unable to read request body", http.StatusBadRequest
+		return http.StatusBadRequest, ErrRequestBody
 	}
 
 	var req RemoveHashRequestSpec
 	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return false, err.Error(), http.StatusBadRequest
+		return http.StatusBadRequest, err
 	}
 
 	if apiSecret == "" || req.Secret != apiSecret {
-		return false, "Invalid API secret in request", http.StatusUnauthorized
+		return http.StatusBadRequest, ErrInvalidSecret
 	}
 
 	err = database.RemoveHash(pool, ctx, req.PackID, req.Version)
 	if err != nil {
-		return false, err.Error(), http.StatusInternalServerError
+		return http.StatusInternalServerError, err
 	}
 
-	return true, "", http.StatusOK
+	return http.StatusOK, nil
 }

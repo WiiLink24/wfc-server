@@ -10,18 +10,17 @@ import (
 
 func HandleClear(w http.ResponseWriter, r *http.Request) {
 	var user *database.User
-	var success bool
-	var err string
 	var statusCode int
+	var err error
 
 	if r.Method == http.MethodPost {
-		user, success, err, statusCode = handleClearImpl(r)
+		user, statusCode, err = handleClearImpl(r)
 	} else if r.Method == http.MethodOptions {
 		statusCode = http.StatusNoContent
 		w.Header().Set("Access-Control-Allow-Methods", "POST")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	} else {
-		err = "Incorrect request. POST only."
+		err = ErrPostOnly
 		statusCode = http.StatusMethodNotAllowed
 		w.Header().Set("Allow", "POST")
 	}
@@ -36,7 +35,7 @@ func HandleClear(w http.ResponseWriter, r *http.Request) {
 
 	if statusCode != http.StatusNoContent {
 		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ = json.Marshal(UserActionResponse{*user, success, err})
+		jsonData, _ = json.Marshal(UserActionResponse{*user, err == nil, resolveError(err)})
 	}
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
@@ -49,30 +48,29 @@ type ClearRequestSpec struct {
 	ProfileID uint32 `json:"pid"`
 }
 
-func handleClearImpl(r *http.Request) (*database.User, bool, string, int) {
+func handleClearImpl(r *http.Request) (*database.User, int, error) {
 	// TODO: Actual authentication rather than a fixed secret
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, false, "Unable to read request body", http.StatusBadRequest
+		return nil, http.StatusBadRequest, ErrRequestBody
 	}
 
 	var req ClearRequestSpec
 	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return nil, false, err.Error(), http.StatusBadRequest
+		return nil, http.StatusBadRequest, err
 	}
 
 	if apiSecret == "" || req.Secret != apiSecret {
-		return nil, false, "Invalid API secret in request", http.StatusUnauthorized
+		return nil, http.StatusUnauthorized, ErrInvalidSecret
 	}
 
 	user, success := database.ClearProfile(pool, ctx, req.ProfileID)
 
 	if !success {
-		return nil, false, "Unable to query user data from the database", http.StatusInternalServerError
+		return nil, http.StatusInternalServerError, ErrTransaction
 	}
 
-	// Don't return empty JSON, this is placeholder for now.
-	return &user, true, "", http.StatusOK
+	return &user, http.StatusOK, nil
 }

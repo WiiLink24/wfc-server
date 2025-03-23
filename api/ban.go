@@ -15,18 +15,17 @@ import (
 
 func HandleBan(w http.ResponseWriter, r *http.Request) {
 	var user *database.User
-	var success bool
-	var err string
 	var statusCode int
+	var err error
 
 	if r.Method == http.MethodPost {
-		user, success, err, statusCode = handleBanImpl(r)
+		user, statusCode, err = handleBanImpl(r)
 	} else if r.Method == http.MethodOptions {
 		statusCode = http.StatusNoContent
 		w.Header().Set("Access-Control-Allow-Methods", "POST")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	} else {
-		err = "Incorrect request. POST only."
+		err = ErrPostOnly
 		statusCode = http.StatusMethodNotAllowed
 		w.Header().Set("Allow", "POST")
 	}
@@ -41,7 +40,7 @@ func HandleBan(w http.ResponseWriter, r *http.Request) {
 
 	if statusCode != http.StatusNoContent {
 		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ = json.Marshal(UserActionResponse{*user, success, err})
+		jsonData, _ = json.Marshal(UserActionResponse{*user, err == nil, resolveError(err)})
 	}
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
@@ -61,30 +60,30 @@ type BanRequestSpec struct {
 	Moderator    string `json:"moderator"`
 }
 
-func handleBanImpl(r *http.Request) (*database.User, bool, string, int) {
+func handleBanImpl(r *http.Request) (*database.User, int, error) {
 	// TODO: Actual authentication rather than a fixed secret
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, false, "Unable to read request body", http.StatusBadRequest
+		return nil, http.StatusBadRequest, ErrRequestBody
 	}
 
 	var req BanRequestSpec
 	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return nil, false, err.Error(), http.StatusBadRequest
+		return nil, http.StatusBadRequest, err
 	}
 
 	if apiSecret == "" || req.Secret != apiSecret {
-		return nil, false, "Invalid API secret in request", http.StatusUnauthorized
+		return nil, http.StatusUnauthorized, ErrInvalidSecret
 	}
 
 	if req.ProfileID == 0 {
-		return nil, false, "Profile ID missing or 0 in request", http.StatusBadRequest
+		return nil, http.StatusBadRequest, ErrPIDMissing
 	}
 
 	if req.Reason == "" {
-		return nil, false, "Missing ban reason in request", http.StatusBadRequest
+		return nil, http.StatusBadRequest, ErrReason
 	}
 
 	moderator := req.Moderator
@@ -94,7 +93,7 @@ func handleBanImpl(r *http.Request) (*database.User, bool, string, int) {
 
 	minutes := req.Days*24*60 + req.Hours*60 + req.Minutes
 	if minutes == 0 {
-		return nil, false, "Ban length missing or 0", http.StatusBadRequest
+		return nil, http.StatusBadRequest, ErrLength
 	}
 
 	length := time.Duration(minutes) * time.Minute
@@ -102,19 +101,16 @@ func handleBanImpl(r *http.Request) (*database.User, bool, string, int) {
 	logging.Notice("API:"+moderator, "Ban profile:", aurora.Cyan(req.ProfileID), "TOS:", aurora.Cyan(req.Tos), "Length:", aurora.Cyan(length), "Reason:", aurora.BrightCyan(req.Reason), "Reason (Hidden):", aurora.BrightCyan(req.ReasonHidden))
 
 	if !database.BanUser(pool, ctx, req.ProfileID, req.Tos, length, req.Reason, req.ReasonHidden, moderator) {
-		return nil, false, "Failed to ban user", http.StatusInternalServerError
+		return nil, http.StatusInternalServerError, ErrTransaction
 	}
 
 	gpcm.KickPlayerCustomMessage(req.ProfileID, req.Reason, gpcm.WWFCMsgProfileRestrictedCustom)
 
-	var message string
 	user, success := database.GetProfile(pool, ctx, req.ProfileID)
 
-	if success {
-		message = ""
-	} else {
-		message = "Unable to query user data from the database"
+	if !success {
+		return nil, http.StatusInternalServerError, ErrUserQueryTransaction
 	}
 
-	return &user, success, message, http.StatusOK
+	return &user, http.StatusOK, nil
 }

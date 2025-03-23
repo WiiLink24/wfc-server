@@ -11,18 +11,17 @@ import (
 
 func HandlePinfo(w http.ResponseWriter, r *http.Request) {
 	var user *database.User
-	var success bool
-	var err string
 	var statusCode int
+	var err error
 
 	if r.Method == http.MethodPost {
-		user, success, err, statusCode = handlePinfoImpl(r)
+		user, statusCode, err = handlePinfoImpl(r)
 	} else if r.Method == http.MethodOptions {
 		statusCode = http.StatusNoContent
 		w.Header().Set("Access-Control-Allow-Methods", "POST")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	} else {
-		err = "Incorrect request. POST only."
+		err = ErrPostOnly
 		statusCode = http.StatusMethodNotAllowed
 		w.Header().Set("Allow", "POST")
 	}
@@ -37,7 +36,7 @@ func HandlePinfo(w http.ResponseWriter, r *http.Request) {
 
 	if statusCode != http.StatusNoContent {
 		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ = json.Marshal(UserActionResponse{*user, success, err})
+		jsonData, _ = json.Marshal(UserActionResponse{*user, err == nil, resolveError(err)})
 	}
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
@@ -50,28 +49,25 @@ type PinfoRequestSpec struct {
 	ProfileID uint32 `json:"pid"`
 }
 
-func handlePinfoImpl(r *http.Request) (*database.User, bool, string, int) {
+func handlePinfoImpl(r *http.Request) (*database.User, int, error) {
 	// TODO: Actual authentication rather than a fixed secret
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, false, "Unable to read request body", http.StatusBadRequest
+		return nil, http.StatusBadRequest, ErrRequestBody
 	}
 
 	var req PinfoRequestSpec
 	err = json.Unmarshal(body, &req)
 	if err != nil {
-		return nil, false, err.Error(), http.StatusBadRequest
+		return nil, http.StatusBadRequest, ErrRequestBody
 	}
 
-	var message string
 	realUser, success := database.GetProfile(pool, ctx, req.ProfileID)
 	var ret *database.User
 
-	if success {
-		message = ""
-	} else {
-		message = "Unable to query user data from the database"
+	if !success {
+		return &database.User{}, http.StatusInternalServerError, ErrUserQuery
 	}
 
 	if apiSecret == "" || req.Secret != apiSecret {
@@ -94,8 +90,15 @@ func handlePinfoImpl(r *http.Request) (*database.User, bool, string, int) {
 	// Add the offset to the time and then convert it back to local.
 	// The DB stores times in the server's locale but they are unmarshaled as
 	// UTC. This corrects for that
-	ret.BanIssued = ret.BanIssued.Add(time.Duration(-offset) * time.Second).Local()
-	ret.BanExpires = ret.BanExpires.Add(time.Duration(-offset) * time.Second).Local()
+	if ret.BanIssued != nil {
+		fixedIssued := ret.BanIssued.Add(time.Duration(-offset) * time.Second).Local()
+		ret.BanIssued = &fixedIssued
+	}
 
-	return ret, true, message, http.StatusOK
+	if ret.BanExpires != nil {
+		fixedExpires := ret.BanIssued.Add(time.Duration(-offset) * time.Second).Local()
+		ret.BanExpires = &fixedExpires
+	}
+
+	return ret, http.StatusOK, nil
 }
