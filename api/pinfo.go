@@ -96,7 +96,7 @@ func handlePinfoImpl(r *http.Request) (*database.User, int, error) {
 	}
 
 	if ret.BanExpires != nil {
-		fixedExpires := ret.BanIssued.Add(time.Duration(-offset) * time.Second).Local()
+		fixedExpires := ret.BanExpires.Add(time.Duration(-offset) * time.Second).Local()
 		ret.BanExpires = &fixedExpires
 	}
 
