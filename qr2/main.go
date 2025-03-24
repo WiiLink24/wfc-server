@@ -201,7 +201,7 @@ func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
 		// logging.Info(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
 		conn.WriteTo(createResponseHeader(KeepAliveRequest, 0), &addr)
 
-		session.LastKeepAlive = time.Now().Unix()
+		session.LastKeepAlive = time.Now().UTC().Unix()
 		return
 
 	case AvailableRequest:
