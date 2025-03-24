@@ -155,7 +155,7 @@ func ClearProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (Us
 }
 
 func BanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32, tos bool, length time.Duration, reason string, reasonHidden string, moderator string) bool {
-	_, err := pool.Exec(ctx, UpdateUserBan, profileId, time.Now(), time.Now().Add(length), reason, reasonHidden, moderator, tos)
+	_, err := pool.Exec(ctx, UpdateUserBan, profileId, time.Now().UTC(), time.Now().UTC().Add(length), reason, reasonHidden, moderator, tos)
 	return err == nil
 }
 

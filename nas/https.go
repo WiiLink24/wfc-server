@@ -86,7 +86,7 @@ func startHTTPSProxy(config common.Config) {
 			go func() {
 				moduleName := "NAS-TLS:" + conn.RemoteAddr().String()
 
-				conn.SetDeadline(time.Now().Add(25 * time.Second))
+				conn.SetDeadline(time.Now().UTC().Add(25 * time.Second))
 
 				handleRealTLS(moduleName, conn, nasAddr)
 			}()
@@ -241,7 +241,7 @@ func startHTTPSProxy(config common.Config) {
 
 			moduleName := "NAS-TLS:" + conn.RemoteAddr().String()
 
-			conn.SetDeadline(time.Now().Add(5 * time.Second))
+			conn.SetDeadline(time.Now().UTC().Add(5 * time.Second))
 
 			handleTLS(moduleName, conn, nasAddr, serverCertsRecordWii, rsaKeyWii, serverCertsRecordDS, rsaKeyDS)
 		}()
@@ -316,7 +316,7 @@ func handleTLS(moduleName string, rawConn net.Conn, nasAddr string, serverCertsR
 		}
 	}
 
-	conn.SetDeadline(time.Now().Add(25 * time.Second))
+	conn.SetDeadline(time.Now().UTC().Add(25 * time.Second))
 
 	// logging.Info(moduleName, "Forwarding client hello:", aurora.Cyan(fmt.Sprintf("% X ", helloBytes)))
 	handleRealTLS(moduleName, conn, nasAddr)

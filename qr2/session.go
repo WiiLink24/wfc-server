@@ -126,7 +126,7 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 			Addr:            *addr.(*net.UDPAddr),
 			Challenge:       "",
 			Authenticated:   false,
-			LastKeepAlive:   time.Now().Unix(),
+			LastKeepAlive:   time.Now().UTC().Unix(),
 			Endianness:      ClientNoEndian,
 			Data:            payload,
 			PacketCount:     0,
@@ -167,7 +167,7 @@ func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload 
 	}
 
 	session.Data = payload
-	session.LastKeepAlive = time.Now().Unix()
+	session.LastKeepAlive = time.Now().UTC().Unix()
 	session.SessionID = sessionId
 	return *session, true
 }
@@ -252,7 +252,7 @@ func makeLookupAddr(addr string) uint64 {
 func GetSessionServers() []map[string]string {
 	var servers []map[string]string
 	var unreachable []uint64
-	currentTime := time.Now().Unix()
+	currentTime := time.Now().UTC().Unix()
 
 	mutex.Lock()
 	defer mutex.Unlock()

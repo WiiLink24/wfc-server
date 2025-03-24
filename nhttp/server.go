@@ -211,7 +211,7 @@ func (s *Server) closeIdleConns() bool {
 		// Issue 22682: treat StateNew connections as if
 		// they're idle if we haven't read the first request's
 		// header in over 5 seconds.
-		if st == _http.StateNew && unixSec < time.Now().Unix()-5 {
+		if st == _http.StateNew && unixSec < time.Now().UTC().Unix()-5 {
 			st = _http.StateIdle
 		}
 		if st != _http.StateIdle || unixSec == 0 {
@@ -385,7 +385,7 @@ func (c *conn) setState(nc net.Conn, state _http.ConnState) {
 	if state > 0xff || state < 0 {
 		panic("internal error")
 	}
-	packedState := uint64(time.Now().Unix()<<8) | uint64(state)
+	packedState := uint64(time.Now().UTC().Unix()<<8) | uint64(state)
 	c.curState.Store(packedState)
 }
 
@@ -525,7 +525,7 @@ func (c *conn) serve(ctx context.Context) {
 		}
 
 		if d := c.server.idleTimeout(); d != 0 {
-			c.rwc.SetReadDeadline(time.Now().Add(d))
+			c.rwc.SetReadDeadline(time.Now().UTC().Add(d))
 			if _, err := c.bufr.Peek(4); err != nil {
 				return
 			}
@@ -533,7 +533,7 @@ func (c *conn) serve(ctx context.Context) {
 
 		c.curReq.Store((*response)(nil))
 		if d := c.server.idleTimeout(); d != 0 {
-			c.rwc.SetReadDeadline(time.Now().Add(d))
+			c.rwc.SetReadDeadline(time.Now().UTC().Add(d))
 			if _, err := c.bufr.Peek(4); err != nil {
 				return
 			}
