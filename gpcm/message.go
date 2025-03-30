@@ -163,21 +163,8 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	}
 
 	if cmd == common.MatchReservation {
-		if common.IPFormatNoPortToInt(g.RemoteAddr) != int32(msgMatchData.Reservation.PublicIP) {
-			logging.Error(g.ModuleName, "RESERVATION: Public IP mismatch")
-			g.replyError(ErrMessage)
-			return
-		}
-
 		g.QR2IP = uint64(msgMatchData.Reservation.PublicIP) | (uint64(msgMatchData.Reservation.PublicPort) << 32)
-
 	} else if cmd == common.MatchResvOK {
-		if common.IPFormatNoPortToInt(g.RemoteAddr) != int32(msgMatchData.ResvOK.PublicIP) {
-			logging.Error(g.ModuleName, "RESV_OK: Public IP mismatch")
-			g.replyError(ErrMessage)
-			return
-		}
-
 		g.QR2IP = uint64(msgMatchData.ResvOK.PublicIP) | (uint64(msgMatchData.ResvOK.PublicPort) << 32)
 	}
 
