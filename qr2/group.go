@@ -584,28 +584,25 @@ func loadGroups() error {
 	return nil
 }
 
-func OrderKickFromGroup(profileID uint32, profileToKick uint32) {
-	moduleName := "QR2:OrderKickFromGroup/" + strconv.FormatUint(uint64(profileID), 10)
-
-	login, exists := logins[profileID]
-	if !exists || login == nil {
-		return
-	}
-
-	session := login.session
-	if session == nil {
-		return
-	}
+// Send kick order to all QR2-authenticated session to kick a player from their group
+func OrderKickFromGroups(profileToKick uint32) {
+	moduleName := "QR2:OrderKickFromGroup/" + strconv.FormatUint(uint64(profileToKick), 10)
 
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	message := createResponseHeader(ClientKickPeerOrder, session.SessionID)
-	message = append(message, 0) // padding for 4 byte alignment
-	message = binary.BigEndian.AppendUint32(message, profileToKick)
-	_, err := masterConn.WriteTo(message, &session.Addr)
-	if err != nil {
-		logging.Error(moduleName, "Error sending message:", err.Error())
+	var numSent int = 0
+	for _, session := range sessions {
+		message := createResponseHeader(ClientKickPeerOrder, session.SessionID)
+		message = append(message, 0) // padding for 4 byte alignment
+		message = binary.BigEndian.AppendUint32(message, profileToKick)
+		_, err := masterConn.WriteTo(message, &session.Addr)
+		if err != nil {
+			logging.Error(moduleName, "Error sending message:", err.Error())
+		}
+
+		numSent++
 	}
 
+	logging.Notice(moduleName, "Sent kick order message to", aurora.Cyan(numSent), "player(s)")
 }
