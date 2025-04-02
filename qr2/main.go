@@ -24,7 +24,8 @@ const (
 	AvailableRequest        = 0x09
 	ClientRegisteredReply   = 0x0A
 
-	ClientExploitReply = 0x10
+	ClientExploitReply  = 0x10
+	ClientKickPeerOrder = 0x11
 )
 
 var (
