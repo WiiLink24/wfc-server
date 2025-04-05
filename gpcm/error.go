@@ -89,7 +89,7 @@ var (
 	ErrLoginBadPackID          = MakeGPError(0x010D, "The provided Pack ID was invalid.", true)
 	ErrLoginBadPackVersion     = MakeGPError(0x010E, "The provided Pack Version was invalid.", true)
 	ErrLoginBadRegion          = MakeGPError(0x0110, "The provided Region was invalid for the provided Pack ID.", true)
-	ErrLoginBadHash            = MakeGPError(0x0111, "The hash for the provided Pack ID and Version was invalid.", true)
+	ErrLoginBadHash            = GPError{0x0111, "The hash for the provided Pack ID and Version was invalid.", true, WWFCMsgInvalidHash, ""}
 
 	// New user errors
 	ErrNewUser                  = MakeGPError(0x0200, "There was an error creating a new user.", true)
@@ -263,7 +263,7 @@ func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, 
 
 func (g *GameSpySession) replyError(err GPError) {
 	logging.Error(g.ModuleName, "Reply error:", err.ErrorString)
-	if !g.LoginInfoSet {
+	if !g.LoginInfoSet && err.ErrorCode != ErrLoginBadHash.ErrorCode {
 		msg := err.GetMessage()
 		// logging.Info(g.ModuleName, "Sending error message:", msg)
 		common.SendPacket(ServerName, g.ConnIndex, []byte(msg))

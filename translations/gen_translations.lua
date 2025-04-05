@@ -2,7 +2,7 @@ local http_request = require("http.request")
 local utils = require("./utils")
 
 local SHEETS_CSV_URL =
-    [[https://docs.google.com/spreadsheets/d/1kas1J6RcIePcaRRxtTluPZm8C8kydpaoQBtRg15M-zM/export?format=tsv&gid=1517055494#gid=1517055494]]
+[[https://docs.google.com/spreadsheets/d/1kas1J6RcIePcaRRxtTluPZm8C8kydpaoQBtRg15M-zM/export?format=tsv&gid=1517055494#gid=1517055494]]
 
 local SHEET_LANG_TO_WWFC_LANG = {
     Japanese = "LangJapanese",
@@ -49,6 +49,7 @@ local ORDERED_MESSAGES = {
     "WWFCMsgProfileIDInUse",
     "WWFCMsgPayloadInvalid",
     "WWFCMsgInvalidELO",
+    "WWFCMsgInvalidHash",
 }
 
 local ORDERED_LANGUAGES = {

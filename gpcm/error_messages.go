@@ -1074,4 +1074,16 @@ var (
 		},
 	}
 
+	WWFCMsgInvalidHash = WWFCErrorMessage{
+		ErrorCode: 22010,
+		MessageRMC: map[byte]string{
+			LangEnglish: "" +
+				"Invalid pack version!\n" +
+				"Please update or reinstall your pack\n" +
+				"to log in\n" +
+				"\n" +
+				"Error Code: %[1]d",
+		},
+	}
 )
+
