@@ -147,7 +147,15 @@ for _, message_name in ipairs(ORDERED_MESSAGES) do
             local splits = utils.split_by_pattern(translation, "+")
             for i, v in ipairs(splits) do
                 local segment = utils.trim(v)
-                table.insert(output_lines, string.format("\t\t\t\t%s%s", segment, i == #splits and "" or " +"))
+                local ending
+
+                if i == #splits then
+                    ending = '",'
+                else
+                    ending = '\\n" +'
+                end
+
+                table.insert(output_lines, string.format('\t\t\t\t"%s%s', segment, ending))
             end
         end
     end

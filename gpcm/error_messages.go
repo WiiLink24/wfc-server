@@ -49,6 +49,11 @@ var (
 				"произошла ошибка.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Retro Rewind'a giriş yaparken\n" +
+				"bilinmeyen bir hata oluştu.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"Une erreur inconnue s'est produite\n" +
 				"pendant la connexion à Retro WFC.\n" +
@@ -72,7 +77,7 @@ var (
 				"Error Code: %[1]d",
 			LangGerman: "" +
 				"Für die Verwendung von Retro WFC auf Dolphin\n" +
-				"ist eine zusätzliche Einrichtung erforderlich.\n." +
+				"ist eine zusätzliche Einrichtung erforderlich.\n" +
 				"\n" +
 				"Fehlercode: %[1]d",
 			LangSpanish: "" +
@@ -106,9 +111,14 @@ var (
 				"дополнительную настройку.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Retro WFC'yi Dolphin'de kullanabilmek\n" +
+				"için birkaç adım daha gerekiyor.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"Une installation additionnelle est requise\n" +
-				"pour utiliser Retro WFC sur Dolphin\n." +
+				"pour utiliser Retro WFC sur Dolphin.\n" +
 				"\n" +
 				"Code Erreur: %[1]d",
 		},
@@ -179,10 +189,17 @@ var (
 				"\n" +
 				"Код ошибки: %[1]d\n" +
 				"Информация для поддержки: NG%08[2]x",
+			LangTurkish: "" +
+				"Hizmet Şartlarını ihlal ettiğinizden\n" +
+				"dolayı Retro WFC'ye erişiminiz\n" +
+				"yasaklanmıştır.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d\n" +
+				"Destek Bilgisi: NG%08[2]x",
 			LangFrenchEU: "" +
-				"Vous avez été banni(e) de Retro WFC" +
-				"à cause d'une violation des" +
-				"Conditions de Service" +
+				"Vous avez été banni(e) de Retro WFC\n" +
+				"à cause d'une violation des\n" +
+				"Conditions de Service.\n" +
 				"\n" +
 				"Code Erreur:  %[1]d\n" +
 				"Information Support: NG%08[2]x",
@@ -254,10 +271,17 @@ var (
 				"\n" +
 				"Код ошибки: %[1]d\n" +
 				"Информация для поддержки: NG%08[2]x",
+			LangTurkish: "" +
+				"Hizmet Şartlarını ihlal ettiğinizden\n" +
+				"dolayı Retro WFC'ye erişiminiz\n" +
+				"yasaklanmıştır.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d\n" +
+				"Destek Bilgisi: NG%08[2]x",
 			LangFrenchEU: "" +
-				"Vous avez été banni(e) de Retro WFC" +
-				"à cause d'une violation des" +
-				"Conditions de Service" +
+				"Vous avez été banni(e) de Retro WFC\n" +
+				"à cause d'une violation des\n" +
+				"Conditions de Service.\n" +
 				"\n" +
 				"Code Erreur:  %[1]d\n" +
 				"Information Support: NG%08[2]x",
@@ -328,10 +352,17 @@ var (
 				"\n" +
 				"Код ошибки: %[1]d\n" +
 				"Информация для поддержки: NG%08[2]x",
+			LangTurkish: "" +
+				"Retro WFC kurallarını ihlal\n" +
+				"ettiğinizden dolayı herkese\n" +
+				"açık yarışlara erişiminiz yasaklanmıştır.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d\n" +
+				"Destek Bilgisi: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs\n" +
 				"public à cause d'un violation d'une\n" +
-				"des règles de Retro WFC" +
+				"des règles de Retro WFC.\n" +
 				"\n" +
 				"Code Erreur:  %[1]d\n" +
 				"Information Support: NG%08[2]x",
@@ -360,7 +391,7 @@ var (
 				"Retro WFC Regeln gebannt.\n" +
 				"\n" +
 				"Fehlercode: %[1]d\n" +
-				"Support-Info: NG%08[2]x",
+				"Support-Info: NG%08[2]x,",
 			LangSpanish: "" +
 				"Te han baneado de partidas públicas\n" +
 				"debido a una violación de las\n" +
@@ -402,10 +433,17 @@ var (
 				"\n" +
 				"Код ошибки: %[1]d\n" +
 				"Информация для поддержки: NG%08[2]x",
+			LangTurkish: "" +
+				"Retro WFC kurallarını ihlal\n" +
+				"ettiğinizden dolayı herkese\n" +
+				"açık yarışlara erişiminiz yasaklanmıştır.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d\n" +
+				"Destek Bilgisi: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous avez été banni(e) des matchs\n" +
 				"publics à cause d'un violation d'une\n" +
-				"des règles de Retro WFC" +
+				"des règles de Retro WFC.\n" +
 				"\n" +
 				"Code Erreur:  %[1]d\n" +
 				"Information Support: NG%08[2]x",
@@ -430,6 +468,11 @@ var (
 				"Grund: %[3]s\n" +
 				"Fehlercode: %[1]d\n" +
 				"Support-Info: NG%08[2]x",
+			LangSpanish: "" +
+				"Estás baneado de partidas públicas.\n" +
+				"Motivo: %[3]s\n" +
+				"Código de Error: %[1]d\n" +
+				"Info. de soporte: NG%08[2]x",
 			LangItalian: "" +
 				"Sei bannato dalle corse pubbliche.\n" +
 				"Motivo: %[3]s\n" +
@@ -457,6 +500,12 @@ var (
 				"Причина: %[3]s\n" +
 				"Код ошибки: %[1]d\n" +
 				"Информация для поддержки: NG%08[2]x",
+			LangTurkish: "" +
+				"Herkese açık yarışlara\n" +
+				"erişiminiz yasaklanmıştır.\n" +
+				"Sebep: %[3]s\n" +
+				"Hata Kodu: %[1]d\n" +
+				"Destek Bilgisi: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous êtes banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
@@ -483,6 +532,11 @@ var (
 				"Grund: %[3]s\n" +
 				"Fehlercode: %[1]d\n" +
 				"Support-Info: NG%08[2]x",
+			LangSpanish: "" +
+				"Estás baneado de partidas públicas.\n" +
+				"Motivo: %[3]s\n" +
+				"Código de Error: %[1]d\n" +
+				"Info. de soporte: NG%08[2]x",
 			LangItalian: "" +
 				"Sei bannato dalle corse pubbliche.\n" +
 				"Motivo: %[3]s\n" +
@@ -510,6 +564,12 @@ var (
 				"Причина: %[3]s\n" +
 				"Код ошибки: %[1]d\n" +
 				"Информация для поддержки: NG%08[2]x",
+			LangTurkish: "" +
+				"Herkese açık yarışlara\n" +
+				"erişiminiz yasaklanmıştır.\n" +
+				"Sebep: %[3]s\n" +
+				"Hata Kodu: %[1]d\n" +
+				"Destek Bilgisi: NG%08[2]x",
 			LangFrenchEU: "" +
 				"Vous êtes banni(e) des matchs publics.\n" +
 				"Raison: %[3]s\n" +
@@ -536,7 +596,7 @@ var (
 				"\n" +
 				"Fehlercode: %[1]d",
 			LangSpanish: "" +
-				"Te han expulsado de Retro WFC\n" +
+				"Te han expulsado de Retro WFC.\n" +
 				"\n" +
 				"Código de Error: %[1]d",
 			LangItalian: "" +
@@ -557,14 +617,18 @@ var (
 				"Byl jsi vyhozen z\n" +
 				"Retro WFC.\n" +
 				"\n" +
-				"Kód Chyby: %[1]d\n",
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"Вас выгнали из Retro WFC.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Retro WFC'den atıldınız.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de\n" +
-				"Retro WFC." +
+				"Retro WFC.\n" +
 				"\n" +
 				"Code Erreur: %[1]d",
 		},
@@ -590,7 +654,7 @@ var (
 				"Fehlercode: %[1]d",
 			LangSpanish: "" +
 				"Un moderador te ha\n" +
-				"expulsado de Retro WFC\n" +
+				"expulsado de Retro WFC.\n" +
 				"\n" +
 				"Código de Error: %[1]d",
 			LangItalian: "" +
@@ -612,12 +676,17 @@ var (
 				"Byl jsi vyhozen z\n" +
 				"Retro WFC moderátorem.\n" +
 				"\n" +
-				"Kód Chyby: %[1]d\n",
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"Модератор выгнал вас\n" +
 				"из Retro WFC.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Bir moderatör tarafından\n" +
+				"Retro WFC'den atıldınız.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de\n" +
 				"Retro WFC par un modérateur.\n" +
@@ -646,7 +715,7 @@ var (
 				"Fehlercode: %[1]d",
 			LangSpanish: "" +
 				"El creador de la sala te ha\n" +
-				"expulsado de ella\n" +
+				"expulsado de ella.\n" +
 				"\n" +
 				"Código de Error: %[1]d",
 			LangItalian: "" +
@@ -667,14 +736,19 @@ var (
 				"Hostitel tě vyhodil\n" +
 				"z místnosti.\n" +
 				"\n" +
-				"Kód Chyby: %[1]d\n",
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"Создатель группы выгнал вас.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Oda kurucusu tarafından\n" +
+				"odadan atıldınız.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été expulsé de la salle\n" +
-				"par le créateur." +
+				"par le créateur.\n" +
 				"\n" +
 				"Code Erreur: %[1]d",
 		},
@@ -684,35 +758,39 @@ var (
 		ErrorCode: 22004,
 		MessageRMC: map[byte]string{
 			LangJapanese: "" +
-				"オンライン対戦から BANされています\n" +
+				"Retro WFCから キックされました\n" +
 				"りゆう： %[3]s\n" +
-				"エラーコード： %[1]d\n" +
-				"サポート情報： NG%08[2]x",
+				"エラーコード： %[1]d",
 			LangEnglish: "" +
-				"You have been banned from public matches,\n" +
+				"You have been kicked from\n" +
+				"Retro WFC.\n" +
 				"Reason: %[3]s\n" +
-				"Error Code: %[1]d\n" +
-				"Support Info: NG%08[2]x",
+				"Error Code: %[1]d",
 			LangGerman: "" +
-				"Du wurdest von öffentlichen Matches ausgeschlossen,\n" +
+				"Du wurdest aus Retro WFC\n" +
+				"gekickt.\n" +
 				"Grund: %[3]s\n" +
-				"Fehlercode: %[1]d\n" +
-				"Support-Info: NG%08[2]x",
-			LangItalian: "" +
-				"Sei stato bannato dalle corse pubbliche.\n" +
+				"Fehlercode: %[1]d,",
+			LangSpanish: "" +
+				"Te han expulsado de Retro WFC.\n" +
 				"Motivo: %[3]s\n" +
-				"Codice Errore: %[1]d\n" +
-				"Supporto Informativo: NG%08[2]x",
+				"\n" +
+				"Código de Error: %[1]d",
+			LangItalian: "" +
+				"Sei stato espulso\n" +
+				"dalla Retro WFC.\n" +
+				"Motivo: %[3]s\n" +
+				"Codice Errore: %[1]d",
 			LangDutch: "" +
-				"Je bent verbannen van openbare wedstrijden,\n" +
+				"Je bent uit Retro WFC\n" +
+				"geschopt.\n" +
 				"Reden: %[3]s\n" +
-				"Foutcode: %[1]d\n" +
-				"Ondersteuningsinformatie: NG%08[2]x",
+				"Foutcode: %[1]d",
 			LangKorean: "" +
-				"공개 경기에서 차단됐습니다.\n" +
+				"Retro WFC에서 추방됐습니다.\n" +
+				"\n" +
 				"사유: %[3]s\n" +
-				"에러 코드: %[1]d\n" +
-				"지원 정보: NG%08[2]x",
+				"에러 코드: %[1]d",
 			LangCzech: "" +
 				"Máš zákaz veřejných zápasů.\n" +
 				"Důvod: %[3]s\n" +
@@ -723,11 +801,16 @@ var (
 				"\n" +
 				"Причина: %[3]s\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Retro WFC'den atıldınız.\n" +
+				"\n" +
+				"Sebep: %[3]s\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
-				"Vous avez été banni(e) des matchs publics.\n" +
+				"Vous avez été expulsé de\n" +
+				"Retro WFC.\n" +
 				"Raison: %[3]s\n" +
-				"Error Code: %[1]d\n" +
-				"Information Support: NG%08[2]x",
+				"Error Code: %[1]d",
 		},
 	}
 
@@ -735,7 +818,7 @@ var (
 		ErrorCode: 22005,
 		MessageRMC: map[byte]string{
 			LangJapanese: "" +
-				"使われているコンソールは \n" +
+				"使われているコンソールは\n" +
 				"このプロファイルが 登録されたときに\n" +
 				"使われたコンソールでは ありません\n" +
 				"\n" +
@@ -755,7 +838,7 @@ var (
 			LangSpanish: "" +
 				"La consola que estas usando no es el\n" +
 				"dispositivo usado para registrar este\n" +
-				"perfil\n" +
+				"perfil.\n" +
 				"\n" +
 				"Código de Error: %[1]d",
 			LangItalian: "" +
@@ -775,15 +858,26 @@ var (
 				"등록된 기기 정보와 다릅니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"Konzole, kterou používáš, není\n" +
+				"zařízením používaným k registraci\n" +
+				"tohoto profilu.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"Ваш профиль был зарегистрирован\n" +
 				"на другой консоли.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Kullandığınız konsol, kaydolduğunuz\n" +
+				"profille aynı değil.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"La console que vous utilisé\n" +
 				"n'est pas l'appareil utilisé pour\n" +
-				"enregistrer ce profil." +
+				"enregistrer ce profil.\n" +
 				"\n" +
 				"Code Erreur: %[1]d",
 		},
@@ -793,7 +887,7 @@ var (
 		ErrorCode: 22005,
 		MessageRMC: map[byte]string{
 			LangJapanese: "" +
-				"使われているコンソールは \n" +
+				"使われているコンソールは\n" +
 				"このプロファイルが 登録されたときに\n" +
 				"使われたコンソールでは ありません\n" +
 				"NANDがただしく 設定されていることを\n" +
@@ -810,7 +904,7 @@ var (
 				"Die Konsole die du gerade nutzt\n" +
 				"ist nicht die selbe mit der dieses\n" +
 				"Profil erstellt wurde. Bitte gehe sicher\n" +
-				"dass du das NAND korrekt initialisiert hast\n" +
+				"dass du das NAND korrekt initialisiert hast.\n" +
 				"\n" +
 				"Fehlercode: %[1]d",
 			LangSpanish: "" +
@@ -841,12 +935,25 @@ var (
 				"확인해 주십시오.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"Konzole, kterou používáš, není\n" +
+				"zařízením používaným k registraci\n" +
+				"tohoto profilu. Ujisti se prosím, že\n" +
+				"jsi správně nastavil NAND.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"Ваш профиль был зарегистрирован\n" +
 				"на другой консоли. Проверьте, что\n" +
 				"память NAND настроена правильно.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Kullandığınız konsol, kaydolduğunuz\n" +
+				"profille aynı değil.\n" +
+				"NAND'inizi doğru ayarladığınıza emin olun.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"La consonle que vous utilisé\n" +
 				"n'est pas l'appareil utilisé pour\n" +
@@ -861,7 +968,7 @@ var (
 		ErrorCode: 22006,
 		MessageRMC: map[byte]string{
 			LangJapanese: "" +
-				"あなたが登録しようとした \n" +
+				"あなたが登録しようとした\n" +
 				"プロファイルIDは むこうです\n" +
 				"新しくライセンスをつくりなおしてください\n" +
 				"\n" +
@@ -902,12 +1009,24 @@ var (
 				"새로운 라이센스를 만드십시오.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"Profil, který se pokoušíš\n" +
+				"zaregistrovat, je neplatný.\n" +
+				"Vytvoř si prosím nový účet.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"ID профиля, который вы пытаетесь\n" +
 				"зарегистрировать, — некорректный.\n" +
 				"Создайте новое удостоверение.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Kaydolmak istediğiniz profil ID'si\n" +
+				"geçerli bir ID değil.\n" +
+				"Lütfen yeni bir lisans oluşturun.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"L'ID du profil que vous essayez\n" +
 				"d'enregistrer est invalide.\n" +
@@ -921,7 +1040,7 @@ var (
 		ErrorCode: 22007,
 		MessageRMC: map[byte]string{
 			LangJapanese: "" +
-				"あなたが登録しようとした \n" +
+				"あなたが登録しようとした\n" +
 				"フレンドコードは すでに登録されています\n" +
 				"\n" +
 				"エラーコード： %[1]d",
@@ -954,11 +1073,21 @@ var (
 				"해당 친구 코드는 이미 사용중입니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"Kód kamaráda, který se pokoušíš\n" +
+				"zaregistrovat, se už používá.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"Код друга, который вы пытаетесь\n" +
 				"зарегистрировать, уже занят.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Kaydolmak istediğiniz arkadaş kodu\n" +
+				"zaten kullanımda.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"Le code ami que vous essayez\n" +
 				"d'enregistrer est déjà utilisé.\n" +
@@ -971,7 +1100,7 @@ var (
 		ErrorCode: 22008,
 		MessageRMC: map[byte]string{
 			LangJapanese: "" +
-				"Retro WFCの ペイロードがむこうです \n" +
+				"Retro WFCの ペイロードがむこうです\n" +
 				"ゲームを 再起動してください\n" +
 				"\n" +
 				"エラーコード： %[1]d",
@@ -1005,11 +1134,21 @@ var (
 				"게임을 재시작 하십시오.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"Datový obsah Retro WFC je neplatné.\n" +
+				"Zkus restartovat hru.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"Запущен некорректный пейлоад.\n" +
 				"Retro WFC. Перезапустите игру.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Retro WFC payloud'u geçerli değil.\n" +
+				"Oyunu yeniden başlatmayı deneyin.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"Le payload Retro WFC est invalide.\n" +
 				"Veuillez redémarrer votre jeu.\n" +
@@ -1022,7 +1161,7 @@ var (
 		ErrorCode: 22009,
 		MessageRMC: map[byte]string{
 			LangJapanese: "" +
-				"VRまたはBRの値が むこうなため \n" +
+				"VRまたはBRの値が むこうなため\n" +
 				"Retro WFCから 切断されました\n" +
 				"\n" +
 				"エラーコード： %[1]d",
@@ -1059,16 +1198,28 @@ var (
 				"Retro WFC 연결이 끊어졌습니다.\n" +
 				"\n" +
 				"에러 코드: %[1]d",
+			LangCzech: "" +
+				"Byl jsi odpojen od Retro WFC\n" +
+				"z důvodu neplatné hodnoty\n" +
+				"ZH nebo BH.\n" +
+				"\n" +
+				"Kód Chyby: %[1]d",
 			LangRussian: "" +
 				"Вас отключили от Retro WFC\n" +
 				"из-за некорректного значения\n" +
 				"ГР или БР.\n" +
 				"\n" +
 				"Код ошибки: %[1]d",
+			LangTurkish: "" +
+				"Hatalı bir KP veya SP\n" +
+				"değerinden dolayı Retro WFC'ye\n" +
+				"bağlantınız kesildi.\n" +
+				"\n" +
+				"Hata Kodu: %[1]d",
 			LangFrenchEU: "" +
 				"Vous avez été déconnecté de\n" +
 				"Retro WFC à cause d'une valeur invalide\n" +
-				"de Points Course ou Points Bataille\n" +
+				"de Points Course ou Points Bataille.\n" +
 				"\n" +
 				"Code Erreur: %[1]d",
 		},
@@ -1080,10 +1231,16 @@ var (
 			LangEnglish: "" +
 				"Invalid pack version!\n" +
 				"Please update or reinstall your pack\n" +
-				"to log in\n" +
+				"to log in.\n" +
+				"\n" +
+				"Error Code: %[1]d",
+			LangGerman: "" +
+				"Ungültige Pack-Version!\n" +
+				"Bitte update oder installiere\n" +
+				"das Pack neu um dich einzuloggen.\n" +
 				"\n" +
 				"Error Code: %[1]d",
 		},
 	}
-)
 
+)
