@@ -4,6 +4,9 @@ import (
 	"encoding/gob"
 	"os"
 	"strconv"
+	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 type LoginInfo struct {
@@ -16,12 +19,13 @@ type LoginInfo struct {
 	NeedsExploit        bool
 	DeviceAuthenticated bool
 	Restricted          bool
+	OpenHost            bool
 	session             *Session
 }
 
 var logins = map[uint32]*LoginInfo{}
 
-func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCode uint64, fcGame string, publicIP string, needsExploit bool, deviceAuthenticated bool, restricted bool) {
+func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCode uint64, fcGame string, publicIP string, needsExploit bool, deviceAuthenticated bool, restricted bool, openHost bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -35,6 +39,7 @@ func Login(profileID uint32, gameCode string, inGameName string, consoleFriendCo
 		NeedsExploit:        needsExploit,
 		DeviceAuthenticated: deviceAuthenticated,
 		Restricted:          restricted,
+		OpenHost:            openHost,
 		session:             nil,
 	}
 }
@@ -49,6 +54,17 @@ func SetDeviceAuthenticated(profileID uint32) {
 			login.session.Data["+deviceauth"] = "1"
 		}
 	}
+}
+
+func SetLoginOpenHost(profileID uint32, openHost bool) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if login, exists := logins[profileID]; exists {
+		login.OpenHost = openHost
+	}
+
+	logging.Info("QR2", "Updated open host value for login on profileID", aurora.Cyan(profileID), "to", aurora.Cyan(strconv.FormatBool(openHost)))
 }
 
 func Logout(profileID uint32) {

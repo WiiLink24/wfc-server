@@ -25,6 +25,7 @@ type PlayerInfo struct {
 	VersusELO  string    `json:"ev,omitempty"`
 	BattleELO  string    `json:"eb,omitempty"`
 	Mii        []MiiInfo `json:"mii,omitempty"`
+	OpenHost   string    `json:"openhost,omitempty"`
 }
 
 type GroupInfo struct {
@@ -109,6 +110,7 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 
 			if login := session.login; login != nil {
 				mapData["+ingamesn"] = login.InGameName
+				mapData["+openhost"] = strconv.FormatBool(login.OpenHost)
 			} else {
 				mapData["+ingamesn"] = ""
 			}
@@ -160,6 +162,7 @@ func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo
 				Count:      rawPlayer["+localplayers"],
 				ProfileID:  rawPlayer["dwc_pid"],
 				InGameName: rawPlayer["+ingamesn"],
+				OpenHost:   rawPlayer["+openhost"],
 			}
 
 			pid, err := strconv.ParseUint(rawPlayer["dwc_pid"], 10, 32)
