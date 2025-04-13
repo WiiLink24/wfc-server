@@ -131,10 +131,15 @@ func KickPlayerCustomMessage(profileID uint32, reason string, message WWFCErrorM
 
 		for _, match := range findMatchingSessions(session) {
 			pids = append(pids, match.User.ProfileId)
+
+			mutex.Unlock()
 			match.replyError(gpError)
+			mutex.Lock()
 		}
 
+		mutex.Unlock()
 		session.replyError(gpError)
+		mutex.Lock()
 	}
 
 	// After 3 seconds, send kick order to all players
