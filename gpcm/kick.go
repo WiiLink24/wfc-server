@@ -83,6 +83,11 @@ func findMatchingSessions(badSession *GameSpySession) []*GameSpySession {
 	}
 
 	for _, session := range sessions {
+		if session.ConnIndex == badSession.ConnIndex {
+			// We already know to kick this one. Don't try and kick twice.
+			continue
+		}
+
 		if badSession.DeviceId != 67349608 && badSession.DeviceId == session.DeviceId {
 			ret = append(ret, session)
 			continue
