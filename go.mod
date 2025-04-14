@@ -1,6 +1,7 @@
 module wwfc
 
 go 1.21.1
+toolchain go1.24.1
 
 require (
 	github.com/jackc/pgx/v4 v4.18.2
@@ -19,7 +20,7 @@ require (
 	github.com/jackc/pgtype v1.14.0 // indirect
 	github.com/jackc/puddle v1.3.0 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 	gvisor.dev/gvisor v0.0.0-20240119232905-7b151e25d076
 )
