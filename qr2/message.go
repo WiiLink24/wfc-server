@@ -59,7 +59,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 
 	// Decode and validate the message
 	isNatnegPacket := false
-	if bytes.Equal(message[:2], []byte{0xfd, 0xfc}) {
+	if len(message) >= 2 && bytes.Equal(message[:2], []byte{0xfd, 0xfc}) {
 		// Sending natneg cookie
 		isNatnegPacket = true
 		if len(message) != 0xA {
@@ -69,7 +69,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 
 		natnegID := binary.LittleEndian.Uint32(message[0x6:0xA])
 		moduleName = "QR2/MSG:s" + strconv.FormatUint(uint64(natnegID), 10)
-	} else if bytes.Equal(message[:4], []byte{0xbb, 0x49, 0xcc, 0x4d}) || bytes.Equal(message[:4], []byte("SBCM")) {
+	} else if len(message) >= 4 && (bytes.Equal(message[:4], []byte{0xbb, 0x49, 0xcc, 0x4d}) || bytes.Equal(message[:4], []byte("SBCM"))) {
 		// DWC match command
 		if len(message) < 0x14 || len(message) > 0x94 {
 			logging.Error(moduleName, "Received invalid length match command packet")
@@ -219,6 +219,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		}
 	} else {
 		logging.Error(moduleName, "Invalid message:", aurora.Cyan(printHex(message)))
+		return
 	}
 
 	destSessionID, packetCount, destAddr := processClientMessage(moduleName, sender, receiver, message, isNatnegPacket, matchData)
