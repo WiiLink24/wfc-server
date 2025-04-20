@@ -131,6 +131,8 @@ func CloseConnection(index uint64) {
 		session.sendLogoutStatus()
 	}
 
+	qr2.OrderKickFromGroups([]uint32{session.User.ProfileId})
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
