@@ -590,18 +590,13 @@ func OrderKickFromGroups(profilesToKick []uint32) {
 	// byte for length, that leaves 120 bytes worth of pids, thus 30 4-byte
 	// integers. Surely more than 30 online pids won't match at once :)
 
-	var profilesClamped []uint32
-	if len(profilesToKick) > 30 {
-		profilesClamped = profilesToKick[0:30]
-	}
-
 	moduleName := "QR2:OrderKickFromGroup/"
 
-	clampedLen := len(profilesClamped)
-	for i, pid := range profilesClamped {
-		moduleName += strconv.FormatUint(uint64(pid), 10)
+	iterMax := min(len(profilesToKick), 30)
+	for i := 0; i < iterMax; i++ {
+		moduleName += strconv.FormatUint(uint64(profilesToKick[i]), 10)
 
-		if i != clampedLen {
+		if i+1 != iterMax {
 			moduleName += ", "
 		}
 	}
@@ -612,10 +607,11 @@ func OrderKickFromGroups(profilesToKick []uint32) {
 	var numSent int = 0
 	for _, session := range sessions {
 		message := createResponseHeader(ClientKickPeerOrder, session.SessionID) // 7 byte header
-		message = append(message, byte(len(profilesClamped)))                   // 1 byte len
+		message = append(message, byte(iterMax))                                // 1 byte len
 
-		for _, pid := range profilesClamped {
-			message = binary.BigEndian.AppendUint32(message, pid) // All 4 bytes, preserves alignment
+		for i := 0; i < iterMax; i++ {
+			// All 4 bytes, preserves alignment
+			message = binary.BigEndian.AppendUint32(message, profilesToKick[i])
 		}
 
 		_, err := masterConn.WriteTo(message, &session.Addr)
