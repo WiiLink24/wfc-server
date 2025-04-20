@@ -16,7 +16,7 @@ const (
 	UpdateUserProfileID     = `UPDATE users SET profile_id = $3 WHERE user_id = $1 AND gsbrcd = $2`
 	UpdateUserNGDeviceID    = `UPDATE users SET ng_device_id = $2 WHERE profile_id = $1`
 	UpdateUserCsnum         = `UPDATE users SET csnum = $2 WHERE profile_id = $1`
-	GetUser                 = `SELECT user_id, gsbrcd, ng_device_id, email, unique_nick, firstname, lastname, has_ban, ban_reason, open_host, last_ingamesn, last_ip_address, csnum, ban_moderator, ban_issued, ban_expires FROM users WHERE profile_id = $1`
+	GetUser                 = `SELECT user_id, gsbrcd, ng_device_id, email, unique_nick, firstname, lastname, has_ban, ban_reason, open_host, last_ingamesn, last_ip_address, csnum, ban_moderator, ban_reason_hidden, ban_issued, ban_expires FROM users WHERE profile_id = $1`
 	ClearProfileQuery       = `DELETE FROM users WHERE profile_id = $1 RETURNING user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn, csnum`
 	DoesUserExist           = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
@@ -46,10 +46,11 @@ type User struct {
 	LastInGameSn       string
 	LastIPAddress      string
 	Csnum              []string
-	// Two fields only used in GetUser query
-	BanModerator string
-	BanIssued    *time.Time
-	BanExpires   *time.Time
+	// Following fields only used in GetUser query
+	BanModerator    string
+	BanReasonHidden string
+	BanIssued       *time.Time
+	BanExpires      *time.Time
 }
 
 var (
@@ -135,7 +136,7 @@ func (user *User) UpdateProfile(pool *pgxpool.Pool, ctx context.Context, data ma
 	}
 }
 
-func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, bool) {
+func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, error) {
 	user := User{}
 	row := pool.QueryRow(ctx, GetUser, profileId)
 
@@ -146,11 +147,12 @@ func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User
 	var lastInGameSn *string
 	var lastIPAddress *string
 	var banModerator *string
+	var banHiddenReason *string
 
-	err := row.Scan(&user.UserId, &user.GsbrCode, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.Restricted, &banReason, &user.OpenHost, &lastInGameSn, &lastIPAddress, &user.Csnum, &banModerator, &user.BanIssued, &user.BanExpires)
+	err := row.Scan(&user.UserId, &user.GsbrCode, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.Restricted, &banReason, &user.OpenHost, &lastInGameSn, &lastIPAddress, &user.Csnum, &banModerator, &banHiddenReason, &user.BanIssued, &user.BanExpires)
 
 	if err != nil {
-		return User{}, false
+		return User{}, err
 	}
 
 	user.ProfileId = profileId
@@ -179,7 +181,11 @@ func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User
 		user.BanModerator = *banModerator
 	}
 
-	return user, true
+	if banHiddenReason != nil {
+		user.BanReasonHidden = *banHiddenReason
+	}
+
+	return user, nil
 }
 
 func ClearProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, bool) {

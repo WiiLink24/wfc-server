@@ -63,14 +63,23 @@ func handlePinfoImpl(r *http.Request) (*database.User, int, error) {
 		return nil, http.StatusBadRequest, ErrRequestBody
 	}
 
-	realUser, success := database.GetProfile(pool, ctx, req.ProfileID)
-	var ret *database.User
-
-	if !success {
-		return &database.User{}, http.StatusInternalServerError, ErrUserQuery
+	goodSecret := false
+	if apiSecret != "" && req.Secret == apiSecret {
+		goodSecret = true
 	}
 
-	if apiSecret == "" || req.Secret != apiSecret {
+	realUser, err := database.GetProfile(pool, ctx, req.ProfileID)
+	var ret *database.User
+
+	if err != nil {
+		if !goodSecret {
+			err = ErrUserQuery
+		}
+
+		return &database.User{}, http.StatusInternalServerError, err
+	}
+
+	if !goodSecret {
 		// Invalid secret, only report normal user info
 		ret = &database.User{
 			ProfileId:    realUser.ProfileId,

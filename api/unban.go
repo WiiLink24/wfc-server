@@ -74,9 +74,9 @@ func handleUnbanImpl(r *http.Request) (*database.User, int, error) {
 		return nil, http.StatusInternalServerError, ErrTransaction
 	}
 
-	user, success := database.GetProfile(pool, ctx, req.ProfileID)
+	user, err := database.GetProfile(pool, ctx, req.ProfileID)
 
-	if !success {
+	if err != nil {
 		return nil, http.StatusInternalServerError, ErrUserQueryTransaction
 	}
 

@@ -106,9 +106,9 @@ func handleBanImpl(r *http.Request) (*database.User, int, error) {
 
 	gpcm.KickPlayerCustomMessage(req.ProfileID, req.Reason, gpcm.WWFCMsgProfileRestrictedCustom)
 
-	user, success := database.GetProfile(pool, ctx, req.ProfileID)
+	user, err := database.GetProfile(pool, ctx, req.ProfileID)
 
-	if !success {
+	if err != nil {
 		return nil, http.StatusInternalServerError, ErrUserQueryTransaction
 	}
 
