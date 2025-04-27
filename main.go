@@ -72,6 +72,12 @@ type RPCPacket struct {
 
 // backendMain starts all the servers and creates an RPC server to communicate with the frontend
 func backendMain(noSignal, noReload bool) {
+	err := os.Mkdir("state", 0755)
+	if err != nil && !os.IsExist(err) {
+		logging.Error("BACKEN", err)
+		os.Exit(1)
+	}
+
 	sigExit := make(chan os.Signal, 1)
 	signal.Notify(sigExit, syscall.SIGINT, syscall.SIGTERM)
 
