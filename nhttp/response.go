@@ -63,7 +63,7 @@ func (w *response) sendExpectationFailed() {
 }
 
 func (w *response) finishRequest() {
-	w.handlerDone.setTrue()
+	w.handlerDone.SetTrue()
 
 	if !w.wroteHeader {
 		w.WriteHeader(_http.StatusOK)
@@ -107,9 +107,9 @@ func (w *response) WriteHeader(code int) {
 	// Handle informational headers
 	if code >= 100 && code <= 199 {
 		// Prevent a potential race with an automatically-sent 100 Continue triggered by Request.Body.Read()
-		if code == 100 && w.canWriteContinue.isSet() {
+		if code == 100 && w.canWriteContinue.IsSet() {
 			w.writeContinueMu.Lock()
-			w.canWriteContinue.setFalse()
+			w.canWriteContinue.SetFalse()
 			w.writeContinueMu.Unlock()
 		}
 
@@ -207,13 +207,13 @@ func (w *response) WriteString(data string) (n int, err error) {
 
 // either dataB or dataS is non-zero.
 func (w *response) write(lenData int, dataB []byte, dataS string) (n int, err error) {
-	if w.canWriteContinue.isSet() {
+	if w.canWriteContinue.IsSet() {
 		// Body reader wants to write 100 Continue but hasn't yet.
 		// Tell it not to. The store must be done while holding the lock
 		// because the lock makes sure that there is not an active write
 		// this very moment.
 		w.writeContinueMu.Lock()
-		w.canWriteContinue.setFalse()
+		w.canWriteContinue.SetFalse()
 		w.writeContinueMu.Unlock()
 	}
 

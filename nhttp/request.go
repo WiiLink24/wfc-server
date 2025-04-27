@@ -218,7 +218,7 @@ type response struct {
 	// These two fields together synchronize the body reader
 	// (the expectContinueReader, which wants to write 100 Continue)
 	// against the main writer.
-	canWriteContinue atomicBool
+	canWriteContinue AtomicBool
 	writeContinueMu  sync.Mutex
 
 	w  *bufio.Writer // buffers output in chunks to chunkWriter
@@ -256,7 +256,7 @@ type response struct {
 	// written.
 	trailers []string
 
-	handlerDone atomicBool // set true when the handler exits
+	handlerDone AtomicBool // set true when the handler exits
 
 	// Buffers for Date, Content-Length, and status code
 	dateBuf   [len(TimeFormat)]byte
