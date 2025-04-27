@@ -34,6 +34,8 @@ type Group struct {
 var groups = map[string]*Group{}
 
 func processResvOK(moduleName string, matchVersion int, reservation common.MatchCommandDataReservation, resvOK common.MatchCommandDataResvOK, sender, destination *Session) bool {
+	// Already under global mutex lock from the caller
+
 	if len(groups) >= 100000 {
 		logging.Error(moduleName, "Hit arbitrary global maximum group count (somehow)")
 		return false
@@ -119,6 +121,8 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 }
 
 func processTellAddr(moduleName string, sender *Session, destination *Session) {
+	// Already under global mutex lock from the caller
+	
 	if sender.groupPointer != nil && sender.groupPointer == destination.groupPointer {
 		// Just assume the connection is successful if TELL_ADDR is used
 		sender.Data["+conn_"+destination.Data["+joinindex"]] = "2"
@@ -244,6 +248,8 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 }
 
 func checkReservationAllowed(moduleName string, sender, destination *Session, joinType byte) string {
+	// Already under global mutex lock from the caller
+	
 	if sender.login == nil || destination.login == nil {
 		return ""
 	}
@@ -421,6 +427,13 @@ func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
+	// Recheck session after we may have spent time processing
+	session = login.session
+	if session == nil {
+		logging.Warn(moduleName, "Session no longer exists after processing Mii data")
+		return
+	}
+
 	for i, name := range miiName {
 		session.Data["+mii"+strconv.Itoa(i)] = miiData[i]
 		session.Data["+mii_name"+strconv.Itoa(i)] = name
@@ -477,30 +490,43 @@ func ProcessMKWSelectRecord(profileId uint32, key string, value string) {
 	session := login.session
 	if session == nil {
 		mutex.Unlock()
-		logging.Warn(moduleName, "Received SELECT record  from profile ID", aurora.Cyan(profileId), "but no session exists")
+		logging.Warn(moduleName, "Received SELECT record from profile ID", aurora.Cyan(profileId), "but no session exists")
 		return
 	}
-	mutex.Unlock()
 
 	group := session.groupPointer
 	if group == nil {
+		mutex.Unlock()
 		return
 	}
 
 	keyColored := aurora.BrightCyan(key).String()
-
+	
+	// Release mutex while parsing to avoid holding it during potentially slow operations
+	mutex.Unlock()
+	
+	var courseId uint64
+	var ccId uint64
+	var err error
+	
 	switch key {
 	case "wl:mkw_select_course":
-		courseId, err := strconv.ParseUint(value, 10, 32)
+		courseId, err = strconv.ParseUint(value, 10, 32)
 		if err != nil {
 			logging.Error(moduleName, "Error decoding", keyColored+":", err.Error())
 			return
 		}
 
 		logging.Info(moduleName, "Selected course", aurora.BrightCyan(strconv.FormatUint(courseId, 10)))
-
+		
+		// Reacquire mutex for updating group data
 		mutex.Lock()
 		defer mutex.Unlock()
+		
+		// Verify group still exists
+		if session.groupPointer != group {
+			return
+		}
 
 		group.MKWRaceNumber++
 		group.MKWCourseID = int(courseId)
@@ -508,7 +534,7 @@ func ProcessMKWSelectRecord(profileId uint32, key string, value string) {
 		return
 
 	case "wl:mkw_select_cc":
-		ccId, err := strconv.ParseUint(value, 10, 32)
+		ccId, err = strconv.ParseUint(value, 10, 32)
 		if err != nil {
 			logging.Error(moduleName, "Error decoding", keyColored+":", err.Error())
 			return
@@ -516,13 +542,18 @@ func ProcessMKWSelectRecord(profileId uint32, key string, value string) {
 
 		logging.Info(moduleName, "Selected CC", aurora.BrightCyan(strconv.FormatUint(ccId, 10)))
 
+		// Reacquire mutex for updating group data
 		mutex.Lock()
 		defer mutex.Unlock()
+		
+		// Verify group still exists
+		if session.groupPointer != group {
+			return
+		}
 
 		group.MKWEngineClassID = int(ccId)
 		return
 	}
-
 }
 
 // saveGroups saves the current groups state to disk.

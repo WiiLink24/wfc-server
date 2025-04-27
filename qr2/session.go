@@ -104,15 +104,15 @@ func (session *Session) removeFromGroup() {
 }
 
 // Update session data, creating the session if it doesn't exist. Returns a copy of the session data.
+// The mutex must be acquired by the caller before calling this function.
 func setSessionData(moduleName string, addr net.Addr, sessionId uint32, payload map[string]string) (Session, bool) {
 	newPID, newPIDValid := payload["dwc_pid"]
 	delete(payload, "dwc_pid")
 
 	lookupAddr := makeLookupAddr(addr.String())
-
-	// Moving into performing operations on the session data, so lock the mutex
-	mutex.Lock()
-	defer mutex.Unlock()
+	
+	// NOTE: Mutex is already held by the caller, do not acquire it again here
+	
 	session, sessionExists := sessions[lookupAddr]
 
 	if sessionExists && session.Addr.String() != addr.String() {
@@ -256,6 +256,7 @@ func GetSessionServers() []map[string]string {
 
 	mutex.Lock()
 	defer mutex.Unlock()
+	
 	for sessionAddr, session := range sessions {
 		// If the last keep alive was over a minute ago then consider the server unreachable
 		if session.LastKeepAlive < currentTime-60 {

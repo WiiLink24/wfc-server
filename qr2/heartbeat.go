@@ -67,6 +67,7 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.UDPAddr, buffer 
 
 	lookupAddr := makeLookupAddr(addr.String())
 
+	// Check for session shutdown early, outside any mutex
 	statechanged, ok := payload["statechanged"]
 	if ok && statechanged == "2" {
 		logging.Notice(moduleName, "Client session shutdown")
@@ -76,65 +77,69 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.UDPAddr, buffer 
 		return
 	}
 
-	if ratingError := checkValidRating(moduleName, payload); ratingError != "ok" {
-		mutex.Lock()
-		session, sessionExists := sessions[lookupAddr]
-		if sessionExists && session.login != nil {
-			profileId := session.login.ProfileID
+	// Validate rating before acquiring any locks
+	ratingError := checkValidRating(moduleName, payload)
 
-			mutex.Unlock()
-			gpErrorCallback(profileId, ratingError)
-			return
-		} else {
-			// Else don't return and move on, so we can return an error once logged in
-			mutex.Unlock()
-		}
-	}
-
+	// CRITICAL: handleConnection already has the mutex locked, so we should NOT lock it again
+	// Create or update the session without locking the mutex again
 	session, ok := setSessionData(moduleName, &addr, sessionId, payload)
 	if !ok {
 		return
 	}
 
-	if len(unknowns) > 0 {
-		// Try to login using the first unknown as a profile ID
-		// This makes it possible to execute the exploit on the client sooner
+	// No mutex needed - we're just checking a local variable
+	if ratingError != "ok" {
+		// Only check at this point, after setSessionData, so we have a valid session with login
+		if session.login != nil {
+			profileId := session.login.ProfileID
+			gpErrorCallback(profileId, ratingError)
+			return
+		}
+	}
 
-		mutex.Lock()
-		sessionPtr, sessionExists := sessions[lookupAddr]
-		if !sessionExists {
-			logging.Error(moduleName, "Session not found")
-		} else if sessionPtr.login == nil {
-			profileId := unknowns[0]
-			logging.Info(moduleName, "Attempting to use unknown as profile ID", aurora.Cyan(profileId))
+	// Process unknowns without acquiring mutex recursively
+	if len(unknowns) > 0 && session.login == nil {
+		profileId := unknowns[0]
+		logging.Info(moduleName, "Attempting to use unknown as profile ID", aurora.Cyan(profileId))
+		
+		// We already have the mutex from handleConnection, just use it directly
+		sessionPtr := sessions[lookupAddr]
+		if sessionPtr != nil && sessionPtr.login == nil {
 			sessionPtr.setProfileID(moduleName, profileId, "")
 		}
-		session = *sessionPtr
-		mutex.Unlock()
 	}
 
 	if !session.Authenticated || noIP {
 		sendChallenge(conn, addr, session, lookupAddr)
 	}
 
-	if login := session.login; !session.ExploitReceived && login != nil && session.login.NeedsExploit {
-		// The version of DWC in Mario Kart DS doesn't check matching status
-		if (!noIP && statechanged == "1") || login.GameCode == "AMCE" || login.GameCode == "AMCP" || login.GameCode == "AMCJ" {
-			logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")
-			sendClientExploit(moduleName, session)
+	// Work with exploit sending without acquiring mutex recursively
+	currentSession := sessions[lookupAddr]
+	if currentSession != nil {
+		if !currentSession.ExploitReceived && currentSession.login != nil && currentSession.login.NeedsExploit {
+			// The version of DWC in Mario Kart DS doesn't check matching status
+			if (!noIP && statechanged == "1") || 
+			   currentSession.login.GameCode == "AMCE" || 
+			   currentSession.login.GameCode == "AMCP" || 
+			   currentSession.login.GameCode == "AMCJ" {
+				sessionCopy := *currentSession
+				
+				// Temporarily release mutex during the exploit send
+				mutex.Unlock()
+				logging.Notice(moduleName, "Sending SBCM exploit to DNS patcher client")
+				sendClientExploit(moduleName, sessionCopy)
+				mutex.Lock()
+			}
+		} else if currentSession.groupPointer != nil {
+			// Update the group server if needed
+			if currentSession.groupPointer.server == nil {
+				currentSession.groupPointer.findNewServer()
+			} else {
+				// Update the match type if needed
+				currentSession.groupPointer.updateMatchType()
+			}
 		}
 	}
-
-	mutex.Lock()
-	if session.groupPointer != nil {
-		if session.groupPointer.server == nil {
-			session.groupPointer.findNewServer()
-		} else {
-			// Update the match type if needed
-			session.groupPointer.updateMatchType()
-		}
-	}
-	mutex.Unlock()
 }
 
 func checkValidRating(moduleName string, payload map[string]string) string {

@@ -48,26 +48,31 @@ func StartServer(reload bool) {
 	inShutdown = false
 
 	if reload {
+		// Load state - ensure mutex acquired only once for all operations
+		mutex.Lock()
+		
 		err := loadSessions()
 		if err != nil {
+			mutex.Unlock()
 			panic(err)
 		}
-
 		logging.Notice("QR2", "Loaded", aurora.Cyan(len(sessions)), "sessions")
 
 		err = loadLogins()
 		if err != nil {
+			mutex.Unlock()
 			panic(err)
 		}
-
 		logging.Notice("QR2", "Loaded", aurora.Cyan(len(logins)), "logins")
 
 		err = loadGroups()
 		if err != nil {
+			mutex.Unlock()
 			panic(err)
 		}
-
 		logging.Notice("QR2", "Loaded", aurora.Cyan(len(groups)), "groups")
+		
+		mutex.Unlock()
 	}
 
 	waitGroup.Add(1)
@@ -92,7 +97,7 @@ func StartServer(reload bool) {
 
 			waitGroup.Add(1)
 
-			go handleConnection(conn, *addr.(*net.UDPAddr), buf)
+			go handleConnection(conn, *addr.(*net.UDPAddr), buf[:n])
 		}
 	}()
 }
@@ -102,6 +107,7 @@ func Shutdown() {
 	masterConn.Close()
 	waitGroup.Wait()
 
+	// Lock mutex only once for all operations
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -109,21 +115,18 @@ func Shutdown() {
 	if err != nil {
 		logging.Error("QR2", "Failed to save sessions:", err)
 	}
-
 	logging.Notice("QR2", "Saved", aurora.Cyan(len(sessions)), "sessions")
 
 	err = saveLogins()
 	if err != nil {
 		logging.Error("QR2", "Failed to save logins:", err)
 	}
-
 	logging.Notice("QR2", "Saved", aurora.Cyan(len(logins)), "logins")
 
 	err = saveGroups()
 	if err != nil {
 		logging.Error("QR2", "Failed to save groups:", err)
 	}
-
 	logging.Notice("QR2", "Saved", aurora.Cyan(len(groups)), "groups")
 }
 
@@ -132,22 +135,37 @@ func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
 
 	packetType := buffer[0]
 	moduleName := "QR2:" + addr.String()
+	
+	// Handle special packet types that don't need locking first
+	if packetType == AvailableRequest {
+		logging.Info("QR2", "Command:", aurora.Yellow("AVAILABLE"))
+		conn.WriteTo(createResponseHeader(AvailableRequest, 0), &addr)
+		return
+	}
+	
+	if packetType == HeartbeatRequest {
+		// heartbeat handles its own locking
+		heartbeat(moduleName, conn, addr, buffer)
+		return
+	}
+
+	// For all other packet types, acquire the mutex
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	var session *Session
-	if packetType != HeartbeatRequest && packetType != AvailableRequest {
-		mutex.Lock()
-
-		var ok bool
-		session, ok = sessions[makeLookupAddr(addr.String())]
+	lookupAddr := makeLookupAddr(addr.String())
+	var ok bool
+	
+	// Don't check for session for KeepAlive requests as they can come before a session is established
+	if packetType != KeepAliveRequest {
+		session, ok = sessions[lookupAddr]
 		if !ok {
-			mutex.Unlock()
 			logging.Error(moduleName, "Cannot find session for this IP address")
 			return
 		}
 
 		session.SessionID = binary.BigEndian.Uint32(buffer[1:5])
-
-		mutex.Unlock()
 	}
 
 	switch packetType {
@@ -156,24 +174,23 @@ func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
 
 	case ChallengeRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("CHALLENGE"))
-
-		mutex.Lock()
+		
 		if session.Challenge != "" {
 			// TODO: Verify the challenge
 			session.Authenticated = true
+			
+			// Store session ID before releasing mutex for writeTo
+			sessionID := session.SessionID
 			mutex.Unlock()
 
-			conn.WriteTo(createResponseHeader(ClientRegisteredReply, session.SessionID), &addr)
-		} else {
-			mutex.Unlock()
+			conn.WriteTo(createResponseHeader(ClientRegisteredReply, sessionID), &addr)
+			
+			// Re-acquire mutex afterward since this function has a deferred unlock
+			mutex.Lock()
 		}
 
 	case EchoRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("ECHO"))
-
-	case HeartbeatRequest:
-		// logging.Info(moduleName, "Command:", aurora.Yellow("HEARTBEAT"))
-		heartbeat(moduleName, conn, addr, buffer)
 
 	case AddErrorRequest:
 		logging.Info(moduleName, "Command:", aurora.Yellow("ADDERROR"))
@@ -187,7 +204,7 @@ func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
 
 	case ClientMessageAckRequest:
 		// logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_MESSAGE_ACK"))
-
+		
 		// In case ClientExploitReply is lost, this can be checked as well
 		// This would be sent either after the payload is downloaded, or the client is already patched
 		session.ExploitReceived = true
@@ -195,19 +212,28 @@ func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
 			login.NeedsExploit = false
 		}
 
-		session.messageAckWaker.Assert()
+		// Wake up any waiting threads
+		ackWaker := session.messageAckWaker
+		mutex.Unlock()
+		
+		ackWaker.Assert()
+		
+		// Re-acquire mutex for deferred unlock
+		mutex.Lock()
 		return
 
 	case KeepAliveRequest:
 		// logging.Info(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
+		
+		// Temporarily release mutex for network I/O
+		mutex.Unlock()
 		conn.WriteTo(createResponseHeader(KeepAliveRequest, 0), &addr)
+		mutex.Lock()
 
-		session.LastKeepAlive = time.Now().Unix()
-		return
-
-	case AvailableRequest:
-		logging.Info("QR2", "Command:", aurora.Yellow("AVAILABLE"))
-		conn.WriteTo(createResponseHeader(AvailableRequest, 0), &addr)
+		session, ok = sessions[lookupAddr]
+		if ok {
+			session.LastKeepAlive = time.Now().Unix()
+		}
 		return
 
 	case ClientRegisteredReply:
@@ -215,7 +241,7 @@ func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
 
 	case ClientExploitReply:
 		logging.Info(moduleName, "Command:", aurora.Yellow("CLIENT_EXPLOIT_ACK"))
-
+		
 		session.ExploitReceived = true
 		if login := session.login; login != nil {
 			login.NeedsExploit = false
