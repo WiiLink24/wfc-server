@@ -1,54 +1,11 @@
 package api
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
-	"strconv"
 	"wwfc/gpcm"
 )
 
-func HandleMotd(w http.ResponseWriter, r *http.Request) {
-	var motd string
-	var statusCode int
-	var err error
-
-	if r.Method == http.MethodPost {
-		statusCode, err = handleMotdImpl(r)
-	} else if r.Method == http.MethodGet {
-		_motd, motdErr := gpcm.GetMessageOfTheDay()
-		if motdErr != nil {
-			err = motdErr
-			statusCode = http.StatusInternalServerError
-		} else {
-			motd = _motd
-			statusCode = http.StatusOK
-		}
-	} else if r.Method == http.MethodOptions {
-		statusCode = http.StatusNoContent
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	} else {
-		err = ErrPostGetOnly
-		statusCode = http.StatusMethodNotAllowed
-		w.Header().Set("Allow", "POST, GET")
-	}
-
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	var jsonData []byte
-
-	if statusCode != http.StatusNoContent {
-		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ = json.Marshal(MotdResponse{motd, err == nil, resolveError(err)})
-	}
-
-	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-	w.WriteHeader(statusCode)
-	w.Write(jsonData)
-}
-
-type MotdRequestSpec struct {
+type MotdRequest struct {
 	Secret string `json:"secret"`
 	Motd   string `json:"motd"`
 }
@@ -59,28 +16,35 @@ type MotdResponse struct {
 	Error   string
 }
 
-func handleMotdImpl(r *http.Request) (int, error) {
-	// TODO: Actual authentication rather than a fixed secret
+var MotdRoute = MakeRouteSpec[MotdRequest, MotdResponse](
+	false,
+	"/api/motd",
+	HandleMotd,
+	http.MethodPost,
+	http.MethodGet,
+)
 
-	body, err := io.ReadAll(r.Body)
+func HandleMotd(req any, v bool, r *http.Request) (any, int, error) {
+	code := http.StatusOK
+	var err error
+
+	_req := req.(MotdRequest)
+	res := MotdResponse{}
+
+	if r.Method == http.MethodPost {
+		if !v {
+			return res, http.StatusForbidden, ErrInvalidSecret
+		}
+
+		err = gpcm.SetMessageOfTheDay(_req.Motd)
+		res.Motd = _req.Motd
+	} else if r.Method == http.MethodGet {
+		res.Motd, err = gpcm.GetMessageOfTheDay()
+	}
+
 	if err != nil {
-		return http.StatusBadRequest, ErrRequestBody
+		code = http.StatusInternalServerError
 	}
 
-	var req MotdRequestSpec
-	err = json.Unmarshal(body, &req)
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
-
-	if apiSecret == "" || req.Secret != apiSecret {
-		return http.StatusUnauthorized, ErrInvalidSecret
-	}
-
-	err = gpcm.SetMessageOfTheDay(req.Motd)
-	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-
-	return http.StatusOK, nil
+	return res, code, err
 }

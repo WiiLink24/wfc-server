@@ -1,54 +1,13 @@
 package api
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
-	"strconv"
 	"time"
 	"wwfc/database"
 	"wwfc/gpcm"
-	"wwfc/logging"
-
-	"github.com/logrusorgru/aurora/v3"
 )
 
-func HandleBan(w http.ResponseWriter, r *http.Request) {
-	var user *database.User
-	var statusCode int
-	var err error
-
-	if r.Method == http.MethodPost {
-		user, statusCode, err = handleBanImpl(r)
-	} else if r.Method == http.MethodOptions {
-		statusCode = http.StatusNoContent
-		w.Header().Set("Access-Control-Allow-Methods", "POST")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	} else {
-		err = ErrPostOnly
-		statusCode = http.StatusMethodNotAllowed
-		w.Header().Set("Allow", "POST")
-	}
-
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	if user == nil {
-		user = &database.User{}
-	}
-
-	var jsonData []byte
-
-	if statusCode != http.StatusNoContent {
-		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ = json.Marshal(UserActionResponse{*user, err == nil, resolveError(err)})
-	}
-
-	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-	w.WriteHeader(statusCode)
-	w.Write(jsonData)
-}
-
-type BanRequestSpec struct {
+type BanRequest struct {
 	Secret       string `json:"secret"`
 	ProfileID    uint32 `json:"pid"`
 	Days         uint64 `json:"days"`
@@ -60,24 +19,16 @@ type BanRequestSpec struct {
 	Moderator    string `json:"moderator"`
 }
 
-func handleBanImpl(r *http.Request) (*database.User, int, error) {
-	// TODO: Actual authentication rather than a fixed secret
+var BanRoute = MakeRouteSpec[BanRequest, UserActionResponse](
+	true,
+	"/api/ban",
+	func(req any, v bool, _ *http.Request) (any, int, error) {
+		return handleUserAction(req.(BanRequest), v, handleBanImpl)
+	},
+	http.MethodPost,
+)
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, http.StatusBadRequest, ErrRequestBody
-	}
-
-	var req BanRequestSpec
-	err = json.Unmarshal(body, &req)
-	if err != nil {
-		return nil, http.StatusBadRequest, err
-	}
-
-	if apiSecret == "" || req.Secret != apiSecret {
-		return nil, http.StatusUnauthorized, ErrInvalidSecret
-	}
-
+func handleBanImpl(req BanRequest, _ bool) (*database.User, int, error) {
 	if req.ProfileID == 0 {
 		return nil, http.StatusBadRequest, ErrPIDMissing
 	}
@@ -97,8 +48,6 @@ func handleBanImpl(r *http.Request) (*database.User, int, error) {
 	}
 
 	length := time.Duration(minutes) * time.Minute
-
-	logging.Notice("API:"+moderator, "Ban profile:", aurora.Cyan(req.ProfileID), "TOS:", aurora.Cyan(req.Tos), "Length:", aurora.Cyan(length), "Reason:", aurora.BrightCyan(req.Reason), "Reason (Hidden):", aurora.BrightCyan(req.ReasonHidden))
 
 	if !database.BanUser(pool, ctx, req.ProfileID, req.Tos, length, req.Reason, req.ReasonHidden, moderator) {
 		return nil, http.StatusInternalServerError, ErrTransaction

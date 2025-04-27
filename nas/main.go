@@ -150,51 +150,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for /api/ban
-	if r.URL.Path == "/api/ban" {
-		api.HandleBan(w, r)
-		return
-	}
-
-	// Check for /api/unban
-	if r.URL.Path == "/api/unban" {
-		api.HandleUnban(w, r)
-		return
-	}
-
-	// Check for /api/kick
-	if r.URL.Path == "/api/kick" {
-		api.HandleKick(w, r)
-		return
-	}
-
-	if r.URL.Path == "/api/motd" {
-		api.HandleMotd(w, r)
-		return
-	}
-
-	if r.URL.Path == "/api/clear" {
-		api.HandleClear(w, r)
-		return
-	}
-
-	if r.URL.Path == "/api/set_hash" {
-		api.HandleSetHash(w, r)
-		return
-	}
-
-	if r.URL.Path == "/api/get_hash" {
-		api.HandleGetHash(w, r)
-		return
-	}
-
-	if r.URL.Path == "/api/remove_hash" {
-		api.HandleRemoveHash(w, r)
-		return
-	}
-
-	if r.URL.Path == "/api/pinfo" {
-		api.HandlePinfo(w, r)
+	if api.HandleRequest(r.URL.Path, w, r) {
 		return
 	}
 

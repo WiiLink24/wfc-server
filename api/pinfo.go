@@ -1,85 +1,38 @@
 package api
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
-	"strconv"
 	"time"
 	"wwfc/database"
 )
 
-func HandlePinfo(w http.ResponseWriter, r *http.Request) {
-	var user *database.User
-	var statusCode int
-	var err error
-
-	if r.Method == http.MethodPost {
-		user, statusCode, err = handlePinfoImpl(r)
-	} else if r.Method == http.MethodOptions {
-		statusCode = http.StatusNoContent
-		w.Header().Set("Access-Control-Allow-Methods", "POST")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	} else {
-		err = ErrPostOnly
-		statusCode = http.StatusMethodNotAllowed
-		w.Header().Set("Allow", "POST")
-	}
-
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	if user == nil {
-		user = &database.User{}
-	}
-
-	var jsonData []byte
-
-	if statusCode != http.StatusNoContent {
-		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ = json.Marshal(UserActionResponse{*user, err == nil, resolveError(err)})
-	}
-
-	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-	w.WriteHeader(statusCode)
-	w.Write(jsonData)
-}
-
-type PinfoRequestSpec struct {
+type PinfoRequest struct {
 	Secret    string `json:"secret"`
 	ProfileID uint32 `json:"pid"`
 }
 
-func handlePinfoImpl(r *http.Request) (*database.User, int, error) {
-	// TODO: Actual authentication rather than a fixed secret
+var PinfoRoute = MakeRouteSpec[PinfoRequest, UserActionResponse](
+	false,
+	"/api/pinfo",
+	func(req any, v bool, _ *http.Request) (any, int, error) {
+		return handleUserAction(req.(PinfoRequest), v, handlePinfoImpl)
+	},
+	http.MethodPost,
+)
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, http.StatusBadRequest, ErrRequestBody
-	}
-
-	var req PinfoRequestSpec
-	err = json.Unmarshal(body, &req)
-	if err != nil {
-		return nil, http.StatusBadRequest, ErrRequestBody
-	}
-
-	goodSecret := false
-	if apiSecret != "" && req.Secret == apiSecret {
-		goodSecret = true
-	}
-
+func handlePinfoImpl(req PinfoRequest, validSecret bool) (*database.User, int, error) {
 	realUser, err := database.GetProfile(pool, ctx, req.ProfileID)
 	var ret *database.User
 
 	if err != nil {
-		if !goodSecret {
+		if !validSecret {
 			err = ErrUserQuery
 		}
 
 		return &database.User{}, http.StatusInternalServerError, err
 	}
 
-	if !goodSecret {
+	if !validSecret {
 		// Invalid secret, only report normal user info
 		ret = &database.User{
 			ProfileId:    realUser.ProfileId,
