@@ -9,7 +9,12 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 )
 
-func (session *NATNEGSession) handleReport(conn net.PacketConn, addr net.Addr, buffer []byte, _ string, version byte) {
+func (session *NATNEGSession) handleReport(conn net.PacketConn, addr net.Addr, buffer []byte, _moduleName string, version byte) {
+	if len(buffer) < 2 {
+		logging.Error(_moduleName, "Invalid packet size")
+		return
+	}
+
 	response := createPacketHeader(version, NNReportReply, session.Cookie)
 	response = append(response, buffer[:9]...)
 	response[14] = 0
