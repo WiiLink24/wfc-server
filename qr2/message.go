@@ -36,6 +36,7 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	var receiver *Session
 
 	useSearchID := destSearchID < (1 << 24)
+	mutex.Lock()
 	if useSearchID {
 		receiver = sessionBySearchID[destSearchID]
 	} else {
@@ -44,17 +45,22 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 	}
 
 	if receiver == nil || !receiver.Authenticated {
+		mutex.Unlock()
 		logging.Error(moduleName, "Destination", aurora.Cyan(destSearchID), "does not exist")
 		return
 	}
 
 	if destPid, ok := receiver.Data["dwc_pid"]; !ok || destPid == "" {
+		mutex.Unlock()
 		logging.Error(moduleName, "Destination", aurora.Cyan(destSearchID), "has no profile ID")
 		return
 	}
+	mutex.Unlock()
 
-	if receiver.login == nil || !receiver.login.DeviceAuthenticated {
+	login := receiver.login
+	if login == nil || !login.DeviceAuthenticated {
 		logging.Error(moduleName, "Destination", aurora.Cyan(destSearchID), "is not device authenticated")
+		return
 	}
 
 	// Decode and validate the message
@@ -93,7 +99,9 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 		qr2IP := binary.BigEndian.Uint32(message[0x0C:0x10])
 		qr2Port := binary.LittleEndian.Uint16(message[0x0A:0x0C])
 
+		mutex.Lock()
 		sender = sessions[(uint64(qr2Port)<<32)|uint64(qr2IP)]
+		mutex.Unlock()
 		if sender == nil || !sender.Authenticated {
 			logging.Error(moduleName, "Session does not exist with QR2 IP and port")
 			return
@@ -104,7 +112,8 @@ func SendClientMessage(senderIP string, destSearchID uint64, message []byte) {
 			return
 		}
 
-		if sender.login == nil || !sender.login.DeviceAuthenticated {
+		login := sender.login
+		if login == nil || !login.DeviceAuthenticated {
 			logging.Error(moduleName, "Sender is not device authenticated")
 			return
 		}
