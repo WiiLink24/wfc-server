@@ -70,7 +70,7 @@ func (g *GameStatsSession) authp(command common.GameSpyCommand) {
 		return
 	}
 
-	currentTime := time.Now()
+	currentTime := time.Now().UTC()
 	if issueTime.Before(currentTime.Add(-10*time.Minute)) || issueTime.After(currentTime) {
 		logging.Error(g.ModuleName, "Authtoken has expired")
 		g.Write(errorCmd)

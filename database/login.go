@@ -172,7 +172,7 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 	var bannedDeviceIdList []uint32
 	var banReason string
 
-	timeNow := time.Now()
+	timeNow := time.Now().UTC()
 	err = pool.QueryRow(ctx, SearchUserBan, user.NgDeviceId, user.ProfileId, ipAddress, *lastIPAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceIdList, &banReason)
 
 	if err != nil {
