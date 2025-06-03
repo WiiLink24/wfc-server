@@ -44,7 +44,7 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 		group = &Group{
 			GroupID:       resvOK.GroupID,
 			GroupName:     "",
-			CreateTime:    time.Now(),
+			CreateTime:    time.Now().UTC(),
 			GameName:      sender.Data["gamename"],
 			MatchType:     sender.Data["dwc_mtype"],
 			MKWRegion:     "",

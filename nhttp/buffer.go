@@ -415,7 +415,7 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 	}
 
 	//if !header.has("Date") {
-	setHeader.date = appendTime(cw.res.dateBuf[:0], time.Now())
+	setHeader.date = appendTime(cw.res.dateBuf[:0], time.Now().UTC())
 	//}
 
 	if hasCL && hasTE && te != "identity" {

@@ -54,7 +54,7 @@ func sendChallenge(conn net.PacketConn, addr net.UDPAddr, session Session, looku
 
 			mutex.Lock()
 			session, ok := sessions[lookupAddr]
-			if !ok || session.Authenticated || session.LastKeepAlive < time.Now().Unix()-60 {
+			if !ok || session.Authenticated || session.LastKeepAlive < time.Now().UTC().Unix()-60 {
 				mutex.Unlock()
 				return
 			}
