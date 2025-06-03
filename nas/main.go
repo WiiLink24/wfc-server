@@ -3,6 +3,7 @@ package nas
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -20,8 +21,9 @@ import (
 )
 
 var (
-	serverName string
-	server     *nhttp.Server
+	serverName           string
+	server               *nhttp.Server
+	payloadServerAddress string
 )
 
 func StartServer(reload bool) {
@@ -31,6 +33,8 @@ func StartServer(reload bool) {
 	serverName = config.ServerName
 
 	address := *config.NASAddress + ":" + config.NASPort
+
+	payloadServerAddress = config.PayloadServerAddress
 
 	if config.EnableHTTPS {
 		go startHTTPSProxy(config)
@@ -122,7 +126,12 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	// Check for /payload
 	if strings.HasPrefix(r.URL.String(), "/payload") {
 		logging.Info("NAS", aurora.Yellow(r.Method), aurora.Cyan(r.URL), "via", aurora.Cyan(r.Host), "from", aurora.BrightCyan(r.RemoteAddr))
-		handlePayloadRequest(moduleName, w, r)
+		if payloadServerAddress != "" {
+			// Forward the request to the payload server
+			forwardPayloadRequest(moduleName, w, r)
+		} else {
+			handlePayloadRequest(moduleName, w, r)
+		}
 		return
 	}
 
@@ -206,4 +215,40 @@ func handleNASTest(w http.ResponseWriter) {
 
 	w.WriteHeader(200)
 	w.Write([]byte(response))
+}
+
+func forwardPayloadRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	r.URL.Scheme = "http"
+	r.URL.Host = payloadServerAddress
+	r.RequestURI = ""
+	r.Host = payloadServerAddress
+
+	resp, err := client.Do(r)
+	if err != nil {
+		logging.Error(moduleName, "Error forwarding payload request:", err)
+		replyHTTPError(w, http.StatusBadGateway, "502 Bad Gateway")
+		return
+	}
+	defer resp.Body.Close()
+
+	// Copy the response headers and status code
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+
+	// Copy the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logging.Error(moduleName, "Error reading response body:", err)
+		replyHTTPError(w, http.StatusInternalServerError, "500 Internal Server Error")
+		return
+	}
+	w.Write(body)
 }

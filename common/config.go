@@ -11,12 +11,13 @@ type Config struct {
 	DatabaseAddress string `xml:"databaseAddress"`
 	DatabaseName    string `xml:"databaseName"`
 
-	DefaultAddress  string  `xml:"address"`
-	GameSpyAddress  *string `xml:"gsAddress,omitempty"`
-	NASAddress      *string `xml:"nasAddress,omitempty"`
-	NASPort         string  `xml:"nasPort"`
-	NASAddressHTTPS *string `xml:"nasAddressHttps,omitempty"`
-	NASPortHTTPS    string  `xml:"nasPortHttps"`
+	DefaultAddress       string  `xml:"address"`
+	GameSpyAddress       *string `xml:"gsAddress,omitempty"`
+	NASAddress           *string `xml:"nasAddress,omitempty"`
+	NASPort              string  `xml:"nasPort"`
+	NASAddressHTTPS      *string `xml:"nasAddressHttps,omitempty"`
+	NASPortHTTPS         string  `xml:"nasPortHttps"`
+	PayloadServerAddress string  `xml:"payloadServerAddress"`
 
 	FrontendAddress        string `xml:"frontendAddress"`
 	FrontendBackendAddress string `xml:"frontendBackendAddress"`
