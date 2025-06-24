@@ -480,7 +480,7 @@ func (c *conn) serve(ctx context.Context) {
 			if req.ProtoAtLeast(1, 1) && req.ContentLength != 0 {
 				// Wrap the Body reader with one that replies on the connection
 				req.Body = &expectContinueReader{readCloser: req.Body, resp: w}
-				w.canWriteContinue.setTrue()
+				w.canWriteContinue.SetTrue()
 			}
 		} else if req.Header.Get("Expect") != "" {
 			w.sendExpectationFailed()

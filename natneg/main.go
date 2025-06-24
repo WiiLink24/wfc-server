@@ -11,6 +11,7 @@ import (
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
+	"wwfc/nhttp"
 
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -82,7 +83,7 @@ var (
 	mutex      = sync.RWMutex{}
 	natnegConn net.PacketConn
 
-	inShutdown = false
+	inShutdown nhttp.AtomicBool
 	waitGroup  = sync.WaitGroup{}
 )
 
@@ -97,7 +98,7 @@ func StartServer(reload bool) {
 	}
 
 	natnegConn = conn
-	inShutdown = false
+	inShutdown.SetFalse()
 
 	if reload {
 		// Load state
@@ -135,7 +136,7 @@ func StartServer(reload bool) {
 		logging.Notice("NATNEG", "Listening on", aurora.BrightCyan(address))
 
 		for {
-			if inShutdown {
+			if inShutdown.IsSet() {
 				return
 			}
 
@@ -153,7 +154,7 @@ func StartServer(reload bool) {
 }
 
 func Shutdown() {
-	inShutdown = true
+	inShutdown.SetTrue()
 	natnegConn.Close()
 	waitGroup.Wait()
 
@@ -295,7 +296,7 @@ func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
 
 func closeSession(moduleName string, session *NATNEGSession) {
 	mutex.Lock()
-	if inShutdown {
+	if inShutdown.IsSet() {
 		mutex.Unlock()
 		return
 	}

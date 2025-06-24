@@ -28,11 +28,11 @@ func (noBody) Read([]byte) (int, error)         { return 0, io.EOF }
 func (noBody) Close() error                     { return nil }
 func (noBody) WriteTo(io.Writer) (int64, error) { return 0, nil }
 
-type atomicBool int32
+type AtomicBool int32
 
-func (b *atomicBool) isSet() bool { return atomic.LoadInt32((*int32)(b)) != 0 }
-func (b *atomicBool) setTrue()    { atomic.StoreInt32((*int32)(b), 1) }
-func (b *atomicBool) setFalse()   { atomic.StoreInt32((*int32)(b), 0) }
+func (b *AtomicBool) IsSet() bool { return atomic.LoadInt32((*int32)(b)) != 0 }
+func (b *AtomicBool) SetTrue()    { atomic.StoreInt32((*int32)(b), 1) }
+func (b *AtomicBool) SetFalse()   { atomic.StoreInt32((*int32)(b), 0) }
 
 var textprotoReaderPool sync.Pool
 
@@ -180,34 +180,34 @@ func (cw *chunkWriter) close() {
 type expectContinueReader struct {
 	resp       *response
 	readCloser io.ReadCloser
-	closed     atomicBool
-	sawEOF     atomicBool
+	closed     AtomicBool
+	sawEOF     AtomicBool
 }
 
 func (ecr *expectContinueReader) Read(p []byte) (n int, err error) {
-	if ecr.closed.isSet() {
+	if ecr.closed.IsSet() {
 		return 0, errors.New("nhttp: invalid Read on closed Body")
 	}
 	w := ecr.resp
-	if !w.wroteContinue && w.canWriteContinue.isSet() {
+	if !w.wroteContinue && w.canWriteContinue.IsSet() {
 		w.wroteContinue = true
 		w.writeContinueMu.Lock()
-		if w.canWriteContinue.isSet() {
+		if w.canWriteContinue.IsSet() {
 			w.conn.bufw.WriteString("HTTP/1.1 100 Continue\r\n\r\n")
 			w.conn.bufw.Flush()
-			w.canWriteContinue.setFalse()
+			w.canWriteContinue.SetFalse()
 		}
 		w.writeContinueMu.Unlock()
 	}
 	n, err = ecr.readCloser.Read(p)
 	if err == io.EOF {
-		ecr.sawEOF.setTrue()
+		ecr.sawEOF.SetTrue()
 	}
 	return
 }
 
 func (ecr *expectContinueReader) Close() error {
-	ecr.closed.setTrue()
+	ecr.closed.SetTrue()
 	return ecr.readCloser.Close()
 }
 
@@ -288,7 +288,7 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 	// send a Content-Length header.
 	// Further, we don't send an automatic Content-Length if they
 	// set a Transfer-Encoding, because they're generally incompatible.
-	if w.handlerDone.isSet() && !trailers && !hasTE && bodyAllowedForStatus(w.status) && header.Get("Content-Length") == "" && (!isHEAD || len(p) > 0) {
+	if w.handlerDone.IsSet() && !trailers && !hasTE && bodyAllowedForStatus(w.status) && header.Get("Content-Length") == "" && (!isHEAD || len(p) > 0) {
 		w.contentLength = int64(len(p))
 		setHeader.contentLength = strconv.AppendInt(cw.res.clenBuf[:0], int64(len(p)), 10)
 	}
@@ -330,7 +330,7 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 	// because we don't know if the next bytes on the wire will be
 	// the body-following-the-timer or the subsequent request.
 	// See Issue 11549.
-	if ecr, ok := w.req.Body.(*expectContinueReader); ok && !ecr.sawEOF.isSet() {
+	if ecr, ok := w.req.Body.(*expectContinueReader); ok && !ecr.sawEOF.IsSet() {
 		w.closeAfterReply = true
 	}
 

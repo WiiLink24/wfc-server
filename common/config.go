@@ -3,6 +3,8 @@ package common
 import (
 	"encoding/xml"
 	"os"
+
+	"github.com/sasha-s/go-deadlock"
 )
 
 type Config struct {
@@ -48,10 +50,16 @@ type Config struct {
 	ServerName string `xml:"serverName,omitempty"`
 }
 
-var config Config
-var configLoaded bool
+var (
+	config       Config
+	configLoaded bool
+	cmutex       = deadlock.Mutex{}
+)
 
 func GetConfig() Config {
+	cmutex.Lock()
+	defer cmutex.Unlock()
+
 	if configLoaded {
 		return config
 	}
@@ -127,6 +135,8 @@ func GetConfig() Config {
 	} else if config.AllowMultipleDeviceIDs != "SameIPAddress" {
 		config.AllowMultipleDeviceIDs = "never"
 	}
+
+	configLoaded = true
 
 	return config
 }
