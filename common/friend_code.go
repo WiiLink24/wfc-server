@@ -46,7 +46,7 @@ func crc8(data []byte) byte {
 func getCRCType(gameId string) (crcType byte, reverse bool) {
 	reverse = false
 
-	if strings.HasPrefix(gameId, "RSB") {
+	if strings.HasPrefix(gameId, "RSB") || strings.HasPrefix(gameId, "RPB") {
 		crcType = fcCRC8
 		return
 	}
