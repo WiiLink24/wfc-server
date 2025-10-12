@@ -63,6 +63,15 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			}
 
 			qr2.ProcessMKWSelectRecord(g.User.ProfileId, key, value)
+
+		case "wl:mkw_race_result":
+			if g.GameName != "mariokartwii" {
+				logging.Warn(g.ModuleName, "Ignoring", keyColored, "from wrong game")
+				continue
+			}
+
+			logging.Info(g.ModuleName, "Received race result from profile", aurora.BrightCyan(strconv.FormatUint(uint64(g.User.ProfileId), 10)))
+			logging.Info(g.ModuleName, "Race result payload:", aurora.BrightMagenta(value))
 		}
 	}
 }
