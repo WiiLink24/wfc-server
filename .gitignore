@@ -20,6 +20,8 @@ state
 # Executables
 *.exe
 *.exe~
+wwfc
 
 # Editor files
 .vscode
+.github
