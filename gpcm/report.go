@@ -6,6 +6,7 @@ import (
 	"wwfc/common"
 	"wwfc/logging"
 	"wwfc/qr2"
+
 	"github.com/logrusorgru/aurora/v3"
 )
 
@@ -15,7 +16,6 @@ type RaceResultPlayer struct {
 	FinishTimeMs   *int `json:"finish_time_ms"`
 	CharacterId    *int `json:"character_id"`
 	KartId         *int `json:"kart_id"`
-	ClientRttMs    *float64 `json:"client_rtt_ms"`
 }
 
 type RaceResult struct {
