@@ -11,11 +11,10 @@ import (
 )
 
 type RaceResultPlayer struct {
-	Pid            *int `json:"pid"`
-	FinishPosition *int `json:"finish_position"`
-	FinishTimeMs   *int `json:"finish_time_ms"`
-	CharacterId    *int `json:"character_id"`
-	KartId         *int `json:"kart_id"`
+	Pid          *int `json:"pid"`
+	FinishTimeMs *int `json:"finish_time_ms"`
+	CharacterId  *int `json:"character_id"`
+	KartId       *int `json:"kart_id"`
 }
 
 type RaceResult struct {
@@ -100,7 +99,6 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			logging.Info(g.ModuleName,
 				"Player",
 				"- PID:", aurora.Cyan(strconv.Itoa(*player.Pid)),
-				"Pos:", aurora.Cyan(strconv.Itoa(*player.FinishPosition)),
 				"Time:", aurora.Cyan(strconv.Itoa(*player.FinishTimeMs)), "ms",
 				"Char:", aurora.Cyan(strconv.Itoa(*player.CharacterId)),
 				"Kart:", aurora.Cyan(strconv.Itoa(*player.KartId)))
