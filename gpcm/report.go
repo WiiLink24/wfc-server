@@ -100,12 +100,16 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			logging.Info(g.ModuleName, "Player count:", aurora.Yellow(len(raceResult.Players)))
 
 			for i, player := range raceResult.Players {
-				logging.Info(g.ModuleName, "Player", aurora.Cyan(i), "- PID:", aurora.Cyan(player.Pid),
-					"Pos:", aurora.Cyan(player.FinishPosition),
-					"Time:", aurora.Cyan(player.FinishTimeMs), "ms",
-					"Char:", aurora.Cyan(player.CharacterId),
-					"Kart:", aurora.Cyan(player.KartId))
+				// Force dereference as requested; assume fields are always present
+				logging.Info(g.ModuleName,
+					"Player", aurora.Cyan(i),
+					"- PID:", aurora.Cyan(strconv.Itoa(*player.Pid)),
+					"Pos:", aurora.Cyan(strconv.Itoa(*player.FinishPosition)),
+					"Time:", aurora.Cyan(strconv.Itoa(*player.FinishTimeMs)), "ms",
+					"Char:", aurora.Cyan(strconv.Itoa(*player.CharacterId)),
+					"Kart:", aurora.Cyan(strconv.Itoa(*player.KartId)))
 			}
+			//TODO : Hand off to qr2 for processing instead of logging each field here
 		}
 	}
 }
