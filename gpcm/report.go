@@ -19,9 +19,8 @@ type RaceResultPlayer struct {
 }
 
 type RaceResult struct {
-	ClientReportVersion string             `json:"client_report_version"`
-	TimestampClient     string             `json:"timestamp_client"`
-	Players             []RaceResultPlayer `json:"players"`
+	ClientReportVersion string           `json:"client_report_version"`
+	Player              RaceResultPlayer `json:"player"`
 }
 
 func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
@@ -96,19 +95,15 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			}
 
 			logging.Info(g.ModuleName, "Race result version:", aurora.Yellow(raceResult.ClientReportVersion))
-			logging.Info(g.ModuleName, "Timestamp:", aurora.Yellow(raceResult.TimestampClient))
-			logging.Info(g.ModuleName, "Player count:", aurora.Yellow(len(raceResult.Players)))
 
-			for i, player := range raceResult.Players {
-				// Force dereference as requested; assume fields are always present
-				logging.Info(g.ModuleName,
-					"Player", aurora.Cyan(i),
-					"- PID:", aurora.Cyan(strconv.Itoa(*player.Pid)),
-					"Pos:", aurora.Cyan(strconv.Itoa(*player.FinishPosition)),
-					"Time:", aurora.Cyan(strconv.Itoa(*player.FinishTimeMs)), "ms",
-					"Char:", aurora.Cyan(strconv.Itoa(*player.CharacterId)),
-					"Kart:", aurora.Cyan(strconv.Itoa(*player.KartId)))
-			}
+			player := raceResult.Player
+			logging.Info(g.ModuleName,
+				"Player",
+				"- PID:", aurora.Cyan(strconv.Itoa(*player.Pid)),
+				"Pos:", aurora.Cyan(strconv.Itoa(*player.FinishPosition)),
+				"Time:", aurora.Cyan(strconv.Itoa(*player.FinishTimeMs)), "ms",
+				"Char:", aurora.Cyan(strconv.Itoa(*player.CharacterId)),
+				"Kart:", aurora.Cyan(strconv.Itoa(*player.KartId)))
 			//TODO : Hand off to qr2 for processing instead of logging each field here
 		}
 	}
