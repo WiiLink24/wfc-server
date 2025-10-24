@@ -11,15 +11,15 @@ import (
 )
 
 type RaceResultPlayer struct {
-	Pid          *int `json:"pid"`
-	FinishTimeMs *int `json:"finish_time_ms"`
-	CharacterId  *int `json:"character_id"`
-	KartId       *int `json:"kart_id"`
+	Pid          int `json:"pid"`
+	FinishTimeMs int `json:"finish_time_ms"`
+	CharacterId  int `json:"character_id"`
+	KartId       int `json:"kart_id"`
 }
 
 type RaceResult struct {
-	ClientReportVersion string           `json:"client_report_version"`
-	Player              RaceResultPlayer `json:"player"`
+	ClientReportVersion string            `json:"client_report_version"`
+	Player              *RaceResultPlayer `json:"player"`
 }
 
 func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
@@ -98,10 +98,10 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			player := raceResult.Player
 			logging.Info(g.ModuleName,
 				"Player",
-				"- PID:", aurora.Cyan(strconv.Itoa(*player.Pid)),
-				"Time:", aurora.Cyan(strconv.Itoa(*player.FinishTimeMs)), "ms",
-				"Char:", aurora.Cyan(strconv.Itoa(*player.CharacterId)),
-				"Kart:", aurora.Cyan(strconv.Itoa(*player.KartId)))
+				"- PID:", aurora.Cyan(strconv.Itoa(player.Pid)),
+				"Time:", aurora.Cyan(strconv.Itoa(player.FinishTimeMs)), "ms",
+				"Char:", aurora.Cyan(strconv.Itoa(player.CharacterId)),
+				"Kart:", aurora.Cyan(strconv.Itoa(player.KartId)))
 			//TODO : Hand off to qr2 for processing instead of logging each field here
 		}
 	}
