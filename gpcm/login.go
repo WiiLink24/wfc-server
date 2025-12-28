@@ -56,12 +56,16 @@ var commonDeviceIds = []uint32{
 	0x0403ac68, // Dolphin default
 
 	// Publicly shared key dumps
+	0x02023f0a,
+	0x0204cef9,
 	0x038c864b,
 	0x040e3f97,
+	0x0411bbe5,
 	0x04cb7515,
 	0x066deb49,
 	0x06bcc32d,
 	0x06d0437a,
+	0x0812f46b,
 	0x089120c8,
 	0x0e19d5ed,
 	0x0e31482b,
