@@ -460,7 +460,7 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 				})
 			}
 		} else if err == database.ErrProhibitedDeviceID {
-			if strings.HasPrefix(g.HostPlatform, "Dolphin") {
+			if strings.HasPrefix(g.HostPlatform, "Dolphin") && deviceId == 0x0403ac68 {
 				g.replyError(GPError{
 					ErrorCode:   ErrLogin.ErrorCode,
 					ErrorString: "Prohibited device ID used in signature.",
