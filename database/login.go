@@ -229,7 +229,9 @@ func LoginUserToGameStats(pool *pgxpool.Pool, ctx context.Context, userId uint64
 	var firstName *string
 	var lastName *string
 	var lastIPAddress *string
-	err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress)
+	var allowDefaultKeys bool
+
+	err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress, &allowDefaultKeys)
 	if err != nil {
 		return User{}, err
 	}
