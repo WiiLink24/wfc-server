@@ -138,17 +138,19 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.UDPAddr, buffer 
 }
 
 func checkValidRating(moduleName string, payload map[string]string) string {
-	if payload["gamename"] == "mariokartwii" {
+	if payload["gamename"] != "mariokartwii" {
+		return "ok"
+	}
+
+	if public, isBattle := isPublicMatchRegion(payload["rk"]); public {
 		// ev and eb values must be in range 1 to 9999
-		if ev := payload["ev"]; ev != "" {
+		if ev := payload["ev"]; !isBattle && ev != "" {
 			evInt, err := strconv.ParseInt(ev, 10, 16)
 			if err != nil || evInt < 1 || evInt > 9999 {
 				logging.Error(moduleName, "Invalid ev value:", aurora.Cyan(ev))
 				return "invalid_elo"
 			}
-		}
-
-		if eb := payload["eb"]; eb != "" {
+		} else if eb := payload["eb"]; isBattle && eb != "" {
 			ebInt, err := strconv.ParseInt(eb, 10, 16)
 			if err != nil || ebInt < 1 || ebInt > 9999 {
 				logging.Error(moduleName, "Invalid eb value:", aurora.Cyan(eb))
@@ -156,6 +158,20 @@ func checkValidRating(moduleName string, payload map[string]string) string {
 			}
 		}
 	}
-
 	return "ok"
+}
+
+func isPublicMatchRegion(rk string) (bool, bool) {
+	if rk == "vs" {
+		return true, false
+	} else if rk == "bt" {
+		return true, true
+	} else if len(rk) == 4 && rk[3] >= '0' && rk[3] < '6' {
+		if strings.HasPrefix(rk, "vs_") {
+			return true, false
+		} else if strings.HasPrefix(rk, "bt_") {
+			return true, true
+		}
+	}
+	return false, false
 }
