@@ -52,7 +52,7 @@ var msPublicKey = []byte{
 }
 
 var commonDeviceIds = []uint32{
-	0x02000001, // Internal use (leaked)
+	0x02000001, // Internal use
 	0x0403ac68, // Dolphin default
 
 	// Publicly shared key dumps
@@ -69,10 +69,13 @@ var commonDeviceIds = []uint32{
 	0x247dd10b,
 }
 
-func verifySignature(moduleName string, authToken string, signature string) uint32 {
+func verifySignature(moduleName string, authToken string, signature string) (defaultKey bool, result uint32) {
+	result = 0
+	defaultKey = false
+
 	sigBytes, err := common.Base64DwcEncoding.DecodeString(signature)
 	if err != nil || (len(sigBytes) != 0x144 && len(sigBytes) != 0x148) {
-		return 0
+		return
 	}
 
 	ngId := sigBytes[0x000:0x004]
@@ -81,7 +84,12 @@ func verifySignature(moduleName string, authToken string, signature string) uint
 		// Skip authentication signature verification for common device IDs (the caller should handle this)
 		for _, defaultDeviceId := range commonDeviceIds {
 			if binary.BigEndian.Uint32(ngId) == defaultDeviceId {
-				return defaultDeviceId
+				if !allowDefaultDolphinKeys {
+					logging.Warn(moduleName, "Using default NG device ID")
+				}
+				result = defaultDeviceId
+				defaultKey = true
+				return
 			}
 		}
 	}
@@ -115,7 +123,7 @@ func verifySignature(moduleName string, authToken string, signature string) uint
 
 	if !verifyECDSA(msPublicKey, msSignature, ngCertBlobHash[:]) {
 		logging.Error(moduleName, "NG cert verify failed")
-		return 0
+		return
 	}
 	logging.Info(moduleName, "NG cert verified")
 
@@ -134,18 +142,19 @@ func verifySignature(moduleName string, authToken string, signature string) uint
 
 	if !verifyECDSA(ngPublicKey, ngSignature, apCertBlobHash[:]) {
 		logging.Error(moduleName, "AP cert verify failed")
-		return 0
+		return
 	}
 	logging.Info(moduleName, "AP cert verified")
 
 	authTokenHash := sha1.Sum([]byte(authToken))
 	if !verifyECDSA(apPublicKey, apSignature, authTokenHash[:]) {
 		logging.Error(moduleName, "Auth token signature failed")
-		return 0
+		return
 	}
 	logging.Notice(moduleName, "Auth token signature verified; NG ID:", aurora.Cyan(fmt.Sprintf("%08x", ngId)))
 
-	return binary.BigEndian.Uint32(ngId)
+	result = binary.BigEndian.Uint32(ngId)
+	return
 }
 
 func (g *GameSpySession) login(command common.GameSpyCommand) {
@@ -206,6 +215,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	}
 
 	deviceAuth := false
+	defaultKey := false
 	if g.UnitCode == UnitCodeWii {
 		if isLocalhost && !payloadVerExists && !signatureExists {
 			// Players using the DNS, need patching using a QR2 exploit
@@ -222,7 +232,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 			g.NeedsExploit = true
 			deviceAuth = false
 		} else {
-			deviceId = g.verifyExLoginInfo(command, authToken)
+			defaultKey, deviceId = g.verifyExLoginInfo(command, authToken)
 			if deviceId == 0 {
 				return
 			}
@@ -261,7 +271,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		cmdProfileId = uint32(cmdProfileId2)
 	}
 
-	if !g.performLoginWithDatabase(userId, gsbrcd, cmdProfileId, deviceId, deviceAuth) {
+	if !g.performLoginWithDatabase(userId, gsbrcd, cmdProfileId, defaultKey, deviceId, deviceAuth) {
 		return
 	}
 
@@ -348,12 +358,12 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 		return
 	}
 
-	deviceId := g.verifyExLoginInfo(command, g.AuthToken)
+	defaultKey, deviceId := g.verifyExLoginInfo(command, g.AuthToken)
 	if deviceId == 0 {
 		return
 	}
 
-	if !g.performLoginWithDatabase(g.User.UserId, g.User.GsbrCode, 0, deviceId, true) {
+	if !g.performLoginWithDatabase(g.User.UserId, g.User.GsbrCode, 0, defaultKey, deviceId, true) {
 		return
 	}
 
@@ -361,10 +371,11 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 	qr2.SetDeviceAuthenticated(g.User.ProfileId)
 }
 
-func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authToken string) uint32 {
+func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authToken string) (defaultKey bool, deviceId uint32) {
 	payloadVer, payloadVerExists := command.OtherValues["wl:ver"]
 	signature, signatureExists := command.OtherValues["wl:sig"]
-	deviceId := uint32(0)
+	defaultKey = false
+	deviceId = 0
 
 	if !payloadVerExists || payloadVer != "5" {
 		g.replyError(GPError{
@@ -373,7 +384,7 @@ func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authTo
 			Fatal:       true,
 			WWFCMessage: WWFCMsgPayloadInvalid,
 		})
-		return 0
+		return
 	}
 
 	if !signatureExists {
@@ -383,59 +394,32 @@ func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authTo
 			Fatal:       true,
 			WWFCMessage: WWFCMsgUnknownLoginError,
 		})
-		return 0
+		return
 	}
 
-	if deviceId = verifySignature(g.ModuleName, authToken, signature); deviceId == 0 {
+	defaultKey, deviceId = verifySignature(g.ModuleName, authToken, signature)
+	if deviceId == 0 {
 		g.replyError(GPError{
 			ErrorCode:   ErrLogin.ErrorCode,
 			ErrorString: "The authentication signature is invalid.",
 			Fatal:       true,
 			WWFCMessage: WWFCMsgUnknownLoginError,
 		})
-		return 0
+		return
 	}
 
 	g.DeviceId = deviceId
-
-	if !allowDefaultDolphinKeys {
-		// Check common device IDs
-		for _, defaultDeviceId := range commonDeviceIds {
-			if deviceId != defaultDeviceId {
-				continue
-			}
-
-			if strings.HasPrefix(g.HostPlatform, "Dolphin") {
-				g.replyError(GPError{
-					ErrorCode:   ErrLogin.ErrorCode,
-					ErrorString: "Prohibited device ID used in signature.",
-					Fatal:       true,
-					WWFCMessage: WWFCMsgDolphinSetupRequired,
-				})
-			} else {
-				g.replyError(GPError{
-					ErrorCode:   ErrLogin.ErrorCode,
-					ErrorString: "Prohibited device ID used in signature.",
-					Fatal:       true,
-					WWFCMessage: WWFCMsgUnknownLoginError,
-				})
-			}
-
-			return 0
-		}
-	}
-
-	return deviceId
+	return
 }
 
-func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string, profileId uint32, deviceId uint32, deviceAuth bool) bool {
+func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string, profileId uint32, defaultKey bool, deviceId uint32, deviceAuth bool) bool {
 	// Get IP address without port
 	ipAddress := g.RemoteAddr
 	if strings.Contains(ipAddress, ":") {
 		ipAddress = ipAddress[:strings.Index(ipAddress, ":")]
 	}
 
-	user, err := database.LoginUserToGPCM(pool, ctx, userId, gsbrCode, profileId, deviceId, ipAddress, g.InGameName, deviceAuth)
+	user, err := database.LoginUserToGPCM(pool, ctx, userId, gsbrCode, profileId, defaultKey, deviceId, ipAddress, g.InGameName, deviceAuth)
 	g.User = user
 
 	if err != nil {
@@ -469,6 +453,22 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 					ErrorString: "The device ID does not match the one on record.",
 					Fatal:       true,
 					WWFCMessage: WWFCMsgConsoleMismatch,
+				})
+			}
+		} else if err == database.ErrProhibitedDeviceID {
+			if strings.HasPrefix(g.HostPlatform, "Dolphin") {
+				g.replyError(GPError{
+					ErrorCode:   ErrLogin.ErrorCode,
+					ErrorString: "Prohibited device ID used in signature.",
+					Fatal:       true,
+					WWFCMessage: WWFCMsgDolphinSetupRequired,
+				})
+			} else {
+				g.replyError(GPError{
+					ErrorCode:   ErrLogin.ErrorCode,
+					ErrorString: "Prohibited device ID used in signature.",
+					Fatal:       true,
+					WWFCMessage: WWFCMsgUnknownLoginError,
 				})
 			}
 		} else if err == database.ErrProfileBannedTOS {

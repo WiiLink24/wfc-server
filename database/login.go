@@ -29,7 +29,7 @@ const (
 	SELECT has_ban, ban_tos, ng_device_id, ban_reason
 		FROM users
 		WHERE has_ban = true
-			AND (profile_id = $2
+			AND ((profile_id = $2 OR allow_default_keys = FALSE)
 				OR ng_device_id && (SELECT * FROM known_ng_device_ids)
 				OR last_ip_address = $3
 				OR ($4 != '' AND last_ip_address = $4))
@@ -38,11 +38,12 @@ const (
 )
 
 var (
-	ErrDeviceIDMismatch = errors.New("NG device ID mismatch")
-	ErrProfileBannedTOS = errors.New("profile is banned for violating the Terms of Service")
+	ErrDeviceIDMismatch   = errors.New("NG device ID mismatch")
+	ErrProhibitedDeviceID = errors.New("used prohibited NG device ID in request")
+	ErrProfileBannedTOS   = errors.New("profile is banned for violating the Terms of Service")
 )
 
-func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsbrcd string, profileId uint32, ngDeviceId uint32, ipAddress string, ingamesn string, deviceAuth bool) (User, error) {
+func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsbrcd string, profileId uint32, defaultKey bool, ngDeviceId uint32, ipAddress string, ingamesn string, deviceAuth bool) (User, error) {
 	var exists bool
 	err := pool.QueryRow(ctx, DoesUserExist, userId, gsbrcd).Scan(&exists)
 	if err != nil {
@@ -76,10 +77,15 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 	} else {
 		var firstName *string
 		var lastName *string
+		var allowDefaultKeys bool
 
-		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress)
+		err := pool.QueryRow(ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress, &allowDefaultKeys)
 		if err != nil {
 			return User{}, err
+		}
+
+		if defaultKey && !allowDefaultKeys && !common.GetConfig().AllowDefaultDolphinKeys {
+			return User{}, ErrProhibitedDeviceID
 		}
 
 		if firstName != nil {
@@ -95,15 +101,13 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 		for index, id := range user.NgDeviceId {
 			if id == ngDeviceId {
 				validDeviceId = true
-				break
 			}
 
-			if id == 0 {
+			if !validDeviceId && id == 0 {
 				// Replace the 0 with the actual device ID
 				user.NgDeviceId[index] = ngDeviceId
 				_, err = pool.Exec(ctx, UpdateUserNGDeviceID, user.ProfileId, user.NgDeviceId)
 				validDeviceId = true
-				break
 			}
 
 			deviceIdList += aurora.Cyan(fmt.Sprintf("%08x", id)).String() + ", "
@@ -171,7 +175,6 @@ func LoginUserToGPCM(pool *pgxpool.Pool, ctx context.Context, userId uint64, gsb
 	var banTOS bool
 	var bannedDeviceIdList []uint32
 	var banReason string
-
 	timeNow := time.Now().UTC()
 	err = pool.QueryRow(ctx, SearchUserBan, user.NgDeviceId, user.ProfileId, ipAddress, *lastIPAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceIdList, &banReason)
 

@@ -19,8 +19,8 @@ func UpdateTables(pool *pgxpool.Pool, ctx context.Context) {
 		ADD IF NOT EXISTS ban_reason_hidden character varying,
 		ADD IF NOT EXISTS ban_moderator character varying,
 		ADD IF NOT EXISTS ban_tos boolean,
-		ADD IF NOT EXISTS open_host boolean DEFAULT false;
-
+		ADD IF NOT EXISTS open_host boolean DEFAULT false,
+		ADD IF NOT EXISTS allow_default_keys boolean DEFAULT false;
 	`)
 
 	pool.Exec(ctx, `
