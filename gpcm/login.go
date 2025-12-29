@@ -25,6 +25,18 @@ const (
 	UnitCodeDSAndWii = 0xff
 )
 
+type MinimumPayloadVersion struct {
+	major byte
+	minor int
+}
+
+var MinimumPayloadVersions = []MinimumPayloadVersion{
+	{
+		major: 0,
+		minor: 1,
+	},
+}
+
 func generateResponse(gpcmChallenge, nasChallenge, authToken, clientChallenge string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(nasChallenge))
@@ -375,13 +387,31 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 	qr2.SetDeviceAuthenticated(g.User.ProfileId)
 }
 
+func checkPayloadVersion(payloadVer string) bool {
+	verInt, err := strconv.ParseInt(payloadVer, 0, 32)
+	if err != nil {
+		return false
+	}
+
+	major := byte(verInt>>24) & 255
+	minor := int(verInt>>12) & 4095
+	// beta := verInt & 4095
+
+	for _, v := range MinimumPayloadVersions {
+		if v.major == major && minor >= v.minor {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authToken string) (defaultKey bool, deviceId uint32) {
 	payloadVer, payloadVerExists := command.OtherValues["wl:ver"]
 	signature, signatureExists := command.OtherValues["wl:sig"]
 	defaultKey = false
 	deviceId = 0
 
-	if !payloadVerExists || payloadVer != "5" {
+	if !payloadVerExists || !checkPayloadVersion(payloadVer) {
 		g.replyError(GPError{
 			ErrorCode:   ErrLogin.ErrorCode,
 			ErrorString: "The payload version is invalid.",
