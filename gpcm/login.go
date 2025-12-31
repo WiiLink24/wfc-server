@@ -388,10 +388,6 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 }
 
 func checkPayloadVersion(payloadVer string) bool {
-	if payloadVer == "5" {
-		return true
-	}
-
 	verInt, err := strconv.ParseInt(payloadVer, 0, 32)
 	if err != nil {
 		return false
