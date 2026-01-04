@@ -11,8 +11,8 @@ import (
 	"wwfc/common"
 	"wwfc/logging"
 
+	"github.com/linkdata/deadlock"
 	"github.com/logrusorgru/aurora/v3"
-	"github.com/sasha-s/go-deadlock"
 	"gvisor.dev/gvisor/pkg/sleep"
 )
 

@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 	"os"
 
-	"github.com/sasha-s/go-deadlock"
+	"github.com/linkdata/deadlock"
 )
 
 type Config struct {
