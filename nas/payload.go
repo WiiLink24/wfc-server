@@ -9,17 +9,21 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
-	"github.com/logrusorgru/aurora/v3"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 func downloadStage1(w http.ResponseWriter, stage1Ver int) {
-	// TODO: Actually use the stage 1 version
-	dat, err := os.ReadFile("payload/stage1.bin")
+	path := "payload/stage1.bin"
+	if stage1Ver != 0 {
+		path = "payload/stage1v" + strconv.Itoa(stage1Ver) + ".bin"
+	}
+	dat, err := os.ReadFile(path)
 	if err != nil {
 		panic(err)
 	}
