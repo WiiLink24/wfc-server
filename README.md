@@ -1,9 +1,5 @@
-# wwfc
-WiiLink Wi-Fi Connection aims to be an open source server replacement for Nintendo Wi-Fi Connection. Currently, a work in progress
-
-## Current Support
-- Matchmaking (No server sorting yet)
-- Adding Friends
+# WiiLink WFC
+WiiLink Wi-Fi Connection is an open source server replacement for the late Nintendo Wi-Fi Connection, supporting both Nintendo DS and Wii games. This repository contains the server-side source code.
 
 ## Setup
 You will need:
