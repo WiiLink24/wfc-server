@@ -99,16 +99,13 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 		switch strings.ToLower(action) {
 		case "acctcreate":
 			reply = acctcreate()
-			break
 
 		case "login":
 			isLocalhost := strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") || strings.HasPrefix(r.RemoteAddr, "[::1]:")
 			reply = login(moduleName, fields, isLocalhost)
-			break
 
 		case "svcloc":
 			reply = svcloc(fields)
-			break
 
 		default:
 			logging.Error(moduleName, "Unknown action:", aurora.Cyan(action))
@@ -116,7 +113,6 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 				"retry":    "0",
 				"returncd": "109",
 			}
-			break
 		}
 	} else if r.URL.String() == "/pr" {
 		words, ok := fields["words"]
@@ -145,7 +141,6 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 		switch strings.ToLower(action) {
 		case "count":
 			response = []byte(dlsCount(fields))
-			break
 
 		default:
 			logging.Error(moduleName, "Unknown action:", aurora.Cyan(action))
@@ -153,7 +148,6 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 				"retry":    "0",
 				"returncd": "109",
 			}
-			break
 		}
 
 		w.Header().Set("X-DLS-Host", "http://127.0.0.1/")
@@ -349,17 +343,14 @@ func svcloc(fields map[string]string) map[string]string {
 	default:
 		param["servicetoken"] = authToken
 		param["svchost"] = "n/a"
-		break
 
 	case "9000":
 		param["token"] = authToken
 		param["svchost"] = "dls1.nintendowifi.net"
-		break
 
 	case "9001":
 		param["servicetoken"] = authToken
 		param["svchost"] = "dls1.nintendowifi.net"
-		break
 	}
 
 	return param
