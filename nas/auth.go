@@ -99,16 +99,13 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 		switch strings.ToLower(action) {
 		case "acctcreate":
 			reply = acctcreate()
-			break
 
 		case "login":
 			isLocalhost := strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") || strings.HasPrefix(r.RemoteAddr, "[::1]:")
 			reply = login(moduleName, fields, isLocalhost)
-			break
 
 		case "svcloc":
 			reply = svcloc(fields)
-			break
 
 		default:
 			logging.Error(moduleName, "Unknown action:", aurora.Cyan(action))
@@ -116,7 +113,6 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 				"retry":    "0",
 				"returncd": "109",
 			}
-			break
 		}
 	} else if r.URL.String() == "/pr" {
 		words, ok := fields["words"]
@@ -126,7 +122,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		reply = handleProfanity(fields)
+		reply = handleProfanity(r.PostForm, unitcd)
 	} else if r.URL.String() == "/download" {
 		action, ok := fields["action"]
 		if !ok || action == "" {
@@ -145,7 +141,6 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 		switch strings.ToLower(action) {
 		case "count":
 			response = []byte(dlsCount(fields))
-			break
 
 		default:
 			logging.Error(moduleName, "Unknown action:", aurora.Cyan(action))
@@ -153,7 +148,6 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 				"retry":    "0",
 				"returncd": "109",
 			}
-			break
 		}
 
 		w.Header().Set("X-DLS-Host", "http://127.0.0.1/")
@@ -349,25 +343,90 @@ func svcloc(fields map[string]string) map[string]string {
 	default:
 		param["servicetoken"] = authToken
 		param["svchost"] = "n/a"
-		break
 
 	case "9000":
 		param["token"] = authToken
 		param["svchost"] = "dls1.nintendowifi.net"
-		break
 
 	case "9001":
 		param["servicetoken"] = authToken
 		param["svchost"] = "dls1.nintendowifi.net"
-		break
 	}
 
 	return param
 }
 
-func handleProfanity(fields map[string]string) map[string]string {
+func handleProfanity(form url.Values, unitcd string) map[string]string {
+	var wordsEncoding string
+	var wordsDefaultEncoding string
+	var wordsBytes []byte
+	var words string
+	var wordsRegion string
 	var prwords string
-	for _, word := range strings.Split(fields["words"], "\t") {
+
+	if unitcd == "0" {
+		wordsEncoding = "UTF-16LE"
+		wordsDefaultEncoding = "UTF-16LE"
+	} else {
+		wordsEncoding = "UTF-16BE"
+		wordsDefaultEncoding = "UTF-16BE"
+	}
+
+	if wencValues, ok := form["wenc"]; ok {
+		// It's okay for this to error, the real server
+		// just falls back to the default encoding in
+		// this case even if it cant properly handle it
+		wencDecoded, err := common.Base64DwcEncoding.DecodeString(wencValues[0])
+		if err == nil {
+			wordsEncoding = string(wencDecoded)
+		}
+	}
+
+	if wordsEncoding != "UTF-8" && wordsEncoding != "UTF-16LE" && wordsEncoding != "UTF-16BE" {
+		wordsEncoding = wordsDefaultEncoding
+	}
+
+	// It's okay for this to not exist/be valid, the real
+	// server will just treat the missing input as a single
+	// non-profane word
+	if wordsValues, ok := form["words"]; ok {
+		wordsDecoded, err := common.Base64DwcEncoding.DecodeString(wordsValues[0])
+		if err == nil {
+			wordsBytes = wordsDecoded
+		}
+	}
+
+	// This field is entirely optional, unsure what
+	// specifically it does. Adds extra data to the
+	// reply, probably used for handling the word
+	// list differently for different regions?
+	if wordsRegionValues, ok := form["wregion"]; ok {
+		wordsRegionDecoded, err := common.Base64DwcEncoding.DecodeString(wordsRegionValues[0])
+		if err == nil {
+			wordsRegion = string(wordsRegionDecoded)
+		}
+	}
+
+	if wordsEncoding == "UTF-8" {
+		words = string(wordsBytes)
+	} else {
+		var utf16String []uint16
+		if unitcd == "0" {
+			for i := 0; i < len(wordsBytes)/2; i++ {
+				utf16String = append(utf16String, binary.LittleEndian.Uint16(wordsBytes[i*2:i*2+2]))
+			}
+		} else {
+			for i := 0; i < len(wordsBytes)/2; i++ {
+				utf16String = append(utf16String, binary.BigEndian.Uint16(wordsBytes[i*2:i*2+2]))
+			}
+		}
+
+		words = string(utf16.Decode(utf16String))
+	}
+
+	// TODO - Handle wtype? Unsure what this field does, seems to always be an emtpy string
+
+	for _, word := range strings.Split(words, "\t") {
 		if isBadWord, _ := IsBadWord(word); isBadWord {
 			prwords += "1"
 		} else {
@@ -382,10 +441,23 @@ func handleProfanity(fields map[string]string) map[string]string {
 		returncd = "000"
 	}
 
-	return map[string]string{
+	reply := map[string]string{
 		"returncd": returncd,
 		"prwords":  prwords,
 	}
+
+	// Only known value of this field that works this way
+	if wordsRegion == "A" {
+		// TODO - The real server seems to handle the input words differently per region? These values are supposed to differ from prwords
+		reply["prwordsA"] = prwords
+		reply["prwordsC"] = prwords
+		reply["prwordsE"] = prwords
+		reply["prwordsJ"] = prwords
+		reply["prwordsK"] = prwords
+		reply["prwordsP"] = prwords
+	}
+
+	return reply
 }
 
 func dlsCount(fields map[string]string) string {
