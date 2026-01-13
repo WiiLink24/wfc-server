@@ -411,7 +411,7 @@ func handleProfanity(form url.Values, unitcd string) map[string]string {
 		words = string(wordsBytes)
 	} else {
 		var utf16String []uint16
-		if unitcd == "0" {
+		if wordsEncoding == "UTF-16LE" {
 			for i := 0; i < len(wordsBytes)/2; i++ {
 				utf16String = append(utf16String, binary.LittleEndian.Uint16(wordsBytes[i*2:i*2+2]))
 			}
