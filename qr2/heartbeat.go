@@ -17,7 +17,7 @@ func heartbeat(moduleName string, conn net.PacketConn, addr net.UDPAddr, buffer 
 
 	payload := map[string]string{}
 	unknowns := []string{}
-	for i := 0; i < len(values); i += 2 {
+	for i := 0; i < len(values)-1; i += 2 {
 		if len(values[i]) == 0 || values[i][0] == '+' {
 			continue
 		}
