@@ -3,9 +3,11 @@ package gpcm
 import (
 	"encoding/json"
 	"strconv"
+	"time"
 	"wwfc/common"
 	"wwfc/logging"
 	"wwfc/qr2"
+	"wwfc/race"
 
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -96,13 +98,55 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			logging.Info(g.ModuleName, "Race result version:", aurora.Yellow(raceResult.ClientReportVersion))
 
 			player := raceResult.Player
+
 			logging.Info(g.ModuleName,
 				"Player",
 				"- PID:", aurora.Cyan(strconv.Itoa(player.Pid)),
 				"Time:", aurora.Cyan(strconv.Itoa(player.FinishTimeMs)), "ms",
 				"Char:", aurora.Cyan(strconv.Itoa(player.CharacterId)),
 				"Kart:", aurora.Cyan(strconv.Itoa(player.KartId)))
-			//TODO : Hand off to qr2 for processing instead of logging each field here
+
+			// Hand off to qr2 for processing
+			qr2.ProcessMKWRaceResult(g.User.ProfileId, player.Pid, player.FinishTimeMs, player.CharacterId, player.KartId)
+		case "wl:mkw_race_start_time":
+			serverTime := time.Now().UnixMilli()
+			logging.Info(g.ModuleName,
+				"Race start time:", aurora.Yellow(value),
+				"Server time:", aurora.Yellow(strconv.FormatInt(serverTime, 10)))
+
+			// Parse client timestamp
+			clientTime, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				logging.Error(g.ModuleName, "Failed to parse client timestamp:", err.Error())
+				return
+			}
+
+			// Initialize progress timing data for this race
+			race.RaceProgressTimings[g.User.ProfileId] = &race.RaceProgressTiming{
+				ClientStartTime: clientTime,
+				ServerStartTime: serverTime,
+				RecentDelays:    make([]float64, 0, race.MaxDelays),
+			}
+
+		case "wl:mkw_race_progress_time":
+			race.HandleRaceProgressTime(g.User.ProfileId, value)
+
+		case "wl:mkw_race_finish_time":
+			serverTime := time.Now().UnixMilli()
+			logging.Info(g.ModuleName,
+				"Race finish time:", aurora.Yellow(value),
+				"Server time:", aurora.Yellow(strconv.FormatInt(serverTime, 10)))
+
+			// Parse client timestamp
+			clientTime, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				logging.Error(g.ModuleName, "Failed to parse client finish timestamp:", err.Error())
+				return
+			}
+
+			// Calculate and log final race delays
+			race.LogRaceProgressDelay(g.User.ProfileId, clientTime, serverTime)
 		}
+
 	}
 }

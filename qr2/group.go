@@ -5,12 +5,14 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
+	"wwfc/race"
 
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -30,6 +32,28 @@ type Group struct {
 	MKWCourseID      int
 	MKWEngineClassID int
 }
+
+type RaceResultPlayer struct {
+	Pid          int `json:"pid"`
+	FinishTimeMs int `json:"finish_time_ms"`
+	CharacterId  int `json:"character_id"`
+	KartId       int `json:"kart_id"`
+}
+
+type RaceResult struct {
+	ProfileID     uint32
+	PlayerID      int
+	FinishTime    uint32
+	CharacterID   uint32
+	VehicleID     uint32
+	PlayerCount   uint32
+	FinishPos     int
+	CourseID      int
+	EngineClassID int
+	Delta         int
+}
+
+var raceResults = map[string]map[int][]RaceResult{} // GroupName -> RaceNumber -> []RaceResult
 
 var groups = map[string]*Group{}
 
@@ -523,6 +547,91 @@ func ProcessMKWSelectRecord(profileId uint32, key string, value string) {
 		return
 	}
 
+}
+
+func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, characterId int, kartId int) {
+	moduleName := "QR2:MKWRaceResult:" + strconv.FormatUint(uint64(profileId), 10)
+
+	mutex.Lock()
+	login := logins[profileId]
+	if login == nil {
+		mutex.Unlock()
+		logging.Warn(moduleName, "Received race result from non-existent profile ID", aurora.Cyan(profileId))
+		return
+	}
+
+	session := login.session
+	if session == nil {
+		mutex.Unlock()
+		logging.Warn(moduleName, "Received race result from profile ID", aurora.Cyan(profileId), "but no session exists")
+		return
+	}
+	mutex.Unlock()
+
+	group := session.groupPointer
+	if group == nil {
+		return
+	}
+
+	if group.MKWRaceNumber == 0 {
+		logging.Error(moduleName, "Received race result but no races have been started")
+		return
+	}
+
+	// Get the accumulated lag from race progress timing
+	var delta int
+	if timing, exists := race.RaceProgressTimings[profileId]; exists && len(timing.RecentDelays) > 0 {
+		// Get the final smoothed delay and convert to int
+		finalDelay := timing.RecentDelays[len(timing.RecentDelays)-1]
+		delta = int(math.Round(finalDelay))
+	}
+
+	// Convert race result data to internal format
+	raceResultData := RaceResult{
+		ProfileID:     profileId,
+		PlayerID:      playerPid,
+		FinishTime:    uint32(finishTimeMs),
+		CharacterID:   uint32(characterId),
+		VehicleID:     uint32(kartId),
+		PlayerCount:   12, // Default value, could be extracted from race data if available
+		FinishPos:     0,  // Default value, could be calculated from finish times
+		CourseID:      group.MKWCourseID,
+		EngineClassID: group.MKWEngineClassID,
+		Delta:         delta,
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if raceResults[group.GroupName] == nil {
+		raceResults[group.GroupName] = map[int][]RaceResult{}
+	}
+
+	raceResults[group.GroupName][group.MKWRaceNumber] = append(raceResults[group.GroupName][group.MKWRaceNumber], raceResultData)
+
+	logging.Info(moduleName, "Stored race result for profile", aurora.BrightCyan(strconv.FormatUint(uint64(profileId), 10)),
+		"Race #:", aurora.Cyan(strconv.Itoa(group.MKWRaceNumber)),
+		"Course:", aurora.Cyan(strconv.Itoa(group.MKWCourseID)),
+		"Delta:", aurora.Cyan(strconv.Itoa(delta)))
+}
+
+func GetRaceResultsForGroup(groupName string) map[int][]RaceResult {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	groupResults, ok := raceResults[groupName]
+	if !ok {
+		return nil
+	}
+
+	// Return a copy to prevent external modification
+	copiedRaceResults := make(map[int][]RaceResult)
+	for raceNumber, results := range groupResults {
+		copiedRaceResults[raceNumber] = make([]RaceResult, len(results))
+		copy(copiedRaceResults[raceNumber], results)
+	}
+
+	return copiedRaceResults
 }
 
 // saveGroups saves the current groups state to disk.
