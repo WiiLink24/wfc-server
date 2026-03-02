@@ -56,9 +56,7 @@ func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) error {
 		return pool.QueryRow(ctx, InsertUser, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick).Scan(&user.ProfileId)
 	}
 
-	if user.ProfileId >= 1000000000 {
-		return ErrReservedProfileIDRange
-	}
+	// Reserved profile ID check removed; all profile IDs allowed
 
 	var exists bool
 	err := pool.QueryRow(ctx, IsProfileIDInUse, user.ProfileId).Scan(&exists)
@@ -75,9 +73,7 @@ func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) error {
 }
 
 func (user *User) UpdateProfileID(pool *pgxpool.Pool, ctx context.Context, newProfileId uint32) error {
-	if newProfileId >= 1000000000 {
-		return ErrReservedProfileIDRange
-	}
+	// Reserved profile ID check removed; all profile IDs allowed
 
 	var exists bool
 	err := pool.QueryRow(ctx, IsProfileIDInUse, newProfileId).Scan(&exists)

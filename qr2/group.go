@@ -31,6 +31,39 @@ type Group struct {
 	MKWEngineClassID int
 }
 
+type RaceResultPlayer struct {
+	Pid          int `json:"pid"`
+	FinishTimeMs int `json:"finish_time_ms"`
+	CharacterId  int `json:"character_id"`
+	KartId       int `json:"kart_id"`
+}
+
+type RaceResult struct {
+	ProfileID     uint32
+	PlayerID      int
+	FinishTime    uint32
+	CharacterID   uint32
+	VehicleID     uint32
+	PlayerCount   uint32
+	FinishPos     int
+	CourseID      int
+	EngineClassID int
+	Delta         int
+}
+
+var raceResults = map[string]map[int][]RaceResult{} // GroupName -> RaceNumber -> []RaceResult
+
+// Timing storage for delta calculation using start/finish times
+var raceStartTimings = map[uint32]struct {
+	ClientTime int64
+	ServerTime int64
+}{}
+
+var raceFinishTimings = map[uint32]struct {
+	ClientTime int64
+	ServerTime int64
+}{}
+
 var groups = map[string]*Group{}
 
 func processResvOK(moduleName string, matchVersion int, reservation common.MatchCommandDataReservation, resvOK common.MatchCommandDataResvOK, sender, destination *Session) bool {
@@ -310,6 +343,22 @@ func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32
 	return checkReservationAllowed(moduleName, from, to, joinType)
 }
 
+// StoreRaceStartTime stores the start timing data for delta calculation
+func StoreRaceStartTime(profileId uint32, clientTime, serverTime int64) {
+	raceStartTimings[profileId] = struct {
+		ClientTime int64
+		ServerTime int64
+	}{ClientTime: clientTime, ServerTime: serverTime}
+}
+
+// StoreRaceFinishTime stores the finish timing data for delta calculation
+func StoreRaceFinishTime(profileId uint32, clientTime, serverTime int64) {
+	raceFinishTimings[profileId] = struct {
+		ClientTime int64
+		ServerTime int64
+	}{ClientTime: clientTime, ServerTime: serverTime}
+}
+
 func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {
 	moduleName := "QR2:NATNEGReport"
 
@@ -523,6 +572,107 @@ func ProcessMKWSelectRecord(profileId uint32, key string, value string) {
 		return
 	}
 
+}
+
+func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, characterId int, kartId int, playerCount int) {
+	moduleName := "QR2:MKWRaceResult:" + strconv.FormatUint(uint64(profileId), 10)
+
+	mutex.Lock()
+	login := logins[profileId]
+	if login == nil {
+		mutex.Unlock()
+		logging.Warn(moduleName, "Received race result from non-existent profile ID", aurora.Cyan(profileId))
+		return
+	}
+
+	session := login.session
+	if session == nil {
+		mutex.Unlock()
+		logging.Warn(moduleName, "Received race result from profile ID", aurora.Cyan(profileId), "but no session exists")
+		return
+	}
+	mutex.Unlock()
+
+	group := session.groupPointer
+	if group == nil {
+		return
+	}
+
+	if group.MKWRaceNumber == 0 {
+		logging.Error(moduleName, "Received race result but no races have been started")
+		return
+	}
+
+	// Calculate delta using start/finish times
+	var delta int
+	if startTiming, exists := raceStartTimings[profileId]; exists {
+		if finishTiming, exists := raceFinishTimings[profileId]; exists {
+			clientElapsedTime := finishTiming.ClientTime - startTiming.ClientTime
+			serverElapsedTime := finishTiming.ServerTime - startTiming.ServerTime
+			delta = int(serverElapsedTime - clientElapsedTime)
+		}
+	}
+
+	// Calculate finish position based on current race results
+	finishPos := 1
+	if raceResults[group.GroupName] != nil && len(raceResults[group.GroupName][group.MKWRaceNumber]) > 0 {
+		// Get current race results for this race number
+		currentResults := raceResults[group.GroupName][group.MKWRaceNumber]
+
+		// Count how many players have finished with better times
+		for _, existingResult := range currentResults {
+			if existingResult.FinishTime < uint32(finishTimeMs) {
+				finishPos++
+			}
+		}
+	}
+
+	// Convert race result data to internal format
+	raceResultData := RaceResult{
+		ProfileID:     profileId,
+		PlayerID:      playerPid,
+		FinishTime:    uint32(finishTimeMs),
+		CharacterID:   uint32(characterId),
+		VehicleID:     uint32(kartId),
+		PlayerCount:   uint32(playerCount),
+		FinishPos:     finishPos,
+		CourseID:      group.MKWCourseID,
+		EngineClassID: group.MKWEngineClassID,
+		Delta:         delta,
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if raceResults[group.GroupName] == nil {
+		raceResults[group.GroupName] = map[int][]RaceResult{}
+	}
+
+	raceResults[group.GroupName][group.MKWRaceNumber] = append(raceResults[group.GroupName][group.MKWRaceNumber], raceResultData)
+
+	logging.Info(moduleName, "Stored race result for profile", aurora.BrightCyan(strconv.FormatUint(uint64(profileId), 10)),
+		"Race #:", aurora.Cyan(strconv.Itoa(group.MKWRaceNumber)),
+		"Course:", aurora.Cyan(strconv.Itoa(group.MKWCourseID)),
+		"Delta:", aurora.Cyan(strconv.Itoa(delta)))
+}
+
+func GetRaceResultsForGroup(groupName string) map[int][]RaceResult {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	groupResults, ok := raceResults[groupName]
+	if !ok {
+		return nil
+	}
+
+	// Return a copy to prevent external modification
+	copiedRaceResults := make(map[int][]RaceResult)
+	for raceNumber, results := range groupResults {
+		copiedRaceResults[raceNumber] = make([]RaceResult, len(results))
+		copy(copiedRaceResults[raceNumber], results)
+	}
+
+	return copiedRaceResults
 }
 
 // saveGroups saves the current groups state to disk.
