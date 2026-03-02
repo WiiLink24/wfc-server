@@ -5,14 +5,12 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
-	"math"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
-	"wwfc/race"
 
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -54,6 +52,17 @@ type RaceResult struct {
 }
 
 var raceResults = map[string]map[int][]RaceResult{} // GroupName -> RaceNumber -> []RaceResult
+
+// Timing storage for delta calculation using start/finish times
+var raceStartTimings = map[uint32]struct {
+	ClientTime int64
+	ServerTime int64
+}{}
+
+var raceFinishTimings = map[uint32]struct {
+	ClientTime int64
+	ServerTime int64
+}{}
 
 var groups = map[string]*Group{}
 
@@ -334,6 +343,22 @@ func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32
 	return checkReservationAllowed(moduleName, from, to, joinType)
 }
 
+// StoreRaceStartTime stores the start timing data for delta calculation
+func StoreRaceStartTime(profileId uint32, clientTime, serverTime int64) {
+	raceStartTimings[profileId] = struct {
+		ClientTime int64
+		ServerTime int64
+	}{ClientTime: clientTime, ServerTime: serverTime}
+}
+
+// StoreRaceFinishTime stores the finish timing data for delta calculation
+func StoreRaceFinishTime(profileId uint32, clientTime, serverTime int64) {
+	raceFinishTimings[profileId] = struct {
+		ClientTime int64
+		ServerTime int64
+	}{ClientTime: clientTime, ServerTime: serverTime}
+}
+
 func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {
 	moduleName := "QR2:NATNEGReport"
 
@@ -549,7 +574,7 @@ func ProcessMKWSelectRecord(profileId uint32, key string, value string) {
 
 }
 
-func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, characterId int, kartId int) {
+func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, characterId int, kartId int, playerCount int) {
 	moduleName := "QR2:MKWRaceResult:" + strconv.FormatUint(uint64(profileId), 10)
 
 	mutex.Lock()
@@ -578,12 +603,28 @@ func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, cha
 		return
 	}
 
-	// Get the accumulated lag from race progress timing
+	// Calculate delta using start/finish times
 	var delta int
-	if timing, exists := race.RaceProgressTimings[profileId]; exists && len(timing.RecentDelays) > 0 {
-		// Get the final smoothed delay and convert to int
-		finalDelay := timing.RecentDelays[len(timing.RecentDelays)-1]
-		delta = int(math.Round(finalDelay))
+	if startTiming, exists := raceStartTimings[profileId]; exists {
+		if finishTiming, exists := raceFinishTimings[profileId]; exists {
+			clientElapsedTime := finishTiming.ClientTime - startTiming.ClientTime
+			serverElapsedTime := finishTiming.ServerTime - startTiming.ServerTime
+			delta = int(serverElapsedTime - clientElapsedTime)
+		}
+	}
+
+	// Calculate finish position based on current race results
+	finishPos := 1
+	if raceResults[group.GroupName] != nil && len(raceResults[group.GroupName][group.MKWRaceNumber]) > 0 {
+		// Get current race results for this race number
+		currentResults := raceResults[group.GroupName][group.MKWRaceNumber]
+
+		// Count how many players have finished with better times
+		for _, existingResult := range currentResults {
+			if existingResult.FinishTime < uint32(finishTimeMs) {
+				finishPos++
+			}
+		}
 	}
 
 	// Convert race result data to internal format
@@ -593,8 +634,8 @@ func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, cha
 		FinishTime:    uint32(finishTimeMs),
 		CharacterID:   uint32(characterId),
 		VehicleID:     uint32(kartId),
-		PlayerCount:   12, // Default value, could be extracted from race data if available
-		FinishPos:     0,  // Default value, could be calculated from finish times
+		PlayerCount:   uint32(playerCount),
+		FinishPos:     finishPos,
 		CourseID:      group.MKWCourseID,
 		EngineClassID: group.MKWEngineClassID,
 		Delta:         delta,

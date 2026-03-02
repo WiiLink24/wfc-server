@@ -7,7 +7,6 @@ import (
 	"wwfc/common"
 	"wwfc/logging"
 	"wwfc/qr2"
-	"wwfc/race"
 
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -17,6 +16,7 @@ type RaceResultPlayer struct {
 	FinishTimeMs int `json:"finish_time_ms"`
 	CharacterId  int `json:"character_id"`
 	KartId       int `json:"kart_id"`
+	PlayerCount  int `json:"player_count"`
 }
 
 type RaceResult struct {
@@ -104,10 +104,12 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 				"- PID:", aurora.Cyan(strconv.Itoa(player.Pid)),
 				"Time:", aurora.Cyan(strconv.Itoa(player.FinishTimeMs)), "ms",
 				"Char:", aurora.Cyan(strconv.Itoa(player.CharacterId)),
-				"Kart:", aurora.Cyan(strconv.Itoa(player.KartId)))
+				"Kart:", aurora.Cyan(strconv.Itoa(player.KartId)),
+				"Count:", aurora.Cyan(strconv.Itoa(player.PlayerCount)))
 
 			// Hand off to qr2 for processing
-			qr2.ProcessMKWRaceResult(g.User.ProfileId, player.Pid, player.FinishTimeMs, player.CharacterId, player.KartId)
+			qr2.ProcessMKWRaceResult(g.User.ProfileId, player.Pid, player.FinishTimeMs, player.CharacterId, player.KartId, player.PlayerCount)
+
 		case "wl:mkw_race_start_time":
 			serverTime := time.Now().UnixMilli()
 			logging.Info(g.ModuleName,
@@ -121,15 +123,8 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 				return
 			}
 
-			// Initialize progress timing data for this race
-			race.RaceProgressTimings[g.User.ProfileId] = &race.RaceProgressTiming{
-				ClientStartTime: clientTime,
-				ServerStartTime: serverTime,
-				RecentDelays:    make([]float64, 0, race.MaxDelays),
-			}
-
-		case "wl:mkw_race_progress_time":
-			race.HandleRaceProgressTime(g.User.ProfileId, value)
+			// Store timing data in qr2 module
+			qr2.StoreRaceStartTime(g.User.ProfileId, clientTime, serverTime)
 
 		case "wl:mkw_race_finish_time":
 			serverTime := time.Now().UnixMilli()
@@ -144,9 +139,8 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 				return
 			}
 
-			// Calculate and log final race delays
-			race.LogRaceProgressDelay(g.User.ProfileId, clientTime, serverTime)
+			// Store timing data in qr2 module
+			qr2.StoreRaceFinishTime(g.User.ProfileId, clientTime, serverTime)
 		}
-
 	}
 }
