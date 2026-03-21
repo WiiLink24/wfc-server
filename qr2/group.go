@@ -605,12 +605,20 @@ func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, cha
 
 	// Calculate delta using start/finish times
 	var delta int
-	if startTiming, exists := raceStartTimings[profileId]; exists {
-		if finishTiming, exists := raceFinishTimings[profileId]; exists {
+	if startTiming, startExists := raceStartTimings[profileId]; startExists {
+		if finishTiming, finishExists := raceFinishTimings[profileId]; finishExists {
 			clientElapsedTime := finishTiming.ClientTime - startTiming.ClientTime
 			serverElapsedTime := finishTiming.ServerTime - startTiming.ServerTime
 			delta = int(serverElapsedTime - clientElapsedTime)
+
+			logging.Info(moduleName, "Delta calculated:", aurora.Cyan(strconv.Itoa(delta)),
+				"Client elapsed:", aurora.Cyan(strconv.FormatInt(clientElapsedTime, 10)),
+				"Server elapsed:", aurora.Cyan(strconv.FormatInt(serverElapsedTime, 10)))
+		} else {
+			logging.Warn(moduleName, "Missing finish timing data for profile", aurora.Cyan(strconv.FormatUint(uint64(profileId), 10)))
 		}
+	} else {
+		logging.Warn(moduleName, "Missing start timing data for profile", aurora.Cyan(strconv.FormatUint(uint64(profileId), 10)))
 	}
 
 	// Calculate finish position based on current race results
