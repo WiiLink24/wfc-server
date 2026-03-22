@@ -94,6 +94,7 @@ func handlePinfoImpl(r *http.Request) (PinfoResponse, int) {
 			BanReason:    realUser.BanReason,
 			OpenHost:     realUser.OpenHost,
 			LastInGameSn: realUser.LastInGameSn,
+			DiscordID:    realUser.DiscordID,
 		}
 	}
 
