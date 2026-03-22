@@ -9,7 +9,8 @@ import (
 )
 
 type RaceResultInfo struct {
-	Results map[int][]qr2.RaceResult `json:"results"`
+	Players map[string]qr2.PlayerInfo `json:"players"`
+	Results map[int][]qr2.RaceResult  `json:"results"`
 }
 
 func HandleMKWRR(w http.ResponseWriter, r *http.Request) {
@@ -31,24 +32,27 @@ func HandleMKWRR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results := qr2.GetRaceResultsForGroup(query["id"][0])
-	if results == nil {
+	groupName := query["id"][0]
+	groups := qr2.GetGroups([]string{}, []string{groupName}, false)
+	if len(groups) == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
+	players := groups[0].Players
+	results := qr2.GetRaceResultsForGroup(groupName)
+	if results == nil {
+		results = map[int][]qr2.RaceResult{}
+	}
+
 	var jsonData []byte
-	if len(results) == 0 {
-		w.WriteHeader(http.StatusNotFound)
+	jsonData, err = json.Marshal(RaceResultInfo{
+		Players: players,
+		Results: results,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
-	} else {
-		jsonData, err = json.Marshal(RaceResultInfo{
-			Results: results,
-		})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
