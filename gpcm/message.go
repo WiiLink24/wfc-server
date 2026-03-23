@@ -38,11 +38,11 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 		return
 	}
 
-	if !g.isFriendAuthorized(uint32(toProfileId)) {
-		logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not even on sender's friend list")
-		g.replyError(ErrMessageNotFriends)
-		return
-	}
+	// if !g.isFriendAuthorized(uint32(toProfileId)) {
+	// 	logging.Error(g.ModuleName, "Destination", aurora.Cyan(toProfileId), "is not even on sender's friend list")
+	// 	g.replyError(ErrMessageNotFriends)
+	// 	return
+	// }
 
 	msg, ok := command.OtherValues["msg"]
 	if !ok || msg == "" {
