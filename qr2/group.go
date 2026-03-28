@@ -45,7 +45,6 @@ type RaceResult struct {
 	CharacterID   uint32
 	VehicleID     uint32
 	PlayerCount   uint32
-	FinishPos     int
 	CourseID      int
 	EngineClassID int
 	Delta         int
@@ -622,20 +621,6 @@ func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, cha
 		logging.Warn(moduleName, "Missing start timing data for profile", aurora.Cyan(strconv.FormatUint(uint64(profileId), 10)))
 	}
 
-	// Calculate finish position based on current race results
-	finishPos := 1
-	if raceResults[group.GroupName] != nil && len(raceResults[group.GroupName][group.MKWRaceNumber]) > 0 {
-		// Get current race results for this race number
-		currentResults := raceResults[group.GroupName][group.MKWRaceNumber]
-
-		// Count how many players have finished with better times
-		for _, existingResult := range currentResults {
-			if existingResult.FinishTime < uint32(finishTimeMs) {
-				finishPos++
-			}
-		}
-	}
-
 	// Convert race result data to internal format
 	raceResultData := RaceResult{
 		ProfileID:     profileId,
@@ -644,7 +629,6 @@ func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, cha
 		CharacterID:   uint32(characterId),
 		VehicleID:     uint32(kartId),
 		PlayerCount:   uint32(playerCount),
-		FinishPos:     finishPos,
 		CourseID:      group.MKWCourseID,
 		EngineClassID: group.MKWEngineClassID,
 		Delta:         delta,
@@ -702,10 +686,19 @@ func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, cha
 		racePlayers[group.GroupName][uint32(profileID)] = buildPlayerInfo(rawPlayer, sortedJoinIndex, joinIndex)
 	}
 
-	raceResults[group.GroupName][group.MKWRaceNumber] = append(raceResults[group.GroupName][group.MKWRaceNumber], raceResultData)
+	raceNumber := group.MKWRaceNumber
+	for _, existingResult := range raceResults[group.GroupName][raceNumber] {
+		if existingResult.ProfileID == profileId {
+			logging.Info(moduleName, "Ignored duplicate race result for profile", aurora.BrightCyan(strconv.FormatUint(uint64(profileId), 10)),
+				"Race #:", aurora.Cyan(strconv.Itoa(raceNumber)))
+			return
+		}
+	}
+
+	raceResults[group.GroupName][raceNumber] = append(raceResults[group.GroupName][raceNumber], raceResultData)
 
 	logging.Info(moduleName, "Stored race result for profile", aurora.BrightCyan(strconv.FormatUint(uint64(profileId), 10)),
-		"Race #:", aurora.Cyan(strconv.Itoa(group.MKWRaceNumber)),
+		"Race #:", aurora.Cyan(strconv.Itoa(raceNumber)),
 		"Course:", aurora.Cyan(strconv.Itoa(group.MKWCourseID)),
 		"Delta:", aurora.Cyan(strconv.Itoa(delta)))
 }
