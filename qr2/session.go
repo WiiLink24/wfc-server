@@ -82,6 +82,19 @@ func (session *Session) removeFromGroup() {
 
 	if len(session.groupPointer.players) == 0 {
 		logging.Notice("QR2", "Deleting group", aurora.Cyan(session.groupPointer.GroupName))
+
+		groupName := session.groupPointer.GroupName
+		_, ok := raceResults[groupName]
+		if ok {
+			go func() {
+				time.AfterFunc(3*time.Hour, func() {
+					delete(raceResults, groupName)
+					delete(racePlayers, groupName)
+					logging.Notice("QR2", "Deleted race results and players for group", aurora.Cyan(groupName))
+				})
+			}()
+		}
+
 		delete(groups, session.groupPointer.GroupName)
 	} else if session.groupPointer.server == session {
 		logging.Notice("QR2", "Server down in group", aurora.Cyan(session.groupPointer.GroupName))

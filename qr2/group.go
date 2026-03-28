@@ -52,6 +52,7 @@ type RaceResult struct {
 }
 
 var raceResults = map[string]map[int][]RaceResult{} // GroupName -> RaceNumber -> []RaceResult
+var racePlayers = map[string]map[uint32]PlayerInfo{} // GroupName -> ProfileID -> historical PlayerInfo
 
 // Timing storage for delta calculation using start/finish times
 var raceStartTimings = map[uint32]struct {
@@ -655,6 +656,51 @@ func ProcessMKWRaceResult(profileId uint32, playerPid int, finishTimeMs int, cha
 	if raceResults[group.GroupName] == nil {
 		raceResults[group.GroupName] = map[int][]RaceResult{}
 	}
+	if racePlayers[group.GroupName] == nil {
+		racePlayers[group.GroupName] = map[uint32]PlayerInfo{}
+	}
+
+	sortedJoinIndex := make([]string, 0, len(group.players))
+	rawPlayers := make(map[string]map[string]string, len(group.players))
+	for playerSession := range group.players {
+		mapData := map[string]string{}
+		for k, v := range playerSession.Data {
+			mapData[k] = v
+		}
+
+		if login := playerSession.login; login != nil {
+			mapData["+ingamesn"] = login.InGameName
+		} else {
+			mapData["+ingamesn"] = ""
+		}
+
+		joinIndex := mapData["+joinindex"]
+		rawPlayers[joinIndex] = mapData
+
+		myJoinIndex, _ := strconv.Atoi(joinIndex)
+		added := false
+		for i, existingJoinIndex := range sortedJoinIndex {
+			intJoinIndex, _ := strconv.Atoi(existingJoinIndex)
+			if intJoinIndex > myJoinIndex {
+				sortedJoinIndex = append(sortedJoinIndex, "")
+				copy(sortedJoinIndex[i+1:], sortedJoinIndex[i:])
+				sortedJoinIndex[i] = joinIndex
+				added = true
+				break
+			}
+		}
+		if !added {
+			sortedJoinIndex = append(sortedJoinIndex, joinIndex)
+		}
+	}
+
+	for joinIndex, rawPlayer := range rawPlayers {
+		profileID, err := strconv.ParseUint(rawPlayer["dwc_pid"], 10, 32)
+		if err != nil {
+			continue
+		}
+		racePlayers[group.GroupName][uint32(profileID)] = buildPlayerInfo(rawPlayer, sortedJoinIndex, joinIndex)
+	}
 
 	raceResults[group.GroupName][group.MKWRaceNumber] = append(raceResults[group.GroupName][group.MKWRaceNumber], raceResultData)
 
@@ -681,6 +727,41 @@ func GetRaceResultsForGroup(groupName string) map[int][]RaceResult {
 	}
 
 	return copiedRaceResults
+}
+
+func StoreRacePlayersForGroup(groupName string, players map[uint32]PlayerInfo) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if racePlayers[groupName] == nil {
+		racePlayers[groupName] = map[uint32]PlayerInfo{}
+	}
+
+	for profileID, player := range players {
+		racePlayers[groupName][profileID] = player
+	}
+}
+
+func GetRacePlayersForGroup(groupName string) map[uint32]PlayerInfo {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	groupPlayers, ok := racePlayers[groupName]
+	if !ok {
+		return nil
+	}
+
+	copiedPlayers := make(map[uint32]PlayerInfo, len(groupPlayers))
+	for profileID, player := range groupPlayers {
+		playerCopy := player
+		if player.Mii != nil {
+			playerCopy.Mii = make([]MiiInfo, len(player.Mii))
+			copy(playerCopy.Mii, player.Mii)
+		}
+		copiedPlayers[profileID] = playerCopy
+	}
+
+	return copiedPlayers
 }
 
 // saveGroups saves the current groups state to disk.

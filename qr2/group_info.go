@@ -49,6 +49,59 @@ type RaceInfo struct {
 	EngineClassID int `json:"cc"`
 }
 
+func buildPlayerInfo(rawPlayer map[string]string, sortedJoinIndex []string, joinIndex string) PlayerInfo {
+	playerInfo := PlayerInfo{
+		Count:      rawPlayer["+localplayers"],
+		ProfileID:  rawPlayer["dwc_pid"],
+		InGameName: rawPlayer["+ingamesn"],
+	}
+
+	pid, err := strconv.ParseUint(rawPlayer["dwc_pid"], 10, 32)
+	if err == nil {
+		if fcGame := rawPlayer["+fcgameid"]; len(fcGame) == 4 {
+			playerInfo.FriendCode = common.CalcFriendCodeString(uint32(pid), fcGame)
+		}
+	}
+
+	if rawPlayer["gamename"] == "mariokartwii" {
+		playerInfo.VersusELO = rawPlayer["ev"]
+		playerInfo.BattleELO = rawPlayer["eb"]
+	}
+
+	for i := 0; i < 32; i++ {
+		miiData := rawPlayer["+mii"+strconv.Itoa(i)]
+		if miiData == "" {
+			continue
+		}
+
+		playerInfo.Mii = append(playerInfo.Mii, MiiInfo{
+			MiiData: miiData,
+			MiiName: rawPlayer["+mii_name"+strconv.Itoa(i)],
+		})
+	}
+
+	for _, newIndex := range sortedJoinIndex {
+		if newIndex == joinIndex {
+			continue
+		}
+
+		if rawPlayer["+conn_"+newIndex] == "" {
+			playerInfo.ConnMap += "0"
+			continue
+		}
+
+		playerInfo.ConnMap += rawPlayer["+conn_"+newIndex]
+	}
+
+	playerInfo.ConnFail = rawPlayer["+conn_fail"]
+	if playerInfo.ConnFail == "" {
+		playerInfo.ConnFail = "0"
+	}
+
+	playerInfo.Suspend = rawPlayer["dwc_suspend"]
+	return playerInfo
+}
+
 func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 	var groupsCopy []GroupInfo
 
@@ -156,57 +209,7 @@ func GetGroups(gameNames []string, groupNames []string, sorted bool) []GroupInfo
 
 	for i, group := range groupsCopy {
 		for joinIndex, rawPlayer := range group.PlayersRaw {
-			playerInfo := PlayerInfo{
-				Count:      rawPlayer["+localplayers"],
-				ProfileID:  rawPlayer["dwc_pid"],
-				InGameName: rawPlayer["+ingamesn"],
-			}
-
-			pid, err := strconv.ParseUint(rawPlayer["dwc_pid"], 10, 32)
-			if err == nil {
-				if fcGame := rawPlayer["+fcgameid"]; len(fcGame) == 4 {
-					playerInfo.FriendCode = common.CalcFriendCodeString(uint32(pid), fcGame)
-				}
-			}
-
-			if rawPlayer["gamename"] == "mariokartwii" {
-				playerInfo.VersusELO = rawPlayer["ev"]
-				playerInfo.BattleELO = rawPlayer["eb"]
-			}
-
-			for i := 0; i < 32; i++ {
-				miiData := rawPlayer["+mii"+strconv.Itoa(i)]
-				if miiData == "" {
-					continue
-				}
-
-				playerInfo.Mii = append(playerInfo.Mii, MiiInfo{
-					MiiData: miiData,
-					MiiName: rawPlayer["+mii_name"+strconv.Itoa(i)],
-				})
-			}
-
-			for _, newIndex := range group.SortedJoinIndex {
-				if newIndex == joinIndex {
-					continue
-				}
-
-				if rawPlayer["+conn_"+newIndex] == "" {
-					playerInfo.ConnMap += "0"
-					continue
-				}
-
-				playerInfo.ConnMap += rawPlayer["+conn_"+newIndex]
-			}
-
-			playerInfo.ConnFail = rawPlayer["+conn_fail"]
-			if playerInfo.ConnFail == "" {
-				playerInfo.ConnFail = "0"
-			}
-
-			playerInfo.Suspend = rawPlayer["dwc_suspend"]
-
-			groupsCopy[i].Players[joinIndex] = playerInfo
+			groupsCopy[i].Players[joinIndex] = buildPlayerInfo(rawPlayer, group.SortedJoinIndex, joinIndex)
 		}
 	}
 
