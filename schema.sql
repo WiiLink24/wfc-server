@@ -64,6 +64,21 @@ END $$;
 ALTER TABLE public.users OWNER TO wiilink;
 
 --
+-- Name: sake_records; Type: TABLE; Schema: public; Owner: wiilink
+--
+CREATE TABLE IF NOT EXISTS public.sake_records (
+    game_id integer NOT NULL,
+    table_id character varying NOT NULL,
+    record_id integer NOT NULL DEFAULT (random() * 2147483647)::integer,
+    owner_id integer NOT NULL,
+    fields jsonb NOT NULL,
+    create_time timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    update_time timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT one_sake_record_constraint UNIQUE (game_id, table_id, record_id)
+);
+
+--
 -- Name: mario_kart_wii_sake; Type: TABLE; Schema: public; Owner: wiilink
 --
 
