@@ -76,9 +76,9 @@ func Shutdown() {
 	}
 }
 
-var regexRaceHost = regexp.MustCompile(`^([a-z\-]+\.)?race\.gs\.`)
-var regexSakeHost = regexp.MustCompile(`^([a-z\-]+\.)?sake\.gs\.`)
-var regexGamestatsHost = regexp.MustCompile(`^([a-z\-]+\.)?gamestats2?\.gs\.`)
+var regexRaceHost = regexp.MustCompile(`(\.|^)race\.(gs\.|gamespy\.com$)`)
+var regexSakeHost = regexp.MustCompile(`(\.|^)sake\.(gs\.|gamespy\.com$)`)
+var regexGamestatsHost = regexp.MustCompile(`(\.|^)gamestats2?\.(gs\.|gamespy\.com$)`)
 var regexStage1URL = regexp.MustCompile(`^/w([0-9])$`)
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
