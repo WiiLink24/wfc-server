@@ -3,7 +3,7 @@ package serverbrowser
 import (
 	"fmt"
 	"testing"
-	"wwfc/serverbrowser/filter"
+	"wwfc/filter"
 )
 
 func parseFilter(t *testing.T, expression string) error {

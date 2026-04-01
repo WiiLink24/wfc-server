@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"wwfc/filter"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -74,7 +75,7 @@ func parseSakeFieldsFromJson(fieldsJson []byte) (map[string]SakeField, error) {
 	return fields, nil
 }
 
-func GetSakeRecords(pool *pgxpool.Pool, ctx context.Context, gameId int, ownerIds []int32, tableId string, recordIds []int32, fields []string, filter string) ([]SakeRecord, error) {
+func GetSakeRecords(pool *pgxpool.Pool, ctx context.Context, gameId int, ownerIds []int32, tableId string, recordIds []int32, fields []string, filterExpr string) ([]SakeRecord, error) {
 	if fields == nil {
 		fields = []string{}
 	}
@@ -85,7 +86,28 @@ func GetSakeRecords(pool *pgxpool.Pool, ctx context.Context, gameId int, ownerId
 		recordIds = []int32{}
 	}
 
-	rows, err := pool.Query(ctx, getSakeRecordsQuery, gameId, tableId, ownerIds, recordIds)
+	query := getSakeRecordsQuery
+	if filterExpr != "" {
+		tree, err := filter.Parse(filterExpr)
+		if err != nil {
+			return nil, err
+		}
+
+		var filterQuery string
+		err = pool.AcquireFunc(ctx, func(conn *pgxpool.Conn) error {
+			filterQuery, err = createSqlFilter(conn.Conn().PgConn(), tree)
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		// This filter has been entirely rewritten by our filter code,
+		// based on the expression supplied by the user. This should be safe!!!
+		query += " AND (" + filterQuery + ")"
+	}
+
+	rows, err := pool.Query(ctx, query, gameId, tableId, ownerIds, recordIds)
 	if err != nil {
 		return nil, err
 	}

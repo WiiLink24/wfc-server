@@ -1,8 +1,8 @@
 package serverbrowser
 
 import (
+	"wwfc/filter"
 	"wwfc/logging"
-	"wwfc/serverbrowser/filter"
 
 	"github.com/logrusorgru/aurora/v3"
 )
