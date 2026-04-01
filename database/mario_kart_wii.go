@@ -4,6 +4,7 @@ import (
 	"context"
 	"wwfc/common"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -132,4 +133,51 @@ func InsertMarioKartWiiGhostFile(pool *pgxpool.Pool, ctx context.Context, region
 	_, err := pool.Exec(ctx, insertGhostFileStatement, regionId, courseId, score, pid, playerInfo, ghost)
 
 	return err
+}
+
+// Mario Kart Wii friend info functions for API compatibility
+
+func GetMKWFriendInfo(pool *pgxpool.Pool, ctx context.Context, profileId uint32) string {
+	records, err := GetSakeRecords(pool, ctx, 1687, []int32{int32(profileId)}, "FriendInfo", nil, []string{"info"}, "")
+	if err != nil || len(records) == 0 {
+		return ""
+	}
+
+	infoField, ok := records[0].Fields["info"]
+	if !ok {
+		return ""
+	}
+
+	return infoField.Value
+}
+
+func UpdateMKWFriendInfo(pool *pgxpool.Pool, ctx context.Context, profileId uint32, info string) {
+	records, err := GetSakeRecords(pool, ctx, 1687, []int32{int32(profileId)}, "FriendInfo", nil, []string{"info"}, "")
+	if err == pgx.ErrNoRows || (err == nil && len(records) == 0) {
+		// No existing record, insert new one
+		record := SakeRecord{
+			GameId:  1687,
+			TableId: "FriendInfo",
+			OwnerId: int32(profileId),
+			Fields: map[string]SakeField{
+				"info": {
+					Type:  SakeFieldTypeBinaryData,
+					Value: info,
+				},
+			},
+		}
+		_, err = InsertSakeRecord(pool, ctx, record)
+	} else if err == nil {
+		// Update existing record
+		records[0].Fields["info"] = SakeField{
+			Type:  SakeFieldTypeBinaryData,
+			Value: info,
+		}
+		err = UpdateSakeRecord(pool, ctx, records[0], int32(profileId))
+
+	}
+
+	if err != nil {
+		panic(err)
+	}
 }

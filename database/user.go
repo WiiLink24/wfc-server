@@ -24,9 +24,6 @@ const (
 	UpdateUserLastIPAddress = `UPDATE users SET last_ip_address = $2, last_ingamesn = $3 WHERE profile_id = $1`
 	UpdateUserBan           = `UPDATE users SET has_ban = true, ban_issued = $2, ban_expires = $3, ban_reason = $4, ban_reason_hidden = $5, ban_moderator = $6, ban_tos = $7 WHERE profile_id = $1`
 	DisableUserBan          = `UPDATE users SET has_ban = false WHERE profile_id = $1`
-
-	GetMKWFriendInfoQuery    = `SELECT mariokartwii_friend_info FROM users WHERE profile_id = $1`
-	UpdateMKWFriendInfoQuery = `UPDATE users SET mariokartwii_friend_info = $2 WHERE profile_id = $1`
 )
 
 type User struct {
@@ -162,21 +159,4 @@ func BanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32, tos bool
 func UnbanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32) bool {
 	_, err := pool.Exec(ctx, DisableUserBan, profileId)
 	return err == nil
-}
-
-func GetMKWFriendInfo(pool *pgxpool.Pool, ctx context.Context, profileId uint32) string {
-	var info string
-	err := pool.QueryRow(ctx, GetMKWFriendInfoQuery, profileId).Scan(&info)
-	if err != nil {
-		return ""
-	}
-
-	return info
-}
-
-func UpdateMKWFriendInfo(pool *pgxpool.Pool, ctx context.Context, profileId uint32, info string) {
-	_, err := pool.Exec(ctx, UpdateMKWFriendInfoQuery, profileId, info)
-	if err != nil {
-		panic(err)
-	}
 }

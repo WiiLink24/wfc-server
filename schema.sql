@@ -33,8 +33,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     email character varying NOT NULL,
     unique_nick character varying NOT NULL,
     firstname character varying,
-    lastname character varying DEFAULT ''::character varying,
-    mariokartwii_friend_info character varying
+    lastname character varying DEFAULT ''::character varying
 );
 
 
