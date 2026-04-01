@@ -41,31 +41,37 @@ type SakeRecord struct {
 
 const (
 	getSakeRecordsQuery = `
-		SELECT owner_id, record_id, fields
-		FROM sake_records
-		WHERE game_id = $1
-		  AND table_id = $2
-		  AND (cardinality($4::integer[]) = 0 OR record_id = ANY($4::integer[]))
+		SELECT owner_id, record_id, fields 
+		FROM sake_records 
+		WHERE game_id = $1 
+		  AND table_id = $2 
+		  AND (cardinality($4::integer[]) = 0 OR record_id = ANY($4::integer[])) 
 		  AND (cardinality($3::integer[]) = 0 OR owner_id = ANY($3::integer[]))`
 
 	updateSakeRecordQuery = `
         UPDATE sake_records 
         SET 
-            fields = CASE WHEN owner_id = $4 THEN fields || $5 ELSE fields END,
-            update_time = CASE WHEN owner_id = $4 THEN CURRENT_TIMESTAMP ELSE update_time END
+            fields = CASE WHEN owner_id = $4 THEN fields || $5 ELSE fields END, 
+            update_time = CASE WHEN owner_id = $4 THEN CURRENT_TIMESTAMP ELSE update_time END 
         WHERE game_id = $1 
           AND table_id = $2 
-          AND record_id = $3
+          AND record_id = $3 
         RETURNING owner_id`
 
 	insertSakeRecordQuery = `
 		INSERT INTO sake_records (game_id, table_id, owner_id, fields) 
 		VALUES ($1, $2, $3, $4)
 		RETURNING record_id`
+
+	checkMaxSakeRecordsQuery = `
+		SELECT COUNT(*) 
+		FROM sake_records 
+		WHERE owner_id = $1`
 )
 
 var (
-	ErrSakeNotOwned = errors.New("record is not owned by the specified owner ID")
+	ErrSakeNotOwned           = errors.New("record is not owned by the specified owner ID")
+	ErrSakeFieldLimitExceeded = errors.New("record has too many fields")
 )
 
 func parseSakeFieldsFromJson(fieldsJson []byte) (map[string]SakeField, error) {
@@ -146,6 +152,10 @@ func UpdateSakeRecord(pool *pgxpool.Pool, ctx context.Context, record SakeRecord
 	var existingOwnerId int32
 	err = pool.QueryRow(ctx, updateSakeRecordQuery, record.GameId, record.TableId, record.RecordId, ownerId, fieldsJson).Scan(&existingOwnerId)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.CheckViolation {
+			return ErrSakeFieldLimitExceeded
+		}
 		return err
 	}
 	if ownerId != 0 && existingOwnerId != ownerId {
@@ -176,4 +186,13 @@ func InsertSakeRecord(pool *pgxpool.Pool, ctx context.Context, record SakeRecord
 		// Retry if unique violation occurred, as the record ID is generated randomly
 	}
 	return recordId, err
+}
+
+func IsMaxSakeRecordsReached(pool *pgxpool.Pool, ctx context.Context, profileId uint32, maxRecords int) (bool, error) {
+	var count int
+	err := pool.QueryRow(ctx, checkMaxSakeRecordsQuery, profileId).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count >= maxRecords, nil
 }

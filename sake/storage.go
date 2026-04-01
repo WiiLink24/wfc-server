@@ -17,6 +17,12 @@ import (
 )
 
 const (
+	MaxSakeRecordsPerProfile = 96
+	MaxSakeFieldsPerRecord   = 64
+	MaxSakeFieldValueLength  = 4096
+)
+
+const (
 	ResultSuccess             = "Success"
 	ResultSecretKeyInvalid    = "SecretKeyInvalid"
 	ResultServiceDisabled     = "ServiceDisabled"
@@ -248,26 +254,19 @@ func getRequestIdentity(moduleName string, request StorageRequestData) (uint32, 
 	return profileId, *gameInfo, ResultSuccess
 }
 
-func getInputFields(moduleName string, request StorageRequestData) (map[string]database.SakeField, string) {
-	record := database.SakeRecord{
-		Fields: make(map[string]database.SakeField),
-	}
-	for _, field := range request.Values.RecordFields {
-		fieldType, ok := tagToSakeType[field.Value.Value.XMLName.Local]
-		if !ok {
-			logging.Error(moduleName, "Invalid field type tag:", aurora.Cyan(field.Value.Value.XMLName.Local))
-			return nil, ResultFieldTypeInvalid
-		}
-		if field.Name == "ownerid" || field.Name == "recordid" || field.Name == "gameid" || field.Name == "tableid" {
-			logging.Error(moduleName, "Attempt to set reserved field:", aurora.Cyan(field.Name))
-			return nil, ResultNoPermission
-		}
-		record.Fields[field.Name] = database.SakeField{Type: fieldType, Value: field.Value.Value.Value}
-	}
-	return record.Fields, ResultSuccess
-}
-
 func createRecord(moduleName string, profileId uint32, gameInfo common.GameInfo, request StorageRequestData) StorageResponseBody {
+	if reached, err := database.IsMaxSakeRecordsReached(pool, ctx, profileId, MaxSakeRecordsPerProfile); err != nil {
+		logging.Error(moduleName, "Failed to check max sake records:", err)
+		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
+			CreateRecordResult: ResultDatabaseUnavailable,
+		}}
+	} else if reached {
+		logging.Error(moduleName, "Profile", aurora.Cyan(profileId), "has reached the maximum number of sake records")
+		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
+			CreateRecordResult: ResultRecordLimitReached,
+		}}
+	}
+
 	if request.TableID == "" {
 		logging.Error(moduleName, "No table ID provided")
 		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
@@ -489,6 +488,35 @@ func searchForRecords(moduleName string, profileId uint32, gameInfo common.GameI
 	return StorageResponseBody{SearchForRecordsResponse: &response}
 }
 
+func getInputFields(moduleName string, request StorageRequestData) (map[string]database.SakeField, string) {
+	record := database.SakeRecord{
+		Fields: make(map[string]database.SakeField),
+	}
+	if len(request.Values.RecordFields) > MaxSakeFieldsPerRecord {
+		logging.Error(moduleName, "Too many fields in record:", aurora.Cyan(len(request.Values.RecordFields)))
+		return nil, ResultFieldTypeInvalid
+	}
+
+	for _, field := range request.Values.RecordFields {
+		value := field.Value.Value.Value
+		if len(value) > MaxSakeFieldValueLength {
+			logging.Error(moduleName, "Field value too long for field", aurora.Cyan(field.Name), "with length", aurora.Cyan(len(value)))
+			return nil, ResultFieldTypeInvalid
+		}
+		fieldType, ok := tagToSakeType[field.Value.Value.XMLName.Local]
+		if !ok {
+			logging.Error(moduleName, "Invalid field type tag:", aurora.Cyan(field.Value.Value.XMLName.Local))
+			return nil, ResultFieldTypeInvalid
+		}
+		if field.Name == "ownerid" || field.Name == "recordid" || field.Name == "gameid" || field.Name == "tableid" {
+			logging.Error(moduleName, "Attempt to set reserved field:", aurora.Cyan(field.Name))
+			return nil, ResultNoPermission
+		}
+		record.Fields[field.Name] = database.SakeField{Type: fieldType, Value: field.Value.Value.Value}
+	}
+	return record.Fields, ResultSuccess
+}
+
 func fillResponseValues(records []database.SakeRecord, request StorageRequestData) StorageResponseValues {
 	var response StorageResponseValues
 	for _, record := range records {
@@ -537,16 +565,18 @@ func fillValue(valueType database.SakeFieldType, value string) StorageValue {
 
 func (body *StorageResponseBody) setResultTag(xmlName string, result string) {
 	switch xmlName {
-	case SakeNamespace + "/GetMyRecords":
-		body.GetMyRecordsResponse = &StorageGetMyRecordsResponse{
-			GetMyRecordsResult: result,
+	case SakeNamespace + "/CreateRecord":
+		body.CreateRecordResponse = &StorageCreateRecordResponse{
+			CreateRecordResult: result,
 		}
-
 	case SakeNamespace + "/UpdateRecord":
 		body.UpdateRecordResponse = &StorageUpdateRecordResponse{
 			UpdateRecordResult: result,
 		}
-
+	case SakeNamespace + "/GetMyRecords":
+		body.GetMyRecordsResponse = &StorageGetMyRecordsResponse{
+			GetMyRecordsResult: result,
+		}
 	case SakeNamespace + "/SearchForRecords":
 		body.SearchForRecordsResponse = &StorageSearchForRecordsResponse{}
 	}

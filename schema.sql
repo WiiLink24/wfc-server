@@ -66,12 +66,13 @@ ALTER TABLE public.users OWNER TO wiilink;
 --
 -- Name: sake_records; Type: TABLE; Schema: public; Owner: wiilink
 --
+
 CREATE TABLE IF NOT EXISTS public.sake_records (
     game_id integer NOT NULL,
     table_id character varying NOT NULL,
     record_id integer NOT NULL DEFAULT (random() * 2147483647)::integer,
     owner_id integer NOT NULL,
-    fields jsonb NOT NULL,
+    fields jsonb NOT NULL CHECK (jsonb_typeof(fields) = 'object' AND jsonb_array_length(fields) <= 64),
     create_time timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     update_time timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
 
