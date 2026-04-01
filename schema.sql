@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS public.sake_records (
     table_id character varying NOT NULL,
     record_id integer NOT NULL DEFAULT (random() * 2147483647)::integer,
     owner_id integer NOT NULL,
-    fields jsonb NOT NULL CHECK (jsonb_typeof(fields) = 'object' AND jsonb_array_length(fields) <= 64),
+    fields jsonb NOT NULL CHECK (jsonb_typeof(fields) = 'object' AND jsonb_array_length(jsonb_path_query_array(fields, '$.keyvalue().key')) <= 64),
     create_time timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     update_time timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
 
