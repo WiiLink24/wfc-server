@@ -81,7 +81,7 @@ func (this *expression) filterSwitchFunction(node *filter.TreeNode) {
 func (this *expression) filterAppendNode(node *filter.TreeNode) {
 	switch v := node.Value.(type) {
 	case *filter.NumberToken:
-		this.query += "'" + strconv.FormatInt(int64(int32(v.Value)), 10) + "'"
+		this.query += "'" + strconv.FormatInt(v.Value, 10) + "'"
 	case *filter.IdentityToken:
 		this.filterAppendQueryValue(v)
 	case *filter.OperatorToken:
@@ -171,7 +171,7 @@ func (this *expression) filterAppendQueryValue(token *filter.IdentityToken) {
 		return
 	}
 
-	this.query += "(fields->" + this.filterPushArg(token.Name) + "->>'value')"
+	this.query += "COALESCE(fields->" + this.filterPushArg(token.Name) + "->>'value', '0')"
 
 }
 
