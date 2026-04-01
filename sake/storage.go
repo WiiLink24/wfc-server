@@ -276,6 +276,7 @@ func createRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 
 	if gameInfo.Name == "mariokartwii" && (request.TableID == "GhostData" || request.TableID == "StoredGhostData") {
 		// Reserved for special handler
+		logging.Error(moduleName, "Attempt to create record in reserved table", aurora.Cyan(request.TableID))
 		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
 			CreateRecordResult: ResultTableNotFound,
 		}}
@@ -298,6 +299,7 @@ func createRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 	// TODO: Limit number of records or fields a user can have
 	recordId, err := database.InsertSakeRecord(pool, ctx, record)
 	if err != nil {
+		logging.Error(moduleName, "Failed to insert sake record into the database:", err)
 		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
 			CreateRecordResult: ResultDatabaseUnavailable,
 		}}
