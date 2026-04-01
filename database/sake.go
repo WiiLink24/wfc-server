@@ -47,6 +47,7 @@ const (
 		  AND table_id = $2
 		  AND (cardinality($4::integer[]) = 0 OR record_id = ANY($4::integer[]))
 		  AND (cardinality($3::integer[]) = 0 OR owner_id = ANY($3::integer[]))`
+
 	updateSakeRecordQuery = `
         UPDATE sake_records 
         SET 
@@ -56,9 +57,11 @@ const (
           AND table_id = $2 
           AND record_id = $3
         RETURNING owner_id`
+
 	insertSakeRecordQuery = `
 		INSERT INTO sake_records (game_id, table_id, owner_id, fields) 
-		VALUES ($1, $2, $3, $4)`
+		VALUES ($1, $2, $3, $4)
+		RETURNING record_id`
 )
 
 var (
@@ -152,14 +155,14 @@ func UpdateSakeRecord(pool *pgxpool.Pool, ctx context.Context, record SakeRecord
 	return nil
 }
 
-func InsertSakeRecord(pool *pgxpool.Pool, ctx context.Context, record SakeRecord) error {
+func InsertSakeRecord(pool *pgxpool.Pool, ctx context.Context, record SakeRecord) (recordId int32, err error) {
 	fieldsJson, err := json.Marshal(record.Fields)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	for i := 0; i < 10; i++ {
-		_, err = pool.Exec(ctx, insertSakeRecordQuery, record.GameId, record.TableId, record.OwnerId, fieldsJson)
+		err = pool.QueryRow(ctx, insertSakeRecordQuery, record.GameId, record.TableId, record.OwnerId, fieldsJson).Scan(&recordId)
 		if err == nil {
 			break
 		}
@@ -172,5 +175,5 @@ func InsertSakeRecord(pool *pgxpool.Pool, ctx context.Context, record SakeRecord
 		}
 		// Retry if unique violation occurred, as the record ID is generated randomly
 	}
-	return nil
+	return recordId, err
 }

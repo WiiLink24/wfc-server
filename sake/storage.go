@@ -105,14 +105,10 @@ type StorageResponseEnvelope struct {
 }
 
 type StorageResponseBody struct {
-	GetMyRecordsResponse     *StorageGetMyRecordsResponse     `xml:"http://gamespy.net/sake GetMyRecordsResponse"`
+	CreateRecordResponse     *StorageCreateRecordResponse     `xml:"http://gamespy.net/sake CreateRecordResponse"`
 	UpdateRecordResponse     *StorageUpdateRecordResponse     `xml:"http://gamespy.net/sake UpdateRecordResponse"`
+	GetMyRecordsResponse     *StorageGetMyRecordsResponse     `xml:"http://gamespy.net/sake GetMyRecordsResponse"`
 	SearchForRecordsResponse *StorageSearchForRecordsResponse `xml:"http://gamespy.net/sake SearchForRecordsResponse"`
-}
-
-type StorageGetMyRecordsResponse struct {
-	GetMyRecordsResult string
-	Values             StorageResponseValues `xml:"values"`
 }
 
 type StorageResponseValues struct {
@@ -123,8 +119,18 @@ type StorageArrayOfRecordValue struct {
 	RecordValues []StorageRecordValue `xml:"RecordValue"`
 }
 
+type StorageCreateRecordResponse struct {
+	CreateRecordResult string
+	RecordID           int32 `xml:"recordid"`
+}
+
 type StorageUpdateRecordResponse struct {
 	UpdateRecordResult string
+}
+
+type StorageGetMyRecordsResponse struct {
+	GetMyRecordsResult string
+	Values             StorageResponseValues `xml:"values"`
 }
 
 type StorageSearchForRecordsResponse struct {
@@ -208,6 +214,8 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 		panic(err)
 	}
 
+	logging.Info(moduleName, "Responding with body:", aurora.Cyan(string(out)))
+
 	payload := append([]byte(xml.Header), out...)
 
 	w.Header().Set("Content-Type", "text/xml")
@@ -250,7 +258,7 @@ func getInputFields(moduleName string, request StorageRequestData) (map[string]d
 			logging.Error(moduleName, "Invalid field type tag:", aurora.Cyan(field.Value.Value.XMLName.Local))
 			return nil, ResultFieldTypeInvalid
 		}
-		if field.Name == "ownerid" || field.Name == "recordid" {
+		if field.Name == "ownerid" || field.Name == "recordid" || field.Name == "gameid" || field.Name == "tableid" {
 			logging.Error(moduleName, "Attempt to set reserved field:", aurora.Cyan(field.Name))
 			return nil, ResultNoPermission
 		}
@@ -262,15 +270,15 @@ func getInputFields(moduleName string, request StorageRequestData) (map[string]d
 func createRecord(moduleName string, profileId uint32, gameInfo common.GameInfo, request StorageRequestData) StorageResponseBody {
 	if request.TableID == "" {
 		logging.Error(moduleName, "No table ID provided")
-		return StorageResponseBody{UpdateRecordResponse: &StorageUpdateRecordResponse{
-			UpdateRecordResult: ResultTableNotFound,
+		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
+			CreateRecordResult: ResultTableNotFound,
 		}}
 	}
 
 	if gameInfo.Name == "mariokartwii" && (request.TableID == "GhostData" || request.TableID == "StoredGhostData") {
 		// Reserved for special handler
-		return StorageResponseBody{UpdateRecordResponse: &StorageUpdateRecordResponse{
-			UpdateRecordResult: ResultTableNotFound,
+		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
+			CreateRecordResult: ResultTableNotFound,
 		}}
 	}
 
@@ -278,8 +286,8 @@ func createRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 	var result string
 	record.Fields, result = getInputFields(moduleName, request)
 	if result != ResultSuccess {
-		return StorageResponseBody{UpdateRecordResponse: &StorageUpdateRecordResponse{
-			UpdateRecordResult: result,
+		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
+			CreateRecordResult: result,
 		}}
 	}
 
@@ -289,17 +297,19 @@ func createRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 	record.OwnerId = int32(profileId)
 
 	// TODO: Limit number of records or fields a user can have
-	err := database.InsertSakeRecord(pool, ctx, record)
+	recordId, err := database.InsertSakeRecord(pool, ctx, record)
 	if err != nil {
-		return StorageResponseBody{UpdateRecordResponse: &StorageUpdateRecordResponse{
-			UpdateRecordResult: ResultDatabaseUnavailable,
+		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
+			CreateRecordResult: ResultDatabaseUnavailable,
 		}}
 	}
 
-	return StorageResponseBody{UpdateRecordResponse: &StorageUpdateRecordResponse{
-		UpdateRecordResult: ResultSuccess,
-	}}
+	logging.Info(moduleName, "Created record in table", aurora.Cyan(record.TableId), "with ID", aurora.Cyan(recordId), "for profile", aurora.Cyan(profileId))
 
+	return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
+		CreateRecordResult: ResultSuccess,
+		RecordID:           recordId,
+	}}
 }
 
 func getMyRecords(moduleName string, profileId uint32, gameInfo common.GameInfo, request StorageRequestData) StorageResponseBody {
@@ -474,7 +484,7 @@ func searchForRecords(moduleName string, profileId uint32, gameInfo common.GameI
 		SearchForRecordsResult: "Success",
 		Values:                 fillResponseValues(records, request),
 	}
-	logging.Info(moduleName, "Searched for records in table", aurora.Cyan(request.TableID), "for profile", aurora.Cyan(profileId), "with filter", aurora.Cyan(request.Filter), "and got", aurora.Cyan(len(records)), "records")
+	logging.Info(moduleName, "Found", aurora.Cyan(len(records)), "records in table", aurora.Cyan(request.TableID), "for profile", aurora.Cyan(profileId), "with filter", aurora.Cyan(request.Filter))
 
 	return StorageResponseBody{SearchForRecordsResponse: &response}
 }
