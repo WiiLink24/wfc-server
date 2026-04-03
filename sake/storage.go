@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"io"
 	"net/http"
-	"regexp"
 	"sort"
 	"strconv"
 	"time"
@@ -14,34 +13,6 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	"github.com/logrusorgru/aurora/v3"
-)
-
-const (
-	MaxSakeRecordsPerProfile = 96
-	MaxSakeFieldsPerRecord   = 64
-	MaxSakeFieldValueLength  = 4096
-)
-
-const (
-	ResultSuccess             = "Success"
-	ResultSecretKeyInvalid    = "SecretKeyInvalid"
-	ResultServiceDisabled     = "ServiceDisabled"
-	ResultDatabaseUnavailable = "DatabaseUnavailable"
-	ResultLoginTicketInvalid  = "LoginTicketInvalid"
-	ResultLoginTicketExpired  = "LoginTicketExpired"
-	ResultTableNotFound       = "TableNotFound"
-	ResultRecordNotFound      = "RecordNotFound"
-	ResultFieldNotFound       = "FieldNotFound"
-	ResultFieldTypeInvalid    = "FieldTypeInvalid"
-	ResultNoPermission        = "NoPermission"
-	ResultRecordLimitReached  = "RecordLimitReached"
-	ResultAlreadyRated        = "AlreadyRated"
-	ResultNotRateable         = "NotRateable"
-	ResultNotOwned            = "NotOwned"
-	ResultFilterInvalid       = "FilterInvalid"
-	ResultSortInvalid         = "SortInvalid"
-	ResultTargetFilterInvalid = "TargetFilterInvalid"
-	ResultUnknownError        = "UnknownError"
 )
 
 const (
@@ -274,17 +245,25 @@ func createRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 		}}
 	}
 
-	if gameInfo.Name == "mariokartwii" && (request.TableID == "GhostData" || request.TableID == "StoredGhostData") {
+	table := GetTable(gameInfo.Name, request.TableID)
+	if table != nil && table.Reserved {
 		// Reserved for special handler
-		logging.Error(moduleName, "Attempt to create record in reserved table", aurora.Cyan(request.TableID))
+		logging.Error(moduleName, "Attempt to create record in reserved table", aurora.Cyan(request.TableID), "in game", aurora.BrightCyan(gameInfo.Name))
 		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
-			CreateRecordResult: ResultTableNotFound,
+			CreateRecordResult: ResultNoPermission,
+		}}
+	}
+
+	if !table.AllowsPublicCreate() {
+		logging.Error(moduleName, "Attempt to create record in table that doesn't allow public create", aurora.Cyan(request.TableID), "in game", aurora.BrightCyan(gameInfo.Name))
+		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
+			CreateRecordResult: ResultNoPermission,
 		}}
 	}
 
 	var record database.SakeRecord
 	var result string
-	record.Fields, result = getInputFields(moduleName, request)
+	record.Fields, result = getInputFields(moduleName, request, table, true)
 	if result != ResultSuccess {
 		return StorageResponseBody{CreateRecordResponse: &StorageCreateRecordResponse{
 			CreateRecordResult: result,
@@ -357,16 +336,25 @@ func updateRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 		}}
 	}
 
-	if gameInfo.Name == "mariokartwii" && (request.TableID == "GhostData" || request.TableID == "StoredGhostData") {
+	table := GetTable(gameInfo.Name, request.TableID)
+	if table != nil && table.Reserved {
 		// Reserved for special handler
+		logging.Error(moduleName, "Attempt to update record in reserved table", aurora.Cyan(request.TableID), "in game", aurora.BrightCyan(gameInfo.Name))
 		return StorageResponseBody{UpdateRecordResponse: &StorageUpdateRecordResponse{
-			UpdateRecordResult: ResultTableNotFound,
+			UpdateRecordResult: ResultNoPermission,
+		}}
+	}
+
+	if !table.AllowsOwnerUpdate() {
+		logging.Error(moduleName, "Attempt to update record in table that doesn't allow owner update", aurora.Cyan(request.TableID), "in game", aurora.BrightCyan(gameInfo.Name))
+		return StorageResponseBody{UpdateRecordResponse: &StorageUpdateRecordResponse{
+			UpdateRecordResult: ResultNoPermission,
 		}}
 	}
 
 	var record database.SakeRecord
 	var result string
-	record.Fields, result = getInputFields(moduleName, request)
+	record.Fields, result = getInputFields(moduleName, request, table, false)
 	if result != ResultSuccess {
 		return StorageResponseBody{UpdateRecordResponse: &StorageUpdateRecordResponse{
 			UpdateRecordResult: result,
@@ -403,46 +391,39 @@ func updateRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 	}}
 }
 
-var searchRecordHandlers = map[string]func(string, StorageRequestData) (database.SakeRecord, bool){
-	"mariokartwii/GhostData":       getMarioKartWiiGhostDataRecord,
-	"mariokartwii/StoredGhostData": getMarioKartWiiStoredGhostDataRecord,
-}
-
-var (
-	standardFilterRegex = regexp.MustCompile(`^ownerid\s*=\s*-?(\d{1,10})$`)
-)
-
-// TODO: Test this
 func searchForRecords(moduleName string, profileId uint32, gameInfo common.GameInfo, request StorageRequestData) StorageResponseBody {
 	var records []database.SakeRecord
 
-	if handler, ok := searchRecordHandlers[gameInfo.Name+"/"+request.TableID]; ok {
-		record, ok := handler(moduleName, request)
+	if request.TableID == "" {
+		logging.Error(moduleName, "No table ID provided")
+		return StorageResponseBody{SearchForRecordsResponse: &StorageSearchForRecordsResponse{
+			SearchForRecordsResult: ResultTableNotFound,
+		}}
+	}
+
+	table := GetTable(gameInfo.Name, request.TableID)
+
+	if table != nil && table.SearchForRecordsHandler != nil {
+		var ok bool
+		records, ok = table.SearchForRecordsHandler(moduleName, request)
 		if !ok {
 			return StorageResponseBody{SearchForRecordsResponse: &StorageSearchForRecordsResponse{
 				SearchForRecordsResult: ResultUnknownError,
 			}}
 		}
-		records = append(records, record)
+	} else if table != nil && table.Reserved {
+		logging.Error(moduleName, "Attempt to search for records in reserved table", aurora.Cyan(request.TableID))
+		return StorageResponseBody{SearchForRecordsResponse: &StorageSearchForRecordsResponse{
+			SearchForRecordsResult: ResultTableNotFound,
+		}}
 	} else {
-		filter := request.Filter
 		ownerIds := request.OwnerIDs.OwnerID
-
-		// Parse standard filter
-		if matches := standardFilterRegex.FindStringSubmatch(request.Filter); matches != nil {
-			ownerIdParsed, err := strconv.ParseInt(matches[1], 10, 32)
-			if err != nil {
-				logging.Error(moduleName, "Invalid owner ID in filter:", aurora.Cyan(request.Filter))
-				return StorageResponseBody{SearchForRecordsResponse: &StorageSearchForRecordsResponse{
-					SearchForRecordsResult: ResultFilterInvalid,
-				}}
-			}
-			ownerIds = append(ownerIds, int32(ownerIdParsed))
-			filter = ""
+		if !table.AllowsPublicRead() {
+			ownerIds = []int32{int32(profileId)}
 		}
 
 		var err error
-		records, err = database.GetSakeRecords(pool, ctx, gameInfo.GameID, ownerIds, request.TableID, nil, request.Fields.Fields, filter)
+		records, err = database.GetSakeRecords(pool, ctx, gameInfo.GameID, ownerIds, request.TableID, nil, request.Fields.Fields, request.Filter)
 		if err != nil {
 			logging.Error(moduleName, "Failed to get sake records from the database:", err)
 			return StorageResponseBody{SearchForRecordsResponse: &StorageSearchForRecordsResponse{
@@ -451,7 +432,7 @@ func searchForRecords(moduleName string, profileId uint32, gameInfo common.GameI
 		}
 	}
 
-	// Sort the records now
+	// Sort the records now. TODO: This can be done more effectively in the database query.
 	sort.Slice(records, func(l, r int) bool {
 		lVal, lExists := records[l].Fields[request.Sort]
 		rVal, rExists := records[r].Fields[request.Sort]
@@ -490,21 +471,20 @@ func searchForRecords(moduleName string, profileId uint32, gameInfo common.GameI
 	return StorageResponseBody{SearchForRecordsResponse: &response}
 }
 
-func getInputFields(moduleName string, request StorageRequestData) (map[string]database.SakeField, string) {
-	record := database.SakeRecord{
-		Fields: make(map[string]database.SakeField),
-	}
+func getInputFields(moduleName string, request StorageRequestData, table *SakeTable, useDefault bool) (map[string]database.SakeField, string) {
 	if len(request.Values.RecordFields) > MaxSakeFieldsPerRecord {
 		logging.Error(moduleName, "Too many fields in record:", aurora.Cyan(len(request.Values.RecordFields)))
 		return nil, ResultFieldTypeInvalid
 	}
+	var fields map[string]database.SakeField
+	if useDefault {
+		fields = table.GetDefaultFields()
+	} else {
+		fields = make(map[string]database.SakeField)
+	}
 
 	for _, field := range request.Values.RecordFields {
 		value := field.Value.Value.Value
-		if len(value) > MaxSakeFieldValueLength {
-			logging.Error(moduleName, "Field value too long for field", aurora.Cyan(field.Name), "with length", aurora.Cyan(len(value)))
-			return nil, ResultFieldTypeInvalid
-		}
 		fieldType, ok := tagToSakeType[field.Value.Value.XMLName.Local]
 		if !ok {
 			logging.Error(moduleName, "Invalid field type tag:", aurora.Cyan(field.Value.Value.XMLName.Local))
@@ -514,9 +494,17 @@ func getInputFields(moduleName string, request StorageRequestData) (map[string]d
 			logging.Error(moduleName, "Attempt to set reserved field:", aurora.Cyan(field.Name))
 			return nil, ResultNoPermission
 		}
-		record.Fields[field.Name] = database.SakeField{Type: fieldType, Value: field.Value.Value.Value}
+		sakeField := database.SakeField{
+			Type:  fieldType,
+			Value: value,
+		}
+		if result := table.CheckValidField(field.Name, sakeField); result != ResultSuccess {
+			logging.Error(moduleName, "Invalid value for field", aurora.Cyan(field.Name).String()+":", aurora.Cyan(value))
+			return nil, result
+		}
+		fields[field.Name] = sakeField
 	}
-	return record.Fields, ResultSuccess
+	return fields, ResultSuccess
 }
 
 func fillResponseValues(records []database.SakeRecord, request StorageRequestData) StorageResponseValues {
