@@ -51,9 +51,9 @@ type SakeFieldDefinition struct {
 	// Optional function for custom validation.
 	IsValidFunc func(value string) bool
 	// Optional function for custom filtering. This function receives the value from the client AFTER validation, before inserting into the database.
-	FilterFromClientFunc func(value string, isOwner bool) (string, string)
+	FilterFromClientFunc func(value string, isOwner bool) (string, Result)
 	// Optional function for custom filtering. This function receives the value from the database before sending to the client.
-	FilterFromDatabaseFunc func(value string, isOwner bool) (string, string)
+	FilterFromDatabaseFunc func(value string, isOwner bool) (string, Result)
 }
 
 type SakeTable struct {
@@ -76,7 +76,7 @@ type SakeTable struct {
 	// If true, Sake will return a NoPermission error for requests that don't have a custom handler
 	Reserved bool
 	// Custom handler for SearchForRecords. Returns an array of response Sake records.
-	SearchForRecordsHandler func(string, StorageRequestData) ([]database.SakeRecord, bool)
+	SearchForRecordsHandler func(string, StorageRequestCommon) ([]database.SakeRecord, bool)
 	// Field definitions for this table. The key is the field name.
 	Fields map[string]SakeFieldDefinition
 }
@@ -288,7 +288,7 @@ func (t *SakeTable) GetDefaultFields() map[string]database.SakeField {
 	return defaultFields
 }
 
-func (t *SakeTable) CheckValidField(fieldName string, field database.SakeField) string {
+func (t *SakeTable) CheckValidField(fieldName string, field database.SakeField) Result {
 	lengthLimit := MaxSakeFieldValueLength
 	var verifyFunc func(value string) bool
 	if t != nil && len(t.Fields) != 0 {
@@ -389,7 +389,7 @@ func (t *SakeTable) CheckValidField(fieldName string, field database.SakeField) 
 	return ResultSuccess
 }
 
-func (t *SakeTable) FilterFieldFromClient(fieldName string, value string) (string, string) {
+func (t *SakeTable) FilterFieldFromClient(fieldName string, value string) (string, Result) {
 	if t == nil || t.Fields == nil {
 		return value, ResultSuccess
 	}
@@ -403,7 +403,7 @@ func (t *SakeTable) FilterFieldFromClient(fieldName string, value string) (strin
 	return fieldDef.FilterFromClientFunc(value, true)
 }
 
-func (t *SakeTable) FilterFieldFromDatabase(fieldName string, value string, isOwner bool) (string, string) {
+func (t *SakeTable) FilterFieldFromDatabase(fieldName string, value string, isOwner bool) (string, Result) {
 	if t == nil || t.Fields == nil {
 		return value, ResultSuccess
 	}

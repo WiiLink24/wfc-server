@@ -35,7 +35,7 @@ var (
 	ghostDataFilterRegex = regexp.MustCompile(`^course = ([1-9]\d?|0) and gameid = 1687 and time < ([1-9][0-9]{0,5})$`)
 )
 
-func getMarioKartWiiGhostDataRecord(moduleName string, request StorageRequestData) ([]database.SakeRecord, bool) {
+func getMarioKartWiiGhostDataRecord(moduleName string, request StorageRequestCommon) ([]database.SakeRecord, bool) {
 	if request.Sort != "time desc" {
 		logging.Error(moduleName, "mariokartwii/GhostData: Invalid sort string:", aurora.Cyan(request.Sort))
 		return []database.SakeRecord{}, false
@@ -56,12 +56,12 @@ func getMarioKartWiiGhostDataRecord(moduleName string, request StorageRequestDat
 		return []database.SakeRecord{}, false
 	}
 
-	if len(request.OwnerIDs.OwnerID) != 0 {
+	if len(request.OwnerIDs.Int) != 0 {
 		logging.Error(moduleName, "mariokartwii/GhostData: Invalid owner id array:", aurora.Cyan(request.OwnerIDs))
 		return []database.SakeRecord{}, false
 	}
 
-	if request.CacheFlag != 0 {
+	if request.CacheFlag {
 		logging.Error(moduleName, "mariokartwii/GhostData: Invalid cache value:", aurora.Cyan(request.CacheFlag))
 		return []database.SakeRecord{}, false
 	}
@@ -105,7 +105,7 @@ func getMarioKartWiiGhostDataRecord(moduleName string, request StorageRequestDat
 	}}, true
 }
 
-func getMarioKartWiiStoredGhostDataRecord(moduleName string, request StorageRequestData) ([]database.SakeRecord, bool) {
+func getMarioKartWiiStoredGhostDataRecord(moduleName string, request StorageRequestCommon) ([]database.SakeRecord, bool) {
 	if request.Sort != "time" {
 		logging.Error(moduleName, "mariokartwii/StoredGhostData: Invalid sort string:", aurora.Cyan(request.Sort))
 		return []database.SakeRecord{}, false
@@ -126,12 +126,12 @@ func getMarioKartWiiStoredGhostDataRecord(moduleName string, request StorageRequ
 		return []database.SakeRecord{}, false
 	}
 
-	if len(request.OwnerIDs.OwnerID) != 0 {
+	if len(request.OwnerIDs.Int) != 0 {
 		logging.Error(moduleName, "mariokartwii/StoredGhostData: Invalid owner id array:", aurora.Cyan(request.OwnerIDs))
 		return []database.SakeRecord{}, false
 	}
 
-	if request.CacheFlag != 0 {
+	if request.CacheFlag {
 		logging.Error(moduleName, "mariokartwii/StoredGhostData: Invalid cache value:", aurora.Cyan(request.CacheFlag))
 		return []database.SakeRecord{}, false
 	}
@@ -453,7 +453,7 @@ func isPlayerInfoValid(playerInfoString string) (string, bool) {
 	return fixedPlayerInfoString, true
 }
 
-func filterMarioKartWiiFriendInfo(value string, isOwner bool) (string, string) {
+func filterMarioKartWiiFriendInfo(value string, isOwner bool) (string, Result) {
 	// Clear personal info from the Mii data before sending to the client. This
 	// cannot be done before inserting into the database because the client
 	// expects the server to return the exact copy of what it has previously updated.
