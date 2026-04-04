@@ -61,6 +61,11 @@ func SearchOfficialMiiData(id uint64) (bool, int) {
 // ClearMiiInfo clears any Mii information that generally isn't or shouldn't be shared publicly,
 // mainly the "console ID", which can be used to determine the Mii creator's MAC address
 func (mii RawMii) ClearMiiInfo() RawMii {
+	// Don't filter official Mii data
+	if found, _ := SearchOfficialMiiData(binary.BigEndian.Uint64(mii.Data[0x18:0x20])); found {
+		return mii
+	}
+
 	// Clear the create ID, which the MAC address can be derived from
 	binary.BigEndian.PutUint32(mii.Data[0x18:0x1C], 0x80000000)
 	binary.BigEndian.PutUint32(mii.Data[0x1C:0x20], 0)
