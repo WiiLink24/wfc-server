@@ -453,6 +453,34 @@ func isPlayerInfoValid(playerInfoString string) (string, bool) {
 	return fixedPlayerInfoString, true
 }
 
+func filterMarioKartWiiFriendInfo(value string, isOwner bool) (string, string) {
+	// Clear personal info from the Mii data before sending to the client. This
+	// cannot be done before inserting into the database because the client
+	// expects the server to return the exact copy of what it has previously updated.
+	if isOwner {
+		return value, ResultSuccess
+	}
+
+	binaryData, err := base64.StdEncoding.DecodeString(value)
+	if err != nil {
+		// Shouldn't happen after validation
+		panic(err)
+	}
+	// Only change if the Mii checksum is valid
+	if len(binaryData) < 0x4C {
+		return value, ResultSuccess
+	}
+
+	mii := common.RawMiiFromBytes(binaryData)
+	if mii.CalculateMiiCRC() != 0 {
+		return value, ResultSuccess
+	}
+
+	mii = mii.ClearMiiInfo()
+	binaryData = append(mii.Data[:], binaryData[len(mii.Data):]...)
+	return base64.StdEncoding.EncodeToString(binaryData), ResultSuccess
+}
+
 func getMultipartBoundary(contentType string) string {
 	startIndex := strings.Index(contentType, "boundary=")
 	if startIndex == -1 {

@@ -306,6 +306,14 @@ func getMyRecords(moduleName string, profileId uint32, gameInfo common.GameInfo,
 		}}
 	}
 
+	table := GetTable(gameInfo.Name, request.TableID)
+	if table != nil && table.Reserved {
+		logging.Error(moduleName, "Attempt to get my records from reserved table", aurora.Cyan(request.TableID))
+		return StorageResponseBody{GetMyRecordsResponse: &StorageGetMyRecordsResponse{
+			GetMyRecordsResult: ResultTableNotFound,
+		}}
+	}
+
 	records, err := database.GetSakeRecords(pool, ctx, gameInfo.GameID, []int32{int32(profileId)}, request.TableID, nil, request.Fields.Fields, request.Filter)
 	if err != nil {
 		logging.Error(moduleName, "Failed to get sake records from the database:", err)
@@ -319,9 +327,10 @@ func getMyRecords(moduleName string, profileId uint32, gameInfo common.GameInfo,
 		}}
 	}
 
+	responseValues, result := fillResponseValues(moduleName, profileId, table, records, request)
 	response := StorageGetMyRecordsResponse{
-		GetMyRecordsResult: ResultSuccess,
-		Values:             fillResponseValues(records, request),
+		GetMyRecordsResult: result,
+		Values:             responseValues,
 	}
 	logging.Info(moduleName, "Returning", aurora.Cyan(len(records)), "records from table", aurora.Cyan(request.TableID), "for profile", aurora.Cyan(profileId))
 
@@ -462,9 +471,10 @@ func searchForRecords(moduleName string, profileId uint32, gameInfo common.GameI
 		records = records[:request.Max]
 	}
 
+	responseValues, result := fillResponseValues(moduleName, profileId, table, records, request)
 	response := StorageSearchForRecordsResponse{
-		SearchForRecordsResult: "Success",
-		Values:                 fillResponseValues(records, request),
+		SearchForRecordsResult: result,
+		Values:                 responseValues,
 	}
 	logging.Info(moduleName, "Found", aurora.Cyan(len(records)), "records in table", aurora.Cyan(request.TableID), "for profile", aurora.Cyan(profileId), "with filter", aurora.Cyan(request.Filter))
 
@@ -502,12 +512,18 @@ func getInputFields(moduleName string, request StorageRequestData, table *SakeTa
 			logging.Error(moduleName, "Invalid value for field", aurora.Cyan(field.Name).String()+":", aurora.Cyan(value))
 			return nil, result
 		}
+		var result string
+		sakeField.Value, result = table.FilterFieldFromClient(field.Name, value)
+		if result != ResultSuccess {
+			logging.Error(moduleName, "Failed to filter from client value for field", aurora.Cyan(field.Name), ":", aurora.Cyan(result))
+			return nil, result
+		}
 		fields[field.Name] = sakeField
 	}
 	return fields, ResultSuccess
 }
 
-func fillResponseValues(records []database.SakeRecord, request StorageRequestData) StorageResponseValues {
+func fillResponseValues(moduleName string, profileId uint32, table *SakeTable, records []database.SakeRecord, request StorageRequestData) (StorageResponseValues, string) {
 	var response StorageResponseValues
 	for _, record := range records {
 		valueArray := StorageArrayOfRecordValue{}
@@ -536,14 +552,21 @@ func fillResponseValues(records []database.SakeRecord, request StorageRequestDat
 			}
 			if fieldValue == nil {
 				valueArray.RecordValues = append(valueArray.RecordValues, StorageRecordValue{Value: nil})
-			} else {
-				value := fillValue(fieldValue.Type, fieldValue.Value)
-				valueArray.RecordValues = append(valueArray.RecordValues, StorageRecordValue{Value: &value})
+				continue
 			}
+
+			var result string
+			fieldValue.Value, result = table.FilterFieldFromDatabase(field, fieldValue.Value, record.OwnerId == int32(profileId))
+			if result != ResultSuccess {
+				logging.Error(moduleName, "Failed to filter to client value for field", aurora.Cyan(field), ":", aurora.Cyan(result))
+				return StorageResponseValues{}, result
+			}
+			value := fillValue(fieldValue.Type, fieldValue.Value)
+			valueArray.RecordValues = append(valueArray.RecordValues, StorageRecordValue{Value: &value})
 		}
 		response.ArrayOfRecordValue = append(response.ArrayOfRecordValue, valueArray)
 	}
-	return response
+	return response, ResultSuccess
 }
 
 func fillValue(valueType database.SakeFieldType, value string) StorageValue {

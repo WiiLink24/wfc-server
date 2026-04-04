@@ -51,9 +51,9 @@ type SakeFieldDefinition struct {
 	// Optional function for custom validation.
 	IsValidFunc func(value string) bool
 	// Optional function for custom filtering. This function receives the value from the client AFTER validation, before inserting into the database.
-	FilterFromClientFunc func(value string) (string, error)
+	FilterFromClientFunc func(value string, isOwner bool) (string, string)
 	// Optional function for custom filtering. This function receives the value from the database before sending to the client.
-	FilterFromDatabaseFunc func(value string) (string, error)
+	FilterFromDatabaseFunc func(value string, isOwner bool) (string, string)
 }
 
 type SakeTable struct {
@@ -113,7 +113,8 @@ var TableDefinitions = map[string]SakeTable{
 		Hardened:         false, // To allow modding extra fields
 		Fields: map[string]SakeFieldDefinition{
 			"info": {
-				Type: database.SakeFieldTypeBinaryData,
+				Type:                   database.SakeFieldTypeBinaryData,
+				FilterFromDatabaseFunc: filterMarioKartWiiFriendInfo,
 			},
 		},
 	},
@@ -386,4 +387,35 @@ func (t *SakeTable) CheckValidField(fieldName string, field database.SakeField) 
 		return ResultFieldTypeInvalid
 	}
 	return ResultSuccess
+}
+
+func (t *SakeTable) FilterFieldFromClient(fieldName string, value string) (string, string) {
+	if t == nil || t.Fields == nil {
+		return value, ResultSuccess
+	}
+	fieldDef, exists := t.Fields[fieldName]
+	if !exists {
+		return value, ResultSuccess
+	}
+	if fieldDef.FilterFromClientFunc == nil {
+		return value, ResultSuccess
+	}
+	return fieldDef.FilterFromClientFunc(value, true)
+}
+
+func (t *SakeTable) FilterFieldFromDatabase(fieldName string, value string, isOwner bool) (string, string) {
+	if t == nil || t.Fields == nil {
+		return value, ResultSuccess
+	}
+	fieldDef, exists := t.Fields[fieldName]
+	if !exists {
+		return value, ResultSuccess
+	}
+	if fieldDef.FilterFromDatabaseFunc == nil {
+		return value, ResultSuccess
+	}
+	if t.OwnerType != OwnerTypeProfile {
+		isOwner = false
+	}
+	return fieldDef.FilterFromDatabaseFunc(value, isOwner)
 }
