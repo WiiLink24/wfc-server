@@ -393,15 +393,15 @@ func ProcessUSER(senderPid uint32, senderIP uint64, packet []byte) {
 		}
 
 		index := 0x08 + i*0x4C
-		mii := common.Mii(packet[index : index+0x4C])
-		if mii.RFLCalculateCRC() != 0x0000 {
+		mii := common.RawMiiFromBytes(packet[index : index+0x4C])
+		if mii.CalculateMiiCRC() != 0x0000 {
 			logging.Error(moduleName, "Received USER packet with invalid Mii data CRC")
 			gpErrorCallback(senderPid, "bad_packet")
 			return
 		}
 
 		createId := binary.BigEndian.Uint64(packet[index+0x18 : index+0x20])
-		official, _ := common.RFLSearchOfficialData(createId)
+		official, _ := common.SearchOfficialMiiData(createId)
 		if official {
 			miiName = append(miiName, "Player")
 		} else {

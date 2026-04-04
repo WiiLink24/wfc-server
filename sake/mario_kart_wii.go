@@ -18,11 +18,11 @@ import (
 )
 
 type playerInfo struct {
-	MiiData      common.Mii // 0x00
-	ControllerId byte       // 0x4C
-	Unknown      byte       // 0x4D
-	StateCode    byte       // 0x4E
-	CountryCode  byte       // 0x4F
+	MiiData      common.RawMii // 0x00
+	ControllerId byte          // 0x4C
+	Unknown      byte          // 0x4D
+	StateCode    byte          // 0x4E
+	CountryCode  byte          // 0x4F
 }
 
 const (
@@ -266,7 +266,11 @@ func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter ht
 		return
 	}
 
-	responseBody := append(downloadedGhostFileHeader(), ghost...)
+	ghostData := common.RKGhostData(ghost)
+	ghostData.SetMiiData(ghostData.GetMiiData().ClearMiiInfo())
+	ghostData.RecalculateCRC()
+
+	responseBody := append(downloadedGhostFileHeader(), []byte(ghostData)...)
 
 	responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultSuccess))
 	responseWriter.Header().Set("Content-Length", strconv.Itoa(len(responseBody)))
@@ -330,13 +334,13 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 		return
 	}
 
-	if !isPlayerInfoValid(playerInfo) {
+	fixedPlayerInfo, ok := isPlayerInfoValid(playerInfo)
+	if !ok {
 		logging.Error(moduleName, "Invalid player info:", aurora.Cyan(playerInfo))
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultMissingParameter))
 		return
 	}
-	// Mario Kart Wii expects player information to be in this form
-	playerInfo, _ = common.Base64Convert(playerInfo, base64.URLEncoding, base64.StdEncoding)
+	playerInfo = fixedPlayerInfo
 
 	// The multipart boundary utilized by GameSpy does not conform to RFC 2045. To ensure compliance,
 	// we need to surround it with double quotation marks.
@@ -377,17 +381,21 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 		return
 	}
 
-	if !common.RKGhostData(ghostFile).IsRKGDFileValid(moduleName, courseId, score) {
+	ghostData := common.RKGhostData(ghostFile)
+	if !ghostData.IsRKGDFileValid(moduleName, courseId, score) {
 		logging.Error(moduleName, "Received an invalid ghost file")
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultFileTooLarge))
 		return
 	}
 
+	ghostData.SetMiiData(ghostData.GetMiiData().ClearMiiInfo())
+	ghostData.RecalculateCRC()
+
 	if isContest {
 		ghostFile = nil
 	}
 
-	err = database.InsertMarioKartWiiGhostFile(pool, ctx, regionId, courseId, score, pid, playerInfo, ghostFile)
+	err = database.InsertMarioKartWiiGhostFile(pool, ctx, regionId, courseId, score, pid, playerInfo, []byte(ghostData))
 	if err != nil {
 		logging.Error(moduleName, "Failed to insert the ghost file into the database:", err)
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
@@ -405,30 +413,44 @@ func downloadedGhostFileHeader() []byte {
 	return downloadedGhostFileHeader[:]
 }
 
-func isPlayerInfoValid(playerInfoString string) bool {
+// isPlayerInfoValid checks if the player info (base64.URLEncoding) string is valid, and if so, returns a "fixed" version of it with base64.StdEncoding
+func isPlayerInfoValid(playerInfoString string) (string, bool) {
 	playerInfoByteArray, err := base64.URLEncoding.DecodeString(playerInfoString)
 	if err != nil {
-		return false
+		return "", false
 	}
 
 	if len(playerInfoByteArray) != playerInfoSize {
-		return false
+		return "", false
 	}
 
 	var playerInfo playerInfo
 	reader := bytes.NewReader(playerInfoByteArray)
 	err = binary.Read(reader, binary.BigEndian, &playerInfo)
 	if err != nil {
-		return false
+		return "", false
 	}
 
-	if playerInfo.MiiData.RFLCalculateCRC() != 0x0000 {
-		return false
+	if playerInfo.MiiData.CalculateMiiCRC() != 0x0000 {
+		return "", false
 	}
 
 	controllerId := common.MarioKartWiiControllerId(playerInfo.ControllerId)
 
-	return controllerId.IsValid()
+	if !controllerId.IsValid() {
+		return "", false
+	}
+
+	playerInfo.MiiData.ClearMiiInfo()
+
+	fixedPlayerInfoByteArray := new(bytes.Buffer)
+	err = binary.Write(fixedPlayerInfoByteArray, binary.BigEndian, playerInfo)
+	if err != nil {
+		return "", false
+	}
+
+	fixedPlayerInfoString := base64.StdEncoding.EncodeToString(fixedPlayerInfoByteArray.Bytes())
+	return fixedPlayerInfoString, true
 }
 
 func getMultipartBoundary(contentType string) string {

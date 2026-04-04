@@ -341,8 +341,12 @@ func (rkgd RKGhostData) GetLocationCode() uint16 {
 	return uint16(rkgd.GetBits(0x36, 0, 16))
 }
 
-func (rkgd RKGhostData) GetMiiData() Mii {
-	return Mii(rkgd[0x3C : 0x3C+0x4C])
+func (rkgd RKGhostData) GetMiiData() RawMii {
+	return RawMiiFromBytes(rkgd[0x3C : 0x3C+0x4C])
+}
+
+func (rkgd RKGhostData) SetMiiData(miiData RawMii) {
+	copy(rkgd[0x3C:0x3C+0x4C], miiData.Data[:])
 }
 
 func (rkgd RKGhostData) GetCompressedSize() uint32 {
@@ -351,6 +355,11 @@ func (rkgd RKGhostData) GetCompressedSize() uint32 {
 
 func (rkgd RKGhostData) GetCompressedData() []byte {
 	return []byte(rkgd[0x8C : len(rkgd)-4])
+}
+
+func (rkgd RKGhostData) RecalculateCRC() {
+	crc := crc32.ChecksumIEEE(rkgd[:len(rkgd)-4])
+	binary.BigEndian.PutUint32(rkgd[len(rkgd)-4:], crc)
 }
 
 func (rkgd RKGhostData) IsRKGDFileValid(moduleName string, expectedCourse MarioKartWiiCourseId, expectedScore int) bool {
@@ -443,7 +452,7 @@ func (rkgd RKGhostData) IsRKGDFileValid(moduleName string, expectedCourse MarioK
 		return false
 	}
 
-	if rkgd.GetMiiData().RFLCalculateCRC() != 0x0000 {
+	if rkgd.GetMiiData().CalculateMiiCRC() != 0x0000 {
 		logging.Error(moduleName, "Invalid RKGD Mii data CRC")
 		return false
 	}

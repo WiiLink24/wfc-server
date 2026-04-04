@@ -1,6 +1,7 @@
 package race
 
 import (
+	"encoding/base64"
 	"encoding/xml"
 	"io"
 	"net/http"
@@ -153,11 +154,19 @@ func handleGetTopTenRankingsRequest(moduleName string, responseWriter http.Respo
 	numberOfRankings := len(topTenRankings)
 	data := make([]rankingsResponseData, 0, numberOfRankings)
 	for i, topTenRanking := range topTenRankings {
+		// Filter player info just in case
+		playerInfo, err := base64.StdEncoding.DecodeString(topTenRanking.PlayerInfo)
+		if err != nil {
+			panic(err)
+		}
+		miiData := common.RawMiiFromBytes(playerInfo).ClearMiiInfo().Data
+		playerInfo = append(miiData[:], playerInfo[len(miiData):]...)
+
 		rankingData := rankingsResponseRankingData{
 			OwnerID:  topTenRanking.PID,
 			Rank:     i + 1,
 			Time:     topTenRanking.Score,
-			UserData: topTenRanking.PlayerInfo,
+			UserData: base64.StdEncoding.EncodeToString(playerInfo),
 		}
 
 		responseData := rankingsResponseData{
