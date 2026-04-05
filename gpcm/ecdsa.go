@@ -238,7 +238,7 @@ func printHex(data []byte) {
 }
 
 func verifyECDSA(publicKey []byte, signature []byte, hash []byte) bool {
-	common.UNUSED(printHex)
+	common.MaybeUnused(printHex)
 
 	r := big.NewInt(0).SetBytes(signature[0x00:0x1E])
 	s := big.NewInt(0).SetBytes(signature[0x1E:0x3C])

@@ -72,6 +72,7 @@ func (c *Connection) LoginUserToGPCM(userId uint64, gsbrcd string, profileId uin
 		}
 
 		logging.Notice("DATABASE", "Created new GPCM user:", aurora.Cyan(userId), aurora.Cyan(gsbrcd), aurora.Cyan(user.ProfileId))
+		user.Created = true
 	} else {
 		var firstName *string
 		var lastName *string

@@ -38,6 +38,7 @@ type User struct {
 	OpenHost           bool
 	LastInGameSn       string
 	LastIPAddress      string
+	Created            bool
 }
 
 var (

@@ -3,6 +3,7 @@ package common
 import (
 	"encoding/xml"
 	"os"
+	"wwfc/logging"
 
 	"github.com/linkdata/deadlock"
 )
@@ -53,15 +54,8 @@ type Config struct {
 }
 
 type EventReportingConfig struct {
-	LogToDatabase bool            `xml:"logToDatabase"`
-	Webhooks      []WebhookConfig `xml:"discord>webhook"`
-}
-
-type WebhookConfig struct {
-	Enabled    bool     `xml:"enabled"`
-	URL        string   `xml:"url"`
-	Author     string   `xml:"author,omitempty"`
-	EventTypes []string `xml:"eventTypes>event"`
+	LogToDatabase bool                    `xml:"logToDatabase"`
+	Webhooks      []logging.WebhookConfig `xml:"discord>webhook"`
 }
 
 var (
@@ -157,6 +151,6 @@ func GetConfig() Config {
 
 func (c Config) RegisterWebhooks() {
 	for _, webhook := range c.EventReporting.Webhooks {
-		webhook.RegisterEventReporting()
+		webhook.RegisterWebhook()
 	}
 }

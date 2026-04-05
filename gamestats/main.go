@@ -234,7 +234,7 @@ func HandlePacket(index uint64, data []byte) {
 
 	commands = session.handleCommand("getpd", commands, session.getpd)
 	commands = session.handleCommand("setpd", commands, session.setpd)
-	common.UNUSED(session.ignoreCommand)
+	common.MaybeUnused(session.ignoreCommand)
 
 	for _, command := range commands {
 		logging.Error(session.ModuleName, "Unknown command:", aurora.Cyan(command))

@@ -27,6 +27,10 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			}
 
 			logging.Warn(g.ModuleName, "Report bad packet from", aurora.BrightCyan(strconv.FormatUint(profileId, 10)))
+			logging.Event("reported_bad_packet", map[string]any{
+				"profile_id": g.User.ProfileId,
+				"sender_id":  profileId,
+			})
 
 		case "wl:stall":
 			profileId, err := strconv.ParseUint(value, 10, 32)
@@ -36,6 +40,10 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			}
 
 			logging.Warn(g.ModuleName, "Room stall caused by", aurora.BrightCyan(strconv.FormatUint(profileId, 10)))
+			logging.Event("reported_stall", map[string]any{
+				"profile_id":  g.User.ProfileId,
+				"stalling_id": profileId,
+			})
 
 		case "wl:mkw_user":
 			if g.GameName != "mariokartwii" {

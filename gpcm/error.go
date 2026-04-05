@@ -404,7 +404,7 @@ func (err GPError) GetMessage() string {
 	return common.CreateGameSpyMessage(command)
 }
 
-func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, cfc uint64, ngid uint32) string {
+func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, cfc uint64, ngid uint32) (string, int) {
 	command := common.GameSpyCommand{
 		Command:      "error",
 		CommandValue: "",
@@ -462,7 +462,7 @@ func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, 
 		command.OtherValues["wl:err"] = strconv.Itoa(err.WWFCMessage.ErrorCode)
 	}
 
-	return common.CreateGameSpyMessage(command)
+	return common.CreateGameSpyMessage(command), err.WWFCMessage.ErrorCode
 }
 
 func (g *GameSpySession) replyError(err GPError) {
@@ -474,6 +474,12 @@ func (g *GameSpySession) replyError(err GPError) {
 		if err.Fatal {
 			common.CloseConnection(ServerName, g.ConnIndex)
 		}
+		logging.Event("gpcm_returned_error", map[string]any{
+			"profile_id":   g.User.ProfileId,
+			"error_code":   err.ErrorCode,
+			"error_string": err.ErrorString,
+			"fatal":        err.Fatal,
+		})
 		return
 	}
 
@@ -482,10 +488,18 @@ func (g *GameSpySession) replyError(err GPError) {
 		deviceId = g.User.NgDeviceId[0]
 	}
 
-	msg := err.GetMessageTranslate(g.GameName, g.Region, g.Language, g.ConsoleFriendCode, deviceId)
+	msg, wwfcErrorCode := err.GetMessageTranslate(g.GameName, g.Region, g.Language, g.ConsoleFriendCode, deviceId)
 	// logging.Info(g.ModuleName, "Sending error message:", msg)
 	common.SendPacket(ServerName, g.ConnIndex, []byte(msg))
 	if err.Fatal {
 		common.CloseConnection(ServerName, g.ConnIndex)
 	}
+
+	logging.Event("gpcm_returned_error", map[string]any{
+		"profile_id":         g.User.ProfileId,
+		"error_code":         err.ErrorCode,
+		"error_string":       err.ErrorString,
+		"fatal":              err.Fatal,
+		"wiilink_error_code": wwfcErrorCode,
+	})
 }

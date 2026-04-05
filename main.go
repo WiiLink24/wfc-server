@@ -72,16 +72,11 @@ type RPCPacket struct {
 }
 
 func connectAndLogEvent(eventType string) {
-	var db *database.Connection
-	defer func() {
-		logging.Event(eventType, map[string]any{})
-		if db != nil {
-			db.Close()
-		}
-	}()
-	dbObject := database.Start(config)
-	db = &dbObject
-	dbObject.RegisterEventLogging(config, []string{eventType})
+	var db database.Connection
+	defer db.Close()
+	defer logging.Event(eventType, map[string]any{})
+	db = database.Start(config)
+	db.RegisterEvents(config, []string{eventType})
 }
 
 // backendMain starts all the servers and creates an RPC server to communicate with the frontend

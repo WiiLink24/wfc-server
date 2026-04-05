@@ -286,7 +286,7 @@ func sendMessageToProfileId(msgType string, from uint32, to uint32, msg string) 
 }
 
 func (g *GameSpySession) sendFriendStatus(profileId uint32) {
-	common.UNUSED(sendMessageToProfileId)
+	common.MaybeUnused(sendMessageToProfileId)
 
 	if !g.isFriendAuthorized(profileId) {
 		return

@@ -21,7 +21,7 @@ func (c *Connection) InsertEvent(eventType string, eventData map[string]any) (in
 	return eventId, nil
 }
 
-func (c *Connection) RegisterEventLogging(config common.Config, eventTypes []string) {
+func (c *Connection) RegisterEvents(config common.Config, eventTypes []string) {
 	if !config.EventReporting.LogToDatabase {
 		return
 	}

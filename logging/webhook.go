@@ -1,11 +1,10 @@
-package common
+package logging
 
 import (
 	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
-	"wwfc/logging"
 )
 
 func contains(slice []string, item string) bool {
@@ -15,6 +14,13 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+type WebhookConfig struct {
+	Enabled    bool     `xml:"enabled"`
+	URL        string   `xml:"url"`
+	Author     string   `xml:"author,omitempty"`
+	EventTypes []string `xml:"eventTypes>event"`
 }
 
 type webhookAuthor struct {
@@ -79,19 +85,20 @@ func (w WebhookConfig) ReportEvent(eventType string, eventData map[string]any) {
 	}
 	resp, err := http.Post(w.URL, "application/json", strings.NewReader(string(jsonData)))
 	if err != nil {
-		panic(err)
+		Error("LOGGING", "Failed to send webhook request:", err)
+		return
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		panic("received non-2xx response: " + resp.Status)
+		Error("LOGGING", "Received non-2xx response from webhook:", resp.Status)
 	}
 	resp.Body.Close()
 }
 
-func (w WebhookConfig) RegisterEventReporting() {
+func (w WebhookConfig) RegisterWebhook() {
 	if !w.Enabled {
 		return
 	}
-	logging.RegisterEventCallback(w.EventTypes, func(eventType string, eventData map[string]any) {
+	RegisterEventCallback(w.EventTypes, func(eventType string, eventData map[string]any) {
 		w.ReportEvent(eventType, eventData)
 	})
 }

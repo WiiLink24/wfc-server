@@ -2,7 +2,7 @@ package common
 
 import "reflect"
 
-func UNUSED(v ...interface{}) {
+func MaybeUnused(v ...interface{}) {
 }
 
 func ReverseMap(m interface{}) interface{} {

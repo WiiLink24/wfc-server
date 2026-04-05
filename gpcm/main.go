@@ -88,6 +88,17 @@ func StartServer(reload bool) {
 
 		logging.Notice("GPCM", "Loaded", aurora.Cyan(len(sessions)), "sessions")
 	}
+
+	db.RegisterEvents(config, []string{
+		"profile_created",
+		"logged_in",
+		"logged_out",
+		"received_login_info",
+		"device_authenticated",
+		"reported_bad_packet",
+		"reported_stall",
+		"gpcm_returned_error",
+	})
 }
 
 func Shutdown() {
@@ -120,6 +131,10 @@ func CloseConnection(index uint64) {
 			qr2.ProcessGPStatusUpdate(session.User.ProfileId, session.QR2IP, "0")
 		}
 		session.sendLogoutStatus()
+
+		logging.Event("logged_out", map[string]any{
+			"profile_id": session.User.ProfileId,
+		})
 	}
 
 	mutex.Lock()

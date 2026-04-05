@@ -33,5 +33,7 @@ func Start(config common.Config) Connection {
 }
 
 func (c *Connection) Close() {
-	c.pool.Close()
+	if c != nil && c.pool != nil {
+		c.pool.Close()
+	}
 }

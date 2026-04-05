@@ -18,9 +18,9 @@ func Event(eventType string, eventData map[string]any) {
 	defer mutex.RUnlock()
 	for _, callback := range eventCallbacks {
 		if callback.AllEvents {
-			callback.Function(eventType, eventData)
+			go callback.Function(eventType, eventData)
 		} else if _, ok := callback.EventTypes[eventType]; ok {
-			callback.Function(eventType, eventData)
+			go callback.Function(eventType, eventData)
 		}
 	}
 }
