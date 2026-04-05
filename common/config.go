@@ -48,6 +48,20 @@ type Config struct {
 	AllowConnectWithoutDeviceID bool   `xml:"allowConnectWithoutDeviceID"`
 
 	ServerName string `xml:"serverName,omitempty"`
+
+	EventReporting EventReportingConfig `xml:"eventReporting"`
+}
+
+type EventReportingConfig struct {
+	LogToDatabase bool            `xml:"logToDatabase"`
+	Webhooks      []WebhookConfig `xml:"discord>webhook"`
+}
+
+type WebhookConfig struct {
+	Enabled    bool     `xml:"enabled"`
+	URL        string   `xml:"url"`
+	Author     string   `xml:"author,omitempty"`
+	EventTypes []string `xml:"eventTypes>event"`
 }
 
 var (
@@ -139,4 +153,10 @@ func GetConfig() Config {
 	configLoaded = true
 
 	return config
+}
+
+func (c Config) RegisterWebhooks() {
+	for _, webhook := range c.EventReporting.Webhooks {
+		webhook.RegisterEventReporting()
+	}
 }

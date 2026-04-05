@@ -15,6 +15,7 @@ import (
 	"time"
 	"wwfc/api"
 	"wwfc/common"
+	"wwfc/database"
 	"wwfc/gamestats"
 	"wwfc/gpcm"
 	"wwfc/gpsp"
@@ -70,12 +71,27 @@ type RPCPacket struct {
 	Data    []byte
 }
 
+func connectAndLogEvent(eventType string) {
+	var db *database.Connection
+	defer func() {
+		logging.Event(eventType, map[string]any{})
+		if db != nil {
+			db.Close()
+		}
+	}()
+	dbObject := database.Start(config)
+	db = &dbObject
+	dbObject.RegisterEventLogging(config, []string{eventType})
+}
+
 // backendMain starts all the servers and creates an RPC server to communicate with the frontend
 func backendMain(noSignal, noReload bool) {
+	config.RegisterWebhooks()
+	defer connectAndLogEvent("backend_stopped")
+
 	err := os.Mkdir("state", 0755)
 	if err != nil && !os.IsExist(err) {
-		logging.Error("BACKEN", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	sigExit := make(chan os.Signal, 1)
@@ -118,6 +134,9 @@ func backendMain(noSignal, noReload bool) {
 
 	// Wait for all servers to start
 	wg.Wait()
+
+	// Log via event that the backend has started
+	go connectAndLogEvent("backend_started")
 
 	go func() {
 		for {

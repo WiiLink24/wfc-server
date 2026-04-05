@@ -1,73 +1,118 @@
 <Config>
-    <!-- The address the GameSpy services will bind to -->
-    <gsAddress>127.0.0.1</gsAddress>
+     <!-- The address the GameSpy services will bind to -->
+     <gsAddress>127.0.0.1</gsAddress>
 
-    <!-- The address the frontend RPC server will bind to -->
-    <frontendAddress>127.0.0.1:29998</frontendAddress>
+     <!-- The address the NAS HTTP server will bind to -->
+     <nasAddress>127.0.0.1</nasAddress>
+     <nasPort>80</nasPort>
 
-    <!-- The address the frontend can reach the backend from -->
-    <frontendBackendAddress>127.0.0.1:29999</frontendBackendAddress>
+     <!-- The address the NAS HTTPS proxy server will bind to -->
+     <nasAddressHttps>127.0.0.1</nasAddressHttps>
+     <nasPortHttps>443</nasPortHttps>
+     <enableHttps>false</enableHttps>
 
-    <!-- The address the backend RPC server will bind to -->
-    <backendAddress>127.0.0.1:29999</backendAddress>
+     <!--
+          The address the payload server will be located at,
+          leave blank to use the deprecated integrated server
+      -->
+     <payloadServerAddress>127.0.0.1:29997</payloadServerAddress>
 
-    <!-- The address the backend can reach the frontend from -->
-    <backendFrontendAddress>127.0.0.1:29998</backendFrontendAddress>
+     <!-- 
+          The address the frontend RPC server will bind to.
+          This is a local channel for internal server communication,
+          that _MUST NOT_ be exposed to a public network or the internet.
+          Do NOT change this address unless you are running the frontend
+          and backend on separate servers or containers.
+      -->
+     <frontendAddress>127.0.0.1:29998</frontendAddress>
 
-    <!-- The address the NAS HTTP server will bind to -->
-    <nasAddress>127.0.0.1</nasAddress>
-    <nasPort>80</nasPort>
+     <!-- The address the frontend can reach the backend from -->
+     <frontendBackendAddress>127.0.0.1:29999</frontendBackendAddress>
 
-    <!-- The address the NAS HTTPS proxy server will bind to -->
-    <nasAddressHttps>127.0.0.1</nasAddressHttps>
-    <nasPortHttps>443</nasPortHttps>
-    <enableHttps>false</enableHttps>
-    <enableHttpsExploitWii>false</enableHttpsExploitWii>
-    <enableHttpsExploitDS>false</enableHttpsExploitDS>
+     <!--
+          The address the backend RPC server will bind to.
+          This is a local channel for internal server communication,
+          please note the above warning on frontendAddress.
+      -->
+     <backendAddress>127.0.0.1:29999</backendAddress>
 
-    <!-- The address the payload server will be located at, leave blank to use legacy integrated payload server -->
-    <payloadServerAddress>127.0.0.1:29997</payloadServerAddress>
+     <!-- The address the backend can reach the frontend from -->
+     <backendFrontendAddress>127.0.0.1:29998</backendFrontendAddress>
 
-    <!-- Path to the certificate and key used for modern web browser requests -->
-    <certPath>fullchain.pem</certPath>
-    <keyPath>privkey.pem</keyPath>
+     <!-- Path to the certificate and key used for modern web browser requests -->
+     <certPath>fullchain.pem</certPath>
+     <keyPath>privkey.pem</keyPath>
 
-    <!-- Path to the certificate and key used for the Wii DNS exploit -->
-    <certDerPathWii>naswii-cert.der</certDerPathWii>
-    <keyPathWii>naswii-key.pem</keyPathWii>
+     <!-- SSL/TLS exploit configuration -->
+     <enableHttpsExploitWii>false</enableHttpsExploitWii>
+     <enableHttpsExploitDS>false</enableHttpsExploitDS>
 
-    <!-- Path to the certificate, Wii client certificate and key used for the DS DNS exploit -->
-    <certDerPathDS>nas-cert.der</certDerPathDS>
-    <wiiCertDerPathDS>nwc.der</wiiCertDerPathDS>
-    <keyPathDS>nas-key.pem</keyPathDS>
+     <!-- Path to the certificate and key used for the Wii DNS exploit -->
+     <certDerPathWii>naswii-cert.der</certDerPathWii>
+     <keyPathWii>naswii-key.pem</keyPathWii>
 
-    <!-- Allow default Dolphin device keys to be used -->
-    <allowDefaultDolphinKeys>true</allowDefaultDolphinKeys>
+     <!-- Path to the certificate, Wii client certificate and key used for the DS DNS exploit -->
+     <certDerPathDS>nas-cert.der</certDerPathDS>
+     <wiiCertDerPathDS>nwc.der</wiiCertDerPathDS>
+     <keyPathDS>nas-key.pem</keyPathDS>
 
-    <!-- Database Credentials -->
-    <username>username</username>
-    <password>password</password>
+     <!-- Allow default Dolphin device keys to be used -->
+     <allowDefaultDolphinKeys>true</allowDefaultDolphinKeys>
 
-    <!-- Database information -->
-    <databaseAddress>127.0.0.1</databaseAddress>
-    <databaseName>wwfc</databaseName>
-    
-    <!-- Logging configuration -->
-    <!-- Log verbosity
-         0: No messages are logged.
-         1: General messages are logged.
-         2: General and error messages are logged.
-         3: General, error, and warning messages are logged.
-         4: General, error, warning, and informational messages are logged.
-    -->
-    <logLevel>4</logLevel>
-    <!-- Log output
-         None         : Messages are discarded.
-         StdOut       : Messages are written to standard output.
-         StdOutAndFile: Messages are written to both standard output and a file.
-    -->
-    <logOutput>StdOutAndFile</logOutput>
+     <!-- Database Credentials -->
+     <username>username</username>
+     <password>password</password>
 
-    <!-- API secret -->
-    <apiSecret>hQ3f57b3tW2WnjJH3v</apiSecret>
+     <!-- Database information -->
+     <databaseAddress>127.0.0.1</databaseAddress>
+     <databaseName>wwfc</databaseName>
+
+     <!-- Logging configuration -->
+     <!-- Log verbosity
+          0: No messages are logged.
+          1: General messages are logged.
+          2: General and error messages are logged.
+          3: General, error, and warning messages are logged.
+          4: General, error, warning, and informational messages are logged.
+      -->
+     <logLevel>4</logLevel>
+     <!-- Log output
+          None         : Messages are discarded.
+          StdOut       : Messages are written to standard output.
+          StdOutAndFile: Messages are written to both standard output and a file.
+      -->
+     <logOutput>StdOutAndFile</logOutput>
+
+     <!-- API secret.
+          This is used for API authentication and should only be shared with
+          trusted administrators.
+      -->
+     <apiSecret>hQ3f57b3tW2WnjJH3v</apiSecret>
+
+     <eventReporting>
+          <!-- Enable to log events to the "events" table in the database -->
+          <logToDatabase>true</logToDatabase>
+          <!-- Discord logging via webhook -->
+          <discord>
+               <!-- Multiple <webhook> elements can be added here -->
+               <webhook>
+                    <!-- Enable sending events to this webhook -->
+                    <enabled>true</enabled>
+                    <!-- The URL of the webhook to send events to -->
+                    <url>https://discord.com/api/webhooks/...</url>
+                    <!-- The author tag to be displayed in the webhook embed, can be omitted -->
+                    <author>wfc-server event reporting</author>
+                    <!--
+                         The list of events that will be reported on this webhook.
+                         Hint: Use the event type "all" to report all events to this webhook.
+                         The following list contains all possible event types that can be reported:
+                     -->
+                    <eventTypes>
+                         <!-- <event>all</event> -->
+                         <event>backend_started</event>
+                         <event>backend_stopped</event>
+                    </eventTypes>
+               </webhook>
+          </discord>
+     </eventReporting>
 </Config>

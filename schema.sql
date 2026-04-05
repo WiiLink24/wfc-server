@@ -149,6 +149,16 @@ ALTER TABLE ONLY public.users ALTER COLUMN profile_id SET DEFAULT nextval('publi
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (profile_id);
 
+--
+-- Name: events; Type: TABLE; Schema: public; Owner: wiilink
+--
+
+CREATE TABLE IF NOT EXISTS public.events (
+    id serial PRIMARY KEY,
+    event_type character varying NOT NULL,
+    event_data jsonb NOT NULL,
+    event_time timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
 
 --
 -- PostgreSQL database dump complete
