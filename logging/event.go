@@ -25,6 +25,18 @@ func Event(eventType string, eventData map[string]any) {
 	}
 }
 
+func EventSynced(eventType string, eventData map[string]any) {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	for _, callback := range eventCallbacks {
+		if callback.AllEvents {
+			callback.Function(eventType, eventData)
+		} else if _, ok := callback.EventTypes[eventType]; ok {
+			callback.Function(eventType, eventData)
+		}
+	}
+}
+
 func RegisterEventCallback(eventTypes []string, callback func(eventType string, eventData map[string]any)) {
 	eventTypeSet := make(map[string]struct{})
 	allEvents := false

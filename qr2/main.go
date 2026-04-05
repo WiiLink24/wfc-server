@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 	"wwfc/common"
+	"wwfc/database"
 	"wwfc/logging"
 	"wwfc/nhttp"
 
@@ -25,6 +26,7 @@ const (
 	AvailableRequest        = 0x09
 	ClientRegisteredReply   = 0x0A
 
+	// Added by WiiLink
 	ClientExploitReply = 0x10
 )
 
@@ -42,6 +44,20 @@ func StartServer(reload bool) {
 	conn, err := net.ListenPacket("udp", address)
 	if err != nil {
 		panic(err)
+	}
+
+	// Connect to database for event logging
+	if config.EventReporting.LogToDatabase {
+		db := database.Start(config)
+		db.RegisterEvents(config, []string{
+			"group_created",
+			"group_deleted",
+			"group_joined",
+			"group_left",
+			"group_host_changed",
+			"natneg_succeeded",
+			"natneg_failed",
+		})
 	}
 
 	masterConn = conn

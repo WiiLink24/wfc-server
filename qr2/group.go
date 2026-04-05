@@ -85,6 +85,17 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 		groups[group.GroupName] = group
 
 		logging.Notice(moduleName, "Created new group", aurora.Cyan(group.GroupName))
+		eventData := map[string]any{
+			"group_id":   group.GroupID,
+			"group_name": group.GroupName,
+			"game_name":  group.GameName,
+			"match_type": group.MatchType,
+			"host_id":    sender.Data["dwc_pid"],
+		}
+		if group.GameName == "mariokartwii" {
+			eventData["mario_kart_wii_region"] = group.MKWRegion
+		}
+		logging.Event("group_created", eventData)
 	}
 
 	// Keep group ID updated
@@ -100,6 +111,15 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 	}
 
 	logging.Notice(moduleName, "New player", aurora.BrightCyan(destination.Data["dwc_pid"]), "in group", aurora.Cyan(group.GroupName))
+
+	logging.Event(
+		"group_joined",
+		map[string]any{
+			"group_id":   group.GroupID,
+			"group_name": group.GroupName,
+			"profile_id": destination.Data["dwc_pid"],
+		},
+	)
 
 	group.LastJoinIndex++
 	destination.Data["+joinindex"] = strconv.Itoa(group.LastJoinIndex)
@@ -332,7 +352,7 @@ func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {
 	}
 
 	if session1.groupPointer == nil || session1.groupPointer != session2.groupPointer {
-		logging.Warn(moduleName, "Received NATNEG report for two IPs in different groups")
+		logging.Error(moduleName, "Received NATNEG report for two IPs in different groups")
 		return
 	}
 
@@ -353,6 +373,43 @@ func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {
 		connFail2++
 		session1.Data["+conn_fail"] = strconv.Itoa(connFail1)
 		session2.Data["+conn_fail"] = strconv.Itoa(connFail2)
+		logging.Event(
+			"natneg_failed",
+			map[string]any{
+				"group_id":   session1.groupPointer.GroupID,
+				"group_name": session1.groupPointer.GroupName,
+				"peers": []map[string]string{
+					{
+						"profile_id":   session1.Data["dwc_pid"],
+						"failed_count": strconv.Itoa(connFail1),
+						"ip_address":   ip1,
+					},
+					{
+						"profile_id":   session2.Data["dwc_pid"],
+						"failed_count": strconv.Itoa(connFail2),
+						"ip_address":   ip2,
+					},
+				},
+			},
+		)
+	} else {
+		logging.Event(
+			"natneg_succeeded",
+			map[string]any{
+				"group_id":   session1.groupPointer.GroupID,
+				"group_name": session1.groupPointer.GroupName,
+				"peers": []map[string]string{
+					{
+						"profile_id": session1.Data["dwc_pid"],
+						"ip_address": ip1,
+					},
+					{
+						"profile_id": session2.Data["dwc_pid"],
+						"ip_address": ip2,
+					},
+				},
+			},
+		)
 	}
 }
 
@@ -449,8 +506,21 @@ func (g *Group) findNewServer() {
 		}
 	}
 
+	eventData := map[string]any{
+		"group_id":   g.GroupID,
+		"group_name": g.GroupName,
+	}
+	if server != nil {
+		eventData["new_host_id"] = server.Data["dwc_pid"]
+	}
+	if g.server != nil {
+		eventData["old_host_id"] = g.server.Data["dwc_pid"]
+	}
+
 	g.server = server
 	g.updateMatchType()
+
+	logging.Event("group_host_changed", eventData)
 }
 
 // updateMatchType updates the match type of the group based on the host's dwc_mtype value.

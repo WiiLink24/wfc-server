@@ -111,6 +111,24 @@
                          <!-- <event>all</event> -->
                          <event>backend_started</event>
                          <event>backend_stopped</event>
+                         <event>profile_created</event>
+                         <event>logged_in</event>
+                         <event>logged_out</event>
+                         <event>received_login_info</event>
+                         <event>device_authenticated</event>
+                         <event>reported_bad_packet</event>
+                         <event>reported_stall</event>
+                         <event>gpcm_returned_error</event>
+                         <event>group_created</event>
+                         <event>group_deleted</event>
+                         <event>group_joined</event>
+                         <event>group_left</event>
+                         <event>group_host_changed</event>
+                         <event>natneg_succeeded</event>
+                         <event>natneg_failed</event>
+                         <event>profile_kicked</event>
+                         <event>profile_banned</event>
+                         <event>profile_unbanned</event>
                     </eventTypes>
                </webhook>
           </discord>

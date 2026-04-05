@@ -487,7 +487,7 @@ func (g *GameSpySession) verifyExLoginInfo(command common.GameSpyCommand, authTo
 		"device_authenticated",
 		map[string]any{
 			"profile_id":      g.User.ProfileId,
-			"ng_device_id":    g.User.NgDeviceId,
+			"ng_device_id":    g.DeviceId,
 			"payload_version": payloadVer,
 		},
 	)

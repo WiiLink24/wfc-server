@@ -74,7 +74,7 @@ type RPCPacket struct {
 func connectAndLogEvent(eventType string) {
 	var db database.Connection
 	defer db.Close()
-	defer logging.Event(eventType, map[string]any{})
+	defer logging.EventSynced(eventType, map[string]any{})
 	db = database.Start(config)
 	db.RegisterEvents(config, []string{eventType})
 }

@@ -2,8 +2,9 @@ package logging
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"strconv"
+	"reflect"
 	"strings"
 )
 
@@ -38,31 +39,19 @@ type webhookPayload struct {
 }
 
 func encodeWebhookValue(value any) string {
-	switch v := value.(type) {
-	case string:
-		return "  - ``" + strings.ReplaceAll(v, "``", "` `") + "``"
-	case int:
-		return "  - " + strconv.Itoa(v)
-	case int32:
-		return "  - " + strconv.Itoa(int(v))
-	case int64:
-		return "  - " + strconv.FormatInt(v, 10)
-	case float32:
-		return "  - " + strconv.FormatFloat(float64(v), 'f', -1, 32)
-	case float64:
-		return "  - " + strconv.FormatFloat(v, 'f', -1, 64)
-	case []any:
+	if reflect.TypeOf(value).Kind() == reflect.Array {
 		var sb strings.Builder
-		for i, item := range v {
-			sb.WriteString(encodeWebhookValue(item))
-			if i < len(v)-1 {
+		s := reflect.ValueOf(value)
+		for i := 0; i < s.Len(); i++ {
+			sb.WriteString(encodeWebhookValue(s.Index(i).Interface()))
+			if i < s.Len()-1 {
 				sb.WriteString("\n")
 			}
 		}
 		return sb.String()
-	default:
-		return "  - (unknown)"
 	}
+
+	return "  - ``" + strings.ReplaceAll(fmt.Sprintf("%v", value), "``", "` `") + "``"
 }
 
 func (w WebhookConfig) ReportEvent(eventType string, eventData map[string]any) {
