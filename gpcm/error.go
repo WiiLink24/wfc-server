@@ -186,7 +186,7 @@ var (
 			LangEnglish: "" +
 				"Additional setup is required\n" +
 				"to use WiiLink WFC on Dolphin.\n" +
-				"Visit wfc.wiilink24.com/dolphin\n" +
+				"Visit wfc.wiilink.ca/dolphin\n" +
 				"\n" +
 				"Error Code: %[1]d",
 		},
@@ -199,7 +199,7 @@ var (
 				"You are banned from WiiLink WFC\n" +
 				"due to a violation of the\n" +
 				"Terms of Service.\n" +
-				"Visit wfc.wiilink24.com/tos\n" +
+				"Visit wfc.wiilink.ca/tos\n" +
 				"\n" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x",
@@ -213,7 +213,7 @@ var (
 				"You have been banned from\n" +
 				"WiiLink WFC due to a violation\n" +
 				"of the Terms of Service.\n" +
-				"Visit wfc.wiilink24.com/tos\n" +
+				"Visit wfc.wiilink.ca/tos\n" +
 				"\n" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x",
@@ -227,7 +227,7 @@ var (
 				"You are banned from public\n" +
 				"matches due to a violation\n" +
 				"of the WiiLink WFC Rules.\n" +
-				"Visit wfc.wiilink24.com/rules\n" +
+				"Visit wfc.wiilink.ca/rules\n" +
 				"\n" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x",
@@ -241,7 +241,7 @@ var (
 				"You have been banned from public\n" +
 				"matches due to a violation\n" +
 				"of the WiiLink WFC Rules.\n" +
-				"Visit wfc.wiilink24.com/rules\n" +
+				"Visit wfc.wiilink.ca/rules\n" +
 				"\n" +
 				"Error Code: %[1]d\n" +
 				"Support Info: NG%08[2]x",
@@ -287,7 +287,7 @@ var (
 			LangEnglish: "" +
 				"You have been kicked from\n" +
 				"WiiLink WFC by a moderator.\n" +
-				"Visit wfc.wiilink24.com/rules\n" +
+				"Visit wfc.wiilink.ca/rules\n" +
 				"\n" +
 				"Error Code: %[1]d",
 		},
