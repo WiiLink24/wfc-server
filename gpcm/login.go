@@ -312,6 +312,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 			map[string]any{
 				"user_id":    g.User.UserId,
 				"profile_id": g.User.ProfileId,
+				"game_name":  g.GameName,
 				"ip_address": g.RemoteAddr,
 			},
 		)
@@ -397,12 +398,9 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	logging.Event(
 		"logged_in",
 		map[string]any{
-			"user_id":      g.User.UserId,
 			"profile_id":   g.User.ProfileId,
 			"game_name":    g.GameName,
-			"wii_number":   g.ConsoleFriendCode,
 			"in_game_name": g.InGameName,
-			"unit_code":    g.UnitCode,
 			"ip_address":   g.RemoteAddr,
 		},
 	)
