@@ -86,11 +86,11 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 
 		logging.Notice(moduleName, "Created new group", aurora.Cyan(group.GroupName))
 		eventData := map[string]any{
-			"group_id":   group.GroupID,
-			"group_name": group.GroupName,
-			"game_name":  group.GameName,
-			"match_type": group.MatchType,
-			"host_id":    sender.Data["dwc_pid"],
+			"dwc_group_id": group.GroupID,
+			"group_name":   group.GroupName,
+			"game_name":    group.GameName,
+			"match_type":   group.MatchType,
+			"host_id":      sender.Data["dwc_pid"],
 		}
 		if group.GameName == "mariokartwii" {
 			eventData["mario_kart_wii_region"] = group.MKWRegion
@@ -115,9 +115,9 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 	logging.Event(
 		"group_joined",
 		map[string]any{
-			"group_id":   group.GroupID,
-			"group_name": group.GroupName,
-			"profile_id": destination.Data["dwc_pid"],
+			"dwc_group_id": group.GroupID,
+			"group_name":   group.GroupName,
+			"profile_id":   destination.Data["dwc_pid"],
 		},
 	)
 
@@ -376,8 +376,8 @@ func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {
 		logging.Event(
 			"natneg_failed",
 			map[string]any{
-				"group_id":   session1.groupPointer.GroupID,
-				"group_name": session1.groupPointer.GroupName,
+				"dwc_group_id": session1.groupPointer.GroupID,
+				"group_name":   session1.groupPointer.GroupName,
 				"peers": []map[string]string{
 					{
 						"profile_id":   session1.Data["dwc_pid"],
@@ -396,8 +396,8 @@ func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {
 		logging.Event(
 			"natneg_succeeded",
 			map[string]any{
-				"group_id":   session1.groupPointer.GroupID,
-				"group_name": session1.groupPointer.GroupName,
+				"dwc_group_id": session1.groupPointer.GroupID,
+				"group_name":   session1.groupPointer.GroupName,
 				"peers": []map[string]string{
 					{
 						"profile_id": session1.Data["dwc_pid"],
@@ -507,8 +507,8 @@ func (g *Group) findNewServer() {
 	}
 
 	eventData := map[string]any{
-		"group_id":   g.GroupID,
-		"group_name": g.GroupName,
+		"dwc_group_id": g.GroupID,
+		"group_name":   g.GroupName,
 	}
 	if server != nil {
 		eventData["new_host_id"] = server.Data["dwc_pid"]

@@ -86,8 +86,8 @@ func (session *Session) removeFromGroup() {
 		logging.Event(
 			"group_deleted",
 			map[string]any{
-				"group_id":   session.groupPointer.GroupID,
-				"group_name": session.groupPointer.GroupName,
+				"dwc_group_id": session.groupPointer.GroupID,
+				"group_name":   session.groupPointer.GroupName,
 			},
 		)
 	} else if session.groupPointer.server == session {
@@ -108,9 +108,9 @@ func (session *Session) removeFromGroup() {
 	logging.Event(
 		"group_left",
 		map[string]any{
-			"group_id":   session.groupPointer.GroupID,
-			"group_name": session.groupPointer.GroupName,
-			"profile_id": session.Data["dwc_pid"],
+			"dwc_group_id": session.groupPointer.GroupID,
+			"group_name":   session.groupPointer.GroupName,
+			"profile_id":   session.Data["dwc_pid"],
 		},
 	)
 
