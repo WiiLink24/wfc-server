@@ -92,7 +92,6 @@ func (session *Session) removeFromGroup() {
 		)
 	} else if session.groupPointer.server == session {
 		logging.Notice("QR2", "Server down in group", aurora.Cyan(session.groupPointer.GroupName))
-		session.groupPointer.server = nil
 		session.groupPointer.findNewServer()
 	}
 
@@ -106,9 +105,6 @@ func (session *Session) removeFromGroup() {
 		}
 	}
 
-	session.groupPointer = nil
-	session.GroupName = ""
-
 	logging.Event(
 		"group_left",
 		map[string]any{
@@ -117,6 +113,10 @@ func (session *Session) removeFromGroup() {
 			"profile_id": session.Data["dwc_pid"],
 		},
 	)
+
+	session.groupPointer = nil
+	session.GroupName = ""
+
 }
 
 // Update session data, creating the session if it doesn't exist. Returns a copy of the session data.
