@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"wwfc/logging"
 )
 
 func HandleUnban(w http.ResponseWriter, r *http.Request) {
@@ -74,6 +75,10 @@ func handleUnbanImpl(r *http.Request) (bool, string, int) {
 	if !db.UnbanUser(req.ProfileID) {
 		return false, "Failed to unban user", http.StatusInternalServerError
 	}
+
+	logging.Event("profile_unbanned", map[string]any{
+		"profile_id": req.ProfileID,
+	})
 
 	return true, "", http.StatusOK
 }

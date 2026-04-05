@@ -107,5 +107,14 @@ func handleBanImpl(r *http.Request) (bool, string, int) {
 
 	gpcm.KickPlayerCustomMessage(req.ProfileID, req.Reason, gpcm.WWFCMsgProfileRestrictedCustom)
 
+	logging.Event("profile_banned", map[string]any{
+		"profile_id":     req.ProfileID,
+		"tos_violation":  req.Tos,
+		"length_minutes": minutes,
+		"reason":         req.Reason,
+		"reason_hidden":  req.ReasonHidden,
+		"moderator":      moderator,
+	})
+
 	return true, "", http.StatusOK
 }

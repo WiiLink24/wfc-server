@@ -19,7 +19,14 @@ func StartServer(reload bool) {
 
 	// Start SQL
 	db = database.Start(config)
+
+	db.RegisterEvents(config, []string{
+		"profile_kicked",
+		"profile_banned",
+		"profile_unbanned",
+	})
 }
 
 func Shutdown() {
+	db.Close()
 }

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"wwfc/gpcm"
+	"wwfc/logging"
 )
 
 func HandleKick(w http.ResponseWriter, r *http.Request) {
@@ -78,6 +79,11 @@ func handleKickImpl(r *http.Request) (bool, string, int) {
 	}
 
 	gpcm.KickPlayerCustomMessage(req.ProfileID, req.Reason, gpcm.WWFCMsgKickedCustom)
+
+	logging.Event("profile_kicked", map[string]any{
+		"profile_id": req.ProfileID,
+		"reason":     req.Reason,
+	})
 
 	return true, "", http.StatusOK
 }
