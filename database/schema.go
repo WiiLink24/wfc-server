@@ -1,13 +1,7 @@
 package database
 
-import (
-	"context"
-
-	"github.com/jackc/pgx/v4/pgxpool"
-)
-
-func UpdateTables(pool *pgxpool.Pool, ctx context.Context) {
-	pool.Exec(ctx, `
+func (c *Connection) UpdateTables() {
+	_, _ = c.pool.Exec(c.ctx, `
 
 	ALTER TABLE ONLY public.users
 		ADD IF NOT EXISTS last_ip_address character varying DEFAULT ''::character varying,
@@ -23,7 +17,7 @@ func UpdateTables(pool *pgxpool.Pool, ctx context.Context) {
 		ADD IF NOT EXISTS allow_default_keys boolean DEFAULT false;
 	`)
 
-	pool.Exec(ctx, `
+	_, _ = c.pool.Exec(c.ctx, `
 
 	DO $$ 
 	BEGIN
@@ -35,7 +29,7 @@ func UpdateTables(pool *pgxpool.Pool, ctx context.Context) {
 
 	`)
 
-	pool.Exec(ctx, `
+	_, _ = c.pool.Exec(c.ctx, `
 
 	ALTER TABLE ONLY public.mario_kart_wii_sake
         ADD IF NOT EXISTS id serial PRIMARY KEY,

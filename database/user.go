@@ -1,12 +1,9 @@
 package database
 
 import (
-	"context"
 	"errors"
 	"math/rand"
 	"time"
-
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 const (
@@ -48,9 +45,9 @@ var (
 	ErrReservedProfileIDRange = errors.New("profile ID is in reserved range")
 )
 
-func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) error {
+func (c *Connection) CreateUser(user *User) error {
 	if user.ProfileId == 0 {
-		return pool.QueryRow(ctx, InsertUser, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick).Scan(&user.ProfileId)
+		return c.pool.QueryRow(c.ctx, InsertUser, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick).Scan(&user.ProfileId)
 	}
 
 	if user.ProfileId >= 1000000000 {
@@ -58,7 +55,7 @@ func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) error {
 	}
 
 	var exists bool
-	err := pool.QueryRow(ctx, IsProfileIDInUse, user.ProfileId).Scan(&exists)
+	err := c.pool.QueryRow(c.ctx, IsProfileIDInUse, user.ProfileId).Scan(&exists)
 	if err != nil {
 		return err
 	}
@@ -67,17 +64,17 @@ func (user *User) CreateUser(pool *pgxpool.Pool, ctx context.Context) error {
 		return ErrProfileIDInUse
 	}
 
-	_, err = pool.Exec(ctx, InsertUserWithProfileID, user.ProfileId, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick)
+	_, err = c.pool.Exec(c.ctx, InsertUserWithProfileID, user.ProfileId, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick)
 	return err
 }
 
-func (user *User) UpdateProfileID(pool *pgxpool.Pool, ctx context.Context, newProfileId uint32) error {
+func (c *Connection) UpdateProfileID(user *User, newProfileId uint32) error {
 	if newProfileId >= 1000000000 {
 		return ErrReservedProfileIDRange
 	}
 
 	var exists bool
-	err := pool.QueryRow(ctx, IsProfileIDInUse, newProfileId).Scan(&exists)
+	err := c.pool.QueryRow(c.ctx, IsProfileIDInUse, newProfileId).Scan(&exists)
 	if err != nil {
 		return err
 	}
@@ -86,7 +83,7 @@ func (user *User) UpdateProfileID(pool *pgxpool.Pool, ctx context.Context, newPr
 		return ErrProfileIDInUse
 	}
 
-	_, err = pool.Exec(ctx, UpdateUserProfileID, user.UserId, user.GsbrCode, newProfileId)
+	_, err = c.pool.Exec(c.ctx, UpdateUserProfileID, user.UserId, user.GsbrCode, newProfileId)
 	if err == nil {
 		user.ProfileId = newProfileId
 	}
@@ -99,7 +96,7 @@ func GetUniqueUserID() uint64 {
 	return uint64(rand.Int63n(0x80000000000))
 }
 
-func (user *User) UpdateProfile(pool *pgxpool.Pool, ctx context.Context, data map[string]string) {
+func (c *Connection) UpdateProfile(user *User, data map[string]string) {
 	firstName, firstNameExists := data["firstname"]
 	lastName, lastNameExists := data["lastname"]
 	openHost, openHostExists := data["wl:oh"]
@@ -108,7 +105,7 @@ func (user *User) UpdateProfile(pool *pgxpool.Pool, ctx context.Context, data ma
 		openHostBool = true
 	}
 
-	_, err := pool.Exec(ctx, UpdateUserTable, user.ProfileId, firstName, firstNameExists, lastName, lastNameExists, openHostBool, openHostExists)
+	_, err := c.pool.Exec(c.ctx, UpdateUserTable, user.ProfileId, firstName, firstNameExists, lastName, lastNameExists, openHostBool, openHostExists)
 	if err != nil {
 		panic(err)
 	}
@@ -126,9 +123,9 @@ func (user *User) UpdateProfile(pool *pgxpool.Pool, ctx context.Context, data ma
 	}
 }
 
-func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, bool) {
+func (c *Connection) GetProfile(profileId uint32) (User, bool) {
 	user := User{}
-	row := pool.QueryRow(ctx, GetUser, profileId)
+	row := c.pool.QueryRow(c.ctx, GetUser, profileId)
 	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName, &user.OpenHost, &user.LastIPAddress, &user.LastInGameSn)
 	if err != nil {
 		return User{}, false
@@ -138,9 +135,9 @@ func GetProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User
 	return user, true
 }
 
-func ClearProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (User, bool) {
+func (c *Connection) ClearProfile(profileId uint32) (User, bool) {
 	user := User{}
-	row := pool.QueryRow(ctx, ClearProfileQuery, profileId)
+	row := c.pool.QueryRow(c.ctx, ClearProfileQuery, profileId)
 	err := row.Scan(&user.UserId, &user.GsbrCode, &user.Email, &user.UniqueNick, &user.FirstName, &user.LastName, &user.OpenHost, &user.LastIPAddress, &user.LastInGameSn)
 
 	if err != nil {
@@ -151,12 +148,12 @@ func ClearProfile(pool *pgxpool.Pool, ctx context.Context, profileId uint32) (Us
 	return user, true
 }
 
-func BanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32, tos bool, length time.Duration, reason string, reasonHidden string, moderator string) bool {
-	_, err := pool.Exec(ctx, UpdateUserBan, profileId, time.Now().UTC(), time.Now().UTC().Add(length), reason, reasonHidden, moderator, tos)
+func (c *Connection) BanUser(profileId uint32, tos bool, length time.Duration, reason string, reasonHidden string, moderator string) bool {
+	_, err := c.pool.Exec(c.ctx, UpdateUserBan, profileId, time.Now().UTC(), time.Now().UTC().Add(length), reason, reasonHidden, moderator, tos)
 	return err == nil
 }
 
-func UnbanUser(pool *pgxpool.Pool, ctx context.Context, profileId uint32) bool {
-	_, err := pool.Exec(ctx, DisableUserBan, profileId)
+func (c *Connection) UnbanUser(profileId uint32) bool {
+	_, err := c.pool.Exec(c.ctx, DisableUserBan, profileId)
 	return err == nil
 }

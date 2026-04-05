@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"wwfc/common"
-	"wwfc/database"
 	"wwfc/logging"
 
 	"github.com/logrusorgru/aurora/v3"
@@ -144,7 +143,7 @@ func handleGetTopTenRankingsRequest(moduleName string, responseWriter http.Respo
 		return
 	}
 
-	topTenRankings, err := database.GetMarioKartWiiTopTenRankings(pool, ctx, regionId, courseId)
+	topTenRankings, err := db.GetMarioKartWiiTopTenRankings(regionId, courseId)
 	if err != nil {
 		logging.Error(moduleName, "Failed to get the Top 10 rankings:", err)
 		writeErrorResponse(raceServiceResultDatabaseError, responseWriter)

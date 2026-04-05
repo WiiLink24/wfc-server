@@ -85,7 +85,7 @@ func getMarioKartWiiGhostDataRecord(moduleName string, request StorageRequestCom
 		return []database.SakeRecord{}, false
 	}
 
-	fileId, err := database.GetMarioKartWiiGhostData(pool, ctx, courseId, time)
+	fileId, err := db.GetMarioKartWiiGhostData(courseId, time)
 	if err != nil {
 		logging.Error(moduleName, "mariokartwii/GhostData: Failed to get the ghost data from the database:", err)
 		return []database.SakeRecord{}, false
@@ -157,7 +157,7 @@ func getMarioKartWiiStoredGhostDataRecord(moduleName string, request StorageRequ
 		regionId = common.Worldwide
 	}
 
-	pid, fileId, err := database.GetMarioKartWiiStoredGhostData(pool, ctx, regionId, courseId)
+	pid, fileId, err := db.GetMarioKartWiiStoredGhostData(regionId, courseId)
 	if err != nil {
 		logging.Error(moduleName, "mariokartwii/StoredGhostData: Failed to get the stored ghost data from the database:", err)
 		return []database.SakeRecord{}, false
@@ -200,7 +200,7 @@ func handleMarioKartWiiFileDownloadRequest(moduleName string, responseWriter htt
 		return
 	}
 
-	file, err := database.GetMarioKartWiiFile(pool, ctx, fileId)
+	file, err := db.GetMarioKartWiiFile(fileId)
 	if err != nil {
 		logging.Error(moduleName, "Failed to get the file from the database:", err)
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
@@ -259,7 +259,7 @@ func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter ht
 		return
 	}
 
-	ghost, err := database.GetMarioKartWiiGhostFile(pool, ctx, courseId, time, pid)
+	ghost, err := db.GetMarioKartWiiGhostFile(courseId, time, pid)
 	if err != nil {
 		logging.Error(moduleName, "Failed to get a ghost file from the database:", err)
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))
@@ -395,7 +395,7 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 		ghostFile = nil
 	}
 
-	err = database.InsertMarioKartWiiGhostFile(pool, ctx, regionId, courseId, score, pid, playerInfo, []byte(ghostData))
+	err = db.InsertMarioKartWiiGhostFile(regionId, courseId, score, pid, playerInfo, []byte(ghostData))
 	if err != nil {
 		logging.Error(moduleName, "Failed to insert the ghost file into the database:", err)
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultServerError))

@@ -30,7 +30,7 @@ func (g *GameSpySession) getProfile(command common.GameSpyCommand) {
 		mutex.Unlock()
 	} else {
 		mutex.Unlock()
-		user, ok = database.GetProfile(pool, ctx, uint32(profileId))
+		user, ok = db.GetProfile(uint32(profileId))
 		if !ok {
 			// The profile info was requested on is invalid.
 			g.replyError(ErrGetProfileBadProfile)
@@ -91,7 +91,7 @@ func (g *GameSpySession) updateProfile(command common.GameSpyCommand) {
 		}
 	}
 
-	g.User.UpdateProfile(pool, ctx, command.OtherValues)
+	db.UpdateProfile(&g.User, command.OtherValues)
 }
 
 func VerifyPlayerSearch(profileId uint32, sessionKey int32, gameName string) (string, bool) {

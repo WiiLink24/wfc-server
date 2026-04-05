@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"wwfc/database"
 	"wwfc/gpcm"
 	"wwfc/logging"
 
@@ -102,7 +101,7 @@ func handleBanImpl(r *http.Request) (bool, string, int) {
 
 	logging.Notice("API:"+moderator, "Ban profile:", aurora.Cyan(req.ProfileID), "TOS:", aurora.Cyan(req.Tos), "Length:", aurora.Cyan(length), "Reason:", aurora.BrightCyan(req.Reason), "Reason (Hidden):", aurora.BrightCyan(req.ReasonHidden))
 
-	if !database.BanUser(pool, ctx, req.ProfileID, req.Tos, length, req.Reason, req.ReasonHidden, moderator) {
+	if !db.BanUser(req.ProfileID, req.Tos, length, req.Reason, req.ReasonHidden, moderator) {
 		return false, "Failed to ban user", http.StatusInternalServerError
 	}
 

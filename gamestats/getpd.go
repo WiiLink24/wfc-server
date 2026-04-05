@@ -3,7 +3,6 @@ package gamestats
 import (
 	"strconv"
 	"wwfc/common"
-	"wwfc/database"
 	"wwfc/logging"
 
 	"github.com/jackc/pgx/v4"
@@ -54,7 +53,7 @@ func (g *GameStatsSession) getpd(command common.GameSpyCommand) {
 
 	logging.Info(g.ModuleName, "Get public data: PID:", aurora.Cyan(profileId), "Index:", aurora.Cyan(dindex), "Type:", aurora.Cyan(ptype))
 
-	modifiedTime, data, err := database.GetGameStatsPublicData(pool, ctx, uint32(profileId), dindex, ptype)
+	modifiedTime, data, err := db.GetGameStatsPublicData(uint32(profileId), dindex, ptype)
 	if err != nil {
 		if err != pgx.ErrNoRows {
 			logging.Error(g.ModuleName, "GetGameStatsPublicData returned", err)

@@ -261,7 +261,7 @@ func getRequestIdentity(moduleName string, request StorageRequestCommon) (uint32
 }
 
 func createRecord(moduleName string, profileId uint32, gameInfo common.GameInfo, request StorageRequestCommon) StorageResponseBody {
-	if reached, err := database.IsMaxSakeRecordsReached(pool, ctx, profileId, MaxSakeRecordsPerProfile); err != nil {
+	if reached, err := db.IsMaxSakeRecordsReached(profileId, MaxSakeRecordsPerProfile); err != nil {
 		logging.Error(moduleName, "Failed to check max sake records:", err)
 		return StorageResponseBody{CreateRecordResponse: &CreateRecordResponse{
 			CreateRecordResult: ResultDatabaseUnavailable,
@@ -311,7 +311,7 @@ func createRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 	record.OwnerId = int32(profileId)
 
 	// TODO: Limit number of records or fields a user can have
-	recordId, err := database.InsertSakeRecord(pool, ctx, record)
+	recordId, err := db.InsertSakeRecord(record)
 	if err != nil {
 		logging.Error(moduleName, "Failed to insert sake record into the database:", err)
 		return StorageResponseBody{CreateRecordResponse: &CreateRecordResponse{
@@ -349,7 +349,7 @@ func getMyRecords(moduleName string, profileId uint32, gameInfo common.GameInfo,
 		}}
 	}
 
-	records, err := database.GetSakeRecords(pool, ctx, gameInfo.GameID, []int32{int32(profileId)}, request.TableID, nil, request.Fields.String, request.Filter)
+	records, err := db.GetSakeRecords(gameInfo.GameID, []int32{int32(profileId)}, request.TableID, nil, request.Fields.String, request.Filter)
 	if err != nil {
 		logging.Error(moduleName, "Failed to get sake records from the database:", err)
 		if err == pgx.ErrNoRows {
@@ -410,7 +410,7 @@ func updateRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 	record.RecordId = int32(request.RecordID)
 	record.OwnerId = int32(profileId)
 
-	err := database.UpdateSakeRecord(pool, ctx, record, int32(profileId))
+	err := db.UpdateSakeRecord(record, int32(profileId))
 	if err != nil {
 		logging.Error(moduleName, "Failed to update sake record in the database:", err)
 		if err == database.ErrSakeNotOwned {
@@ -467,7 +467,7 @@ func searchForRecords(moduleName string, profileId uint32, gameInfo common.GameI
 		}
 
 		var err error
-		records, err = database.GetSakeRecords(pool, ctx, gameInfo.GameID, ownerIds, request.TableID, nil, request.Fields.String, request.Filter)
+		records, err = db.GetSakeRecords(gameInfo.GameID, ownerIds, request.TableID, nil, request.Fields.String, request.Filter)
 		if err != nil {
 			logging.Error(moduleName, "Failed to get sake records from the database:", err)
 			return StorageResponseBody{SearchForRecordsResponse: &SearchForRecordsResponse{

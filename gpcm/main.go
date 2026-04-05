@@ -1,9 +1,7 @@
 package gpcm
 
 import (
-	"context"
 	"encoding/gob"
-	"fmt"
 	"os"
 	"strings"
 	"wwfc/common"
@@ -11,12 +9,11 @@ import (
 	"wwfc/logging"
 	"wwfc/qr2"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/linkdata/deadlock"
 	"github.com/logrusorgru/aurora/v3"
 )
 
-var ServerName = "gpcm"
+const ServerName = "gpcm"
 
 type GameSpySession struct {
 	ConnIndex           uint64
@@ -60,8 +57,8 @@ type GameSpySession struct {
 }
 
 var (
-	ctx  = context.Background()
-	pool *pgxpool.Pool
+	db database.Connection
+
 	// I would use a sync.Map instead of the map mutex combo, but this performs better.
 	sessions            = map[uint32]*GameSpySession{}
 	sessionsByConnIndex = map[uint64]*GameSpySession{}
@@ -77,18 +74,8 @@ func StartServer(reload bool) {
 	config := common.GetConfig()
 
 	// Start SQL
-	dbString := fmt.Sprintf("postgres://%s:%s@%s/%s", config.Username, config.Password, config.DatabaseAddress, config.DatabaseName)
-	dbConf, err := pgxpool.ParseConfig(dbString)
-	if err != nil {
-		panic(err)
-	}
-
-	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
-	if err != nil {
-		panic(err)
-	}
-
-	database.UpdateTables(pool, ctx)
+	db = database.Start(config)
+	db.UpdateTables()
 
 	allowDefaultDolphinKeys = config.AllowDefaultDolphinKeys
 
@@ -108,7 +95,11 @@ func Shutdown() {
 	if err != nil {
 		logging.Error("GPCM", "Failed to save state:", err)
 	}
+
+	db.Close()
+
 	logging.Notice("GPCM", "Saved", aurora.Cyan(len(sessions)), "sessions")
+
 }
 
 func CloseConnection(index uint64) {

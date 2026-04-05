@@ -1,10 +1,7 @@
 package database
 
 import (
-	"context"
 	"time"
-
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 const (
@@ -13,17 +10,17 @@ const (
 	queryGsUpdatePublicData = `UPDATE gamestats_public_data SET pdata = $4, modified_time = CURRENT_TIMESTAMP WHERE profile_id = $1 AND dindex = $2 AND ptype = $3 RETURNING modified_time`
 )
 
-func GetGameStatsPublicData(pool *pgxpool.Pool, ctx context.Context, profileId uint32, dindex string, ptype string) (modifiedTime time.Time, publicData string, err error) {
-	err = pool.QueryRow(ctx, queryGsGetPublicData, profileId, dindex, ptype).Scan(&modifiedTime, &publicData)
+func (c *Connection) GetGameStatsPublicData(profileId uint32, dindex string, ptype string) (modifiedTime time.Time, publicData string, err error) {
+	err = c.pool.QueryRow(c.ctx, queryGsGetPublicData, profileId, dindex, ptype).Scan(&modifiedTime, &publicData)
 	return
 }
 
-func CreateGameStatsPublicData(pool *pgxpool.Pool, ctx context.Context, profileId uint32, dindex string, ptype string, publicData string) (modifiedTime time.Time, err error) {
-	err = pool.QueryRow(ctx, queryGsInsertPublicData, profileId, dindex, ptype, publicData).Scan(&modifiedTime)
+func (c *Connection) CreateGameStatsPublicData(profileId uint32, dindex string, ptype string, publicData string) (modifiedTime time.Time, err error) {
+	err = c.pool.QueryRow(c.ctx, queryGsInsertPublicData, profileId, dindex, ptype, publicData).Scan(&modifiedTime)
 	return
 }
 
-func UpdateGameStatsPublicData(pool *pgxpool.Pool, ctx context.Context, profileId uint32, dindex string, ptype string, publicData string) (modifiedTime time.Time, err error) {
-	err = pool.QueryRow(ctx, queryGsUpdatePublicData, profileId, dindex, ptype, publicData).Scan(&modifiedTime)
+func (c *Connection) UpdateGameStatsPublicData(profileId uint32, dindex string, ptype string, publicData string) (modifiedTime time.Time, err error) {
+	err = c.pool.QueryRow(c.ctx, queryGsUpdatePublicData, profileId, dindex, ptype, publicData).Scan(&modifiedTime)
 	return
 }

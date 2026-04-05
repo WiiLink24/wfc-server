@@ -456,7 +456,7 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 		ipAddress = ipAddress[:strings.Index(ipAddress, ":")]
 	}
 
-	user, err := database.LoginUserToGPCM(pool, ctx, userId, gsbrCode, profileId, defaultKey, deviceId, ipAddress, g.InGameName, deviceAuth)
+	user, err := db.LoginUserToGPCM(userId, gsbrCode, profileId, defaultKey, deviceId, ipAddress, g.InGameName, deviceAuth)
 	g.User = user
 
 	if err != nil {

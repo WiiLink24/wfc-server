@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"wwfc/filter"
@@ -63,6 +62,13 @@ const (
 		VALUES ($1, $2, $3, $4)
 		RETURNING record_id`
 
+	deleteSakeRecordQuery = `
+		DELETE FROM sake_records 
+		WHERE game_id = $1 
+		  AND table_id = $2 
+		  AND record_id = $3 
+		  AND owner_id = $4`
+
 	checkMaxSakeRecordsQuery = `
 		SELECT COUNT(*) 
 		FROM sake_records 
@@ -84,7 +90,7 @@ func parseSakeFieldsFromJson(fieldsJson []byte) (map[string]SakeField, error) {
 	return fields, nil
 }
 
-func GetSakeRecords(pool *pgxpool.Pool, ctx context.Context, gameId int, ownerIds []int32, tableId string, recordIds []int32, fields []string, filterExpr string) ([]SakeRecord, error) {
+func (c *Connection) GetSakeRecords(gameId int, ownerIds []int32, tableId string, recordIds []int32, fields []string, filterExpr string) ([]SakeRecord, error) {
 	if fields == nil {
 		fields = []string{}
 	}
@@ -103,7 +109,7 @@ func GetSakeRecords(pool *pgxpool.Pool, ctx context.Context, gameId int, ownerId
 		}
 
 		var filterQuery string
-		err = pool.AcquireFunc(ctx, func(conn *pgxpool.Conn) error {
+		err = c.pool.AcquireFunc(c.ctx, func(conn *pgxpool.Conn) error {
 			filterQuery, err = createSqlFilter(conn.Conn().PgConn(), tree)
 			return err
 		})
@@ -116,7 +122,7 @@ func GetSakeRecords(pool *pgxpool.Pool, ctx context.Context, gameId int, ownerId
 		query += " AND (" + filterQuery + ")"
 	}
 
-	rows, err := pool.Query(ctx, query, gameId, tableId, ownerIds, recordIds)
+	rows, err := c.pool.Query(c.ctx, query, gameId, tableId, ownerIds, recordIds)
 	if err != nil {
 		return nil, err
 	}
@@ -144,13 +150,13 @@ func GetSakeRecords(pool *pgxpool.Pool, ctx context.Context, gameId int, ownerId
 	return records, nil
 }
 
-func UpdateSakeRecord(pool *pgxpool.Pool, ctx context.Context, record SakeRecord, ownerId int32) error {
+func (c *Connection) UpdateSakeRecord(record SakeRecord, ownerId int32) error {
 	fieldsJson, err := json.Marshal(record.Fields)
 	if err != nil {
 		return err
 	}
 	var existingOwnerId int32
-	err = pool.QueryRow(ctx, updateSakeRecordQuery, record.GameId, record.TableId, record.RecordId, ownerId, fieldsJson).Scan(&existingOwnerId)
+	err = c.pool.QueryRow(c.ctx, updateSakeRecordQuery, record.GameId, record.TableId, record.RecordId, ownerId, fieldsJson).Scan(&existingOwnerId)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.CheckViolation {
@@ -165,14 +171,14 @@ func UpdateSakeRecord(pool *pgxpool.Pool, ctx context.Context, record SakeRecord
 	return nil
 }
 
-func InsertSakeRecord(pool *pgxpool.Pool, ctx context.Context, record SakeRecord) (recordId int32, err error) {
+func (c *Connection) InsertSakeRecord(record SakeRecord) (recordId int32, err error) {
 	fieldsJson, err := json.Marshal(record.Fields)
 	if err != nil {
 		return 0, err
 	}
 
 	for i := 0; i < 10; i++ {
-		err = pool.QueryRow(ctx, insertSakeRecordQuery, record.GameId, record.TableId, record.OwnerId, fieldsJson).Scan(&recordId)
+		err = c.pool.QueryRow(c.ctx, insertSakeRecordQuery, record.GameId, record.TableId, record.OwnerId, fieldsJson).Scan(&recordId)
 		if err == nil {
 			break
 		}
@@ -188,9 +194,9 @@ func InsertSakeRecord(pool *pgxpool.Pool, ctx context.Context, record SakeRecord
 	return recordId, err
 }
 
-func IsMaxSakeRecordsReached(pool *pgxpool.Pool, ctx context.Context, profileId uint32, maxRecords int) (bool, error) {
+func (c *Connection) IsMaxSakeRecordsReached(profileId uint32, maxRecords int) (bool, error) {
 	var count int
-	err := pool.QueryRow(ctx, checkMaxSakeRecordsQuery, profileId).Scan(&count)
+	err := c.pool.QueryRow(c.ctx, checkMaxSakeRecordsQuery, profileId).Scan(&count)
 	if err != nil {
 		return false, err
 	}

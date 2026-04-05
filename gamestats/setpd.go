@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 	"wwfc/common"
-	"wwfc/database"
 	"wwfc/logging"
 
 	"github.com/jackc/pgx/v4"
@@ -78,7 +77,7 @@ func (g *GameStatsSession) setpd(command common.GameSpyCommand) {
 	}
 
 	var modifiedTime time.Time
-	_, _, err := database.GetGameStatsPublicData(pool, ctx, g.User.ProfileId, dindex, ptype)
+	_, _, err := db.GetGameStatsPublicData(g.User.ProfileId, dindex, ptype)
 	if err != nil {
 		if err != pgx.ErrNoRows {
 			logging.Error(g.ModuleName, "GetGameStatsPublicData returned", err)
@@ -86,14 +85,14 @@ func (g *GameStatsSession) setpd(command common.GameSpyCommand) {
 			return
 		}
 
-		modifiedTime, err = database.CreateGameStatsPublicData(pool, ctx, g.User.ProfileId, dindex, ptype, newData)
+		modifiedTime, err = db.CreateGameStatsPublicData(g.User.ProfileId, dindex, ptype, newData)
 		if err != nil {
 			logging.Error(g.ModuleName, "GetGameStatsPublicData returned", err)
 			g.Write(errMsg)
 			return
 		}
 	} else {
-		modifiedTime, err = database.UpdateGameStatsPublicData(pool, ctx, g.User.ProfileId, dindex, ptype, newData)
+		modifiedTime, err = db.UpdateGameStatsPublicData(g.User.ProfileId, dindex, ptype, newData)
 		if err != nil {
 			logging.Error(g.ModuleName, "UpdateGameStatsPublicData returned", err)
 			g.Write(errMsg)

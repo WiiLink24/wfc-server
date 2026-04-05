@@ -1,9 +1,7 @@
 package gamestats
 
 import (
-	"context"
 	"encoding/gob"
-	"fmt"
 	"os"
 	"strings"
 	"wwfc/common"
@@ -11,7 +9,6 @@ import (
 	"wwfc/gpcm"
 	"wwfc/logging"
 
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/linkdata/deadlock"
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -37,8 +34,7 @@ type GameStatsSession struct {
 }
 
 var (
-	ctx  = context.Background()
-	pool *pgxpool.Pool
+	db database.Connection
 
 	serverName string
 	webSalt    string
@@ -57,16 +53,7 @@ func StartServer(reload bool) {
 	common.ReadGameList()
 
 	// Start SQL
-	dbString := fmt.Sprintf("postgres://%s:%s@%s/%s", config.Username, config.Password, config.DatabaseAddress, config.DatabaseName)
-	dbConf, err := pgxpool.ParseConfig(dbString)
-	if err != nil {
-		panic(err)
-	}
-
-	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
-	if err != nil {
-		panic(err)
-	}
+	db = database.Start(config)
 
 	if reload {
 		// Load state
@@ -114,7 +101,7 @@ func Shutdown() {
 		panic(err)
 	}
 
-	pool.Close()
+	db.Close()
 
 	logging.Notice("GSTATS", "Saved", aurora.Cyan(len(sessionsByConnIndex)), "sessions")
 }

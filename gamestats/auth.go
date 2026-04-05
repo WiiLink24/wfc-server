@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"time"
 	"wwfc/common"
-	"wwfc/database"
 	"wwfc/gpcm"
 	"wwfc/logging"
 
@@ -77,7 +76,7 @@ func (g *GameStatsSession) authp(command common.GameSpyCommand) {
 		return
 	}
 
-	g.User, err = database.LoginUserToGameStats(pool, ctx, userId, gsbrcd)
+	g.User, err = db.LoginUserToGameStats(userId, gsbrcd)
 	if err != nil {
 		logging.Error(g.ModuleName, "Error logging in user:", err.Error())
 		g.Write(errorCmd)
