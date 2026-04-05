@@ -82,7 +82,6 @@ func connectAndLogEvent(eventType string) {
 // backendMain starts all the servers and creates an RPC server to communicate with the frontend
 func backendMain(noSignal, noReload bool) {
 	config.RegisterWebhooks()
-	defer connectAndLogEvent("backend_stopped")
 
 	err := os.Mkdir("state", 0755)
 	if err != nil && !os.IsExist(err) {
@@ -262,6 +261,8 @@ func (r *RPCPacket) Shutdown(stateUuid string, _ *struct{}) error {
 	if err != nil {
 		panic(err)
 	}
+
+	connectAndLogEvent("backend_stopped")
 
 	os.Exit(0)
 	return nil
