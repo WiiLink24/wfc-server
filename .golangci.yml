@@ -1,0 +1,4 @@
+linters:
+  exclusions:
+    paths:
+      - "nhttp/*.go"
