@@ -212,5 +212,7 @@ func writeResponse(responseWriter http.ResponseWriter, rankingDataResponse ranki
 
 	responseWriter.Header().Set("Content-Length", strconv.Itoa(len(responseBody)))
 	responseWriter.Header().Set("Content-Type", "text/xml")
-	responseWriter.Write(responseBody)
+	if _, err := responseWriter.Write(responseBody); err != nil {
+		logging.Error("Failed to write response:", err)
+	}
 }
