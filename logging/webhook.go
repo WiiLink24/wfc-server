@@ -17,15 +17,22 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
+type WebhookAuthorConfig struct {
+	Name string `xml:",chardata"`
+	URL  string `xml:"url,attr,omitempty"`
+}
+
 type WebhookConfig struct {
-	Enabled    bool     `xml:"enabled"`
-	URL        string   `xml:"url"`
-	Author     string   `xml:"author,omitempty"`
-	EventTypes []string `xml:"eventTypes>event"`
+	Enabled bool   `xml:"enabled"`
+	URL     string `xml:"url"`
+	// e.g. <author url="https://example.com">Author Name</author>
+	Author     WebhookAuthorConfig `xml:"author,omitempty"`
+	EventTypes []string            `xml:"eventTypes>event"`
 }
 
 type webhookAuthor struct {
 	Name string `json:"name,omitempty"`
+	URL  string `json:"url,omitempty"`
 }
 
 type webhookEmbed struct {
@@ -59,8 +66,8 @@ func (w WebhookConfig) ReportEvent(eventType string, eventData map[string]any) {
 		Title: "> **" + eventType + "**",
 	}
 
-	if w.Author != "" {
-		embed.Author = webhookAuthor{Name: w.Author}
+	if w.Author.Name != "" {
+		embed.Author = webhookAuthor{Name: w.Author.Name, URL: w.Author.URL}
 	}
 
 	for key, value := range eventData {
