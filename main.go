@@ -95,13 +95,14 @@ func backendMain(noSignal, noReload bool) {
 		logging.Error("BACKEND", err)
 	}
 
-	rpc.Register(&RPCPacket{})
+	common.ShouldNotError(rpc.Register(&RPCPacket{}))
+
 	address := config.BackendAddress
 
 	l, err := net.Listen("tcp", address)
 	if err != nil {
 		logging.Error("BACKEND", "Failed to listen on", aurora.BrightCyan(address))
-		os.Exit(1)
+		panic(err)
 	}
 
 	common.ConnectFrontend()
@@ -112,9 +113,7 @@ func backendMain(noSignal, noReload bool) {
 	}
 
 	reload, err := common.VerifyState(uuid)
-	if err != nil {
-		panic(err)
-	}
+	common.ShouldNotError(err)
 
 	wg := &sync.WaitGroup{}
 	actions := []func(bool){nas.StartServer, gpcm.StartServer, qr2.StartServer, gpsp.StartServer, serverbrowser.StartServer, race.StartServer, sake.StartServer, natneg.StartServer, api.StartServer, gamestats.StartServer}
@@ -136,7 +135,7 @@ func backendMain(noSignal, noReload bool) {
 		for {
 			conn, err := l.Accept()
 			if err != nil {
-				logging.Error("BACKEND", "Failed to accept connection on", aurora.BrightCyan(address))
+				logging.Error("BACKEND", "Failed to accept connection on", aurora.BrightCyan(address), ":", err)
 				continue
 			}
 
@@ -146,7 +145,7 @@ func backendMain(noSignal, noReload bool) {
 
 	logging.Notice("BACKEND", "Listening on", aurora.BrightCyan(address))
 
-	common.Ready()
+	common.ShouldNotError(common.Ready())
 
 	// Wait for a signal to shutdown
 	<-sigExit
@@ -156,11 +155,9 @@ func backendMain(noSignal, noReload bool) {
 	}
 
 	stateUuid, err := common.Shutdown()
-	if err != nil {
-		panic(err)
-	}
+	common.ShouldNotError(err)
 
-	(&RPCPacket{}).Shutdown(stateUuid, &struct{}{})
+	common.ShouldNotError((&RPCPacket{}).Shutdown(stateUuid, &struct{}{}))
 }
 
 func loadUuidFile() string {
@@ -169,7 +166,9 @@ func loadUuidFile() string {
 		return ""
 	}
 
-	defer stateFile.Close()
+	defer func() {
+		common.ShouldNotError(stateFile.Close())
+	}()
 
 	uuid, err := io.ReadAll(stateFile)
 	if err != nil {
@@ -360,19 +359,19 @@ func frontendMain(noSignal, noBackend bool) {
 	rpcMutex.Unlock()
 
 	logging.Notice("FRONTEND", "Sending RPCPacket.Shutdown")
-	rpcClient.Call("RPCPacket.Shutdown", "", nil)
-	rpcClient.Close()
+	common.ShouldNotError(rpcClient.Call("RPCPacket.Shutdown", "", nil))
+	common.ShouldNotError(rpcClient.Close())
 }
 
 // startFrontendServer starts the frontend RPC server.
 func startFrontendServer() {
-	rpc.Register(&RPCFrontendPacket{})
+	common.ShouldNotError(rpc.Register(&RPCFrontendPacket{}))
 	address := config.FrontendAddress
 
 	l, err := net.Listen("tcp", address)
 	if err != nil {
 		logging.Error("FRONTEND", "Failed to listen on", aurora.BrightCyan(address))
-		os.Exit(1)
+		panic(err)
 	}
 
 	logging.Notice("FRONTEND", "Listening on", aurora.BrightCyan(address))
@@ -395,8 +394,8 @@ func startFrontendServer() {
 func startBackendProcess(reload bool, wait bool) {
 	exe, err := os.Executable()
 	if err != nil {
-		logging.Error("FRONTEND", "Failed to get executable path:", err)
-		os.Exit(1)
+		logging.Error("FRONTEND", "Failed to get executable path")
+		panic(err)
 	}
 
 	logging.Info("FRONTEND", "Running from", aurora.BrightCyan(exe))
@@ -412,8 +411,8 @@ func startBackendProcess(reload bool, wait bool) {
 	cmd.Stderr = os.Stderr
 	err = cmd.Start()
 	if err != nil {
-		logging.Error("FRONTEND", "Failed to start backend process:", err)
-		os.Exit(1)
+		logging.Error("FRONTEND", "Failed to start backend process")
+		panic(err)
 	}
 
 	if wait {
@@ -480,7 +479,9 @@ func frontendListen(server serverInfo) {
 
 // handleConnection forwards packets between the frontend and backend
 func handleConnection(server serverInfo, conn net.Conn, index uint64) {
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	rpcMutex.Lock()
 	rpcBusyCount.Add(1)
@@ -588,7 +589,7 @@ func (r *RPCFrontendPacket) CloseConnection(args RPCFrontendPacket, _ *struct{})
 // RPCFrontendPacket.ReloadBackend is called by an external program to reload the backend
 func (r *RPCFrontendPacket) ReloadBackend(_ struct{}, _ *struct{}) error {
 	var stateUid string
-	r.ShutdownBackend(struct{}{}, &stateUid)
+	common.ShouldNotError(r.ShutdownBackend(struct{}{}, &stateUid))
 
 	err := rpcClient.Call("RPCPacket.Shutdown", stateUid, nil)
 	if err != nil && !strings.Contains(err.Error(), "An existing connection was forcibly closed by the remote host.") {
@@ -642,7 +643,7 @@ func (r *RPCFrontendPacket) VerifyState(uuid string, reload *bool) error {
 		// Close all connections
 		for _, server := range connections {
 			for index, conn := range server {
-				(*conn).Close()
+				_ = (*conn).Close()
 				delete(server, index)
 			}
 		}
