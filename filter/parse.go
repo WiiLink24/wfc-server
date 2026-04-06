@@ -33,73 +33,68 @@ func Parse(input string) (root *TreeNode, err error) {
 	return root, err
 }
 
-func (this *parser) getCurr() Token {
-	if this.curr != nil {
-		return this.curr.Value
+func (p *parser) getCurr() Token {
+	if p.curr != nil {
+		return p.curr.Value
 	}
 	return nil
 }
 
-func (this *parser) parse() {
-	this.pumpExpression()
+func (p *parser) parse() {
+	p.pumpExpression()
 }
 
-func (this *parser) add(token Token) *TreeNode {
-	return this.curr.Add(token)
+func (p *parser) add(token Token) *TreeNode {
+	return p.curr.Add(token)
 }
 
-func (this *parser) push(token Token) *TreeNode {
-	return this.curr.Push(token)
+func (p *parser) push(token Token) *TreeNode {
+	return p.curr.Push(token)
 }
 
-func (this *parser) lastNode() *TreeNode {
-	return this.curr.LastElement()
+func (p *parser) lastNode() *TreeNode {
+	return p.curr.LastElement()
 }
 
-func (this *parser) parentNode() *TreeNode {
-	return this.curr.Parent()
-}
-
-func (this *parser) commit() string {
-	return this.scan.Commit()
+func (p *parser) commit() string {
+	return p.scan.Commit()
 }
 
 // parseOpenBracket
-func (this *parser) parseOpenBracket() bool {
-	this.curr = this.add(NewGroupToken("()"))
-	this.commit()
+func (p *parser) parseOpenBracket() bool {
+	p.curr = p.add(NewGroupToken("()"))
+	p.commit()
 	return true
 }
 
 // parseCloseBracket
-func (this *parser) parseCloseBracket() stateFn {
+func (p *parser) parseCloseBracket() stateFn {
 	for {
-		v1, ok := this.curr.Value.(*GroupToken)
+		v1, ok := p.curr.Value.(*GroupToken)
 		if ok && v1.GroupType == "()" {
-			this.commit()
-			this.curr = this.curr.Parent()
+			p.commit()
+			p.curr = p.curr.Parent()
 			return branchExpressionOperatorPart
 		}
 		if ok && v1.GroupType == "" {
 			//must be a bracket part of a parent loop, exit this sub loop.
-			this.scan.Backup()
+			p.scan.Backup()
 			return nil
 		}
-		if this.curr.Parent() == nil {
+		if p.curr.Parent() == nil {
 			panic("brackets not closed")
 		}
-		this.curr = this.curr.Parent()
+		p.curr = p.curr.Parent()
 	}
-	panic("unreachable code")
 }
 
-func (this *parser) AcceptOperator() bool {
-	scan := this.scan
+func (p *parser) AcceptOperator() bool {
+	scan := p.scan
 	state := scan.SaveState()
 	for _, op := range operatorList {
 		if scan.Prefix(op) || scan.Prefix(strings.ToUpper(op)) {
 			p := scan.Peek()
-			if unicode.IsLetter(rune(op[0])) && (unicode.IsLetter(p) || unicode.IsNumber(p) || strings.IndexRune(charValidString, p) >= 0) {
+			if unicode.IsLetter(rune(op[0])) && (unicode.IsLetter(p) || unicode.IsNumber(p) || strings.ContainsRune(charValidString, p)) {
 				// this is a prefix of a longer word
 				scan.LoadState(state)
 				continue
@@ -111,10 +106,10 @@ func (this *parser) AcceptOperator() bool {
 }
 
 // parseOperator
-func (this *parser) parseOperator() bool {
-	operator := this.commit()
-	lastnode := this.lastNode()
-	onode, ok := this.getCurr().(*OperatorToken)
+func (p *parser) parseOperator() bool {
+	operator := p.commit()
+	lastnode := p.lastNode()
+	onode, ok := p.getCurr().(*OperatorToken)
 	//push excisting operator up in tree structure
 	if ok {
 		//operator is the same current operator ignore
@@ -125,51 +120,51 @@ func (this *parser) parseOperator() bool {
 		//fmt.Println(onode, operator, onode.Precedence(operator))
 		if onode.Precedence(operator) > 0 {
 			if lastnode != nil {
-				this.curr = lastnode.Push(NewOperatorToken(operator))
+				p.curr = lastnode.Push(NewOperatorToken(operator))
 				return true
 			}
 		}
 		//after */ presedence fallback and continue pushing +- operators from the bottom.
 		if onode.Precedence(operator) < 0 {
 			for {
-				v1, ok := this.curr.Parent().Value.(*OperatorToken)
+				v1, ok := p.curr.Parent().Value.(*OperatorToken)
 				//if ok && strings.Index("+-", v1.Name) >= 0 {
 				if ok && operators.Level(v1.Operator) >= 0 {
-					this.curr = this.curr.Parent()
+					p.curr = p.curr.Parent()
 				} else {
 					break
 				}
 			}
 		}
 		//standard operator push
-		this.curr = this.push(NewOperatorToken(operator))
+		p.curr = p.push(NewOperatorToken(operator))
 		return true
 	}
 	//set previous found value as argument of the operator
 	if lastnode != nil {
-		this.curr = lastnode.Push(NewOperatorToken(operator))
+		p.curr = lastnode.Push(NewOperatorToken(operator))
 	} else {
-		this.state = nil
+		p.state = nil
 		panic(fmt.Sprintf("expecting a value before operator %q", operator))
 	}
 	return true
 }
 
 // parseLRFunc
-func (this *parser) parseLRFunc() bool {
-	lrfunc := this.commit()
-	lastnode := this.lastNode()
+func (p *parser) parseLRFunc() bool {
+	lrfunc := p.commit()
+	lastnode := p.lastNode()
 	if lastnode != nil {
-		this.curr = lastnode.Push(NewLRFuncToken(lrfunc))
+		p.curr = lastnode.Push(NewLRFuncToken(lrfunc))
 	} else {
-		this.state = nil
+		p.state = nil
 		panic(fmt.Sprintf("expecting a value before operator %q", lrfunc))
 	}
 	return false
 }
 
-func (this *parser) ParseText() string {
-	scan := this.scan
+func (p *parser) ParseText() string {
+	scan := p.scan
 	r := scan.Next()
 	if r == '"' || r == '\'' {
 		scan.Ignore()

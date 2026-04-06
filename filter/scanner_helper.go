@@ -19,65 +19,65 @@ func IsNumber(r rune) bool {
 
 // isAlphaNumeric reports whether r is an alphabetic, digit, or underscore.
 func IsAlphaNumeric(r rune) bool {
-	return unicode.IsLetter(r) || unicode.IsDigit(r) || strings.IndexRune(charValidString, r) >= 0
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune(charValidString, r)
 }
 
 func IsQoute(r rune) bool {
-	return strings.IndexRune("\"'", r) >= 0
+	return strings.ContainsRune("\"'", r)
 }
 
 func HasChar(r rune, accept string) bool {
-	return strings.IndexRune(accept, r) >= 0
+	return strings.ContainsRune(accept, r)
 }
 
-func (this *Scanner) Scan(valid func(r rune) bool) bool {
+func (s *Scanner) Scan(valid func(r rune) bool) bool {
 	var isvalid bool
-	for valid(this.Next()) {
+	for valid(s.Next()) {
 		isvalid = true
 	}
-	this.Backup()
+	s.Backup()
 	return isvalid
 }
 
-//scan upto to the end of a word, returns true if a word was scanned.
-//a word must start with a letter or '_' and can contain numbers after the first character.
-func (this *Scanner) ScanWord() bool {
-	r := this.Next()
-	if unicode.IsLetter(r) || strings.IndexRune(charValidString, r) >= 0 {
+// scan upto to the end of a word, returns true if a word was scanned.
+// a word must start with a letter or '_' and can contain numbers after the first character.
+func (s *Scanner) ScanWord() bool {
+	r := s.Next()
+	if unicode.IsLetter(r) || strings.ContainsRune(charValidString, r) {
 		for {
-			r = this.Next()
+			r = s.Next()
 			if IsAlphaNumeric(r) {
 				continue
 			} else {
-				this.Backup()
+				s.Backup()
 				return true
 			}
 		}
 	}
-	this.Backup()
+	s.Backup()
 	return false
 }
 
-func (this *Scanner) ScanNumber() bool {
-	state := this.SaveState()
-	r := this.Next()
+func (s *Scanner) ScanNumber() bool {
+	state := s.SaveState()
+	r := s.Next()
 	isdigit := unicode.IsDigit(r)
 	if !isdigit && (r == '-' || r == '.') {
 		//if the first char is '-' or '.' the next char must be a digit.
-		if !unicode.IsDigit(this.Next()) {
-			this.LoadState(state)
+		if !unicode.IsDigit(s.Next()) {
+			s.LoadState(state)
 			return false
 		} else {
 			isdigit = true
 		}
 	} else if !isdigit {
-		this.Backup()
+		s.Backup()
 		return false
 	}
-	if this.Scan(IsNumber) || isdigit {
+	if s.Scan(IsNumber) || isdigit {
 		return true
 	} else {
-		this.LoadState(state)
+		s.LoadState(state)
 		return false
 	}
 }

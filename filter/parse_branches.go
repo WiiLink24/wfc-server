@@ -1,16 +1,16 @@
 // Modified from github.com/zdebeer99/goexpression
 package filter
 
-func (this *parser) pumpExpression() {
-	this.state = branchExpressionValuePart
-	for this.state != nil {
-		if this.err != nil {
+func (p *parser) pumpExpression() {
+	p.state = branchExpressionValuePart
+	for p.state != nil {
+		if p.err != nil {
 			break
 		}
-		this.state = this.state(this)
+		p.state = p.state(p)
 	}
-	endo := this.commit()
-	if len(endo) > 0 || !this.scan.IsEOF() {
+	endo := p.commit()
+	if len(endo) > 0 || !p.scan.IsEOF() {
 		panic("unexpected end of expression '" + endo + "' not parsed")
 	}
 }
@@ -68,7 +68,6 @@ func branchFunctionArguments(this *parser) stateFn {
 	ftoken, ok := this.curr.Value.(*FuncToken)
 	if !ok {
 		panic("expecting function token to add arguments to")
-		return nil
 	}
 	state := branchExpressionValuePart
 	currnode := this.curr
@@ -96,10 +95,8 @@ func branchFunctionArguments(this *parser) stateFn {
 		this.curr = currnode
 		if scan.IsEOF() {
 			panic("arguments missing end bracket")
-			return nil
 		}
 		panic("invalid char '" + string(r) + "' in arguments")
-		return nil
 	}
 }
 

@@ -23,80 +23,80 @@ func Eval(basenode *TreeNode, context map[string]string, queryGame string) (valu
 		}
 	}()
 
-	this := &expression{basenode, context, queryGame}
-	return this.eval(basenode), nil
+	e := &expression{basenode, context, queryGame}
+	return e.eval(basenode), nil
 }
 
-func (this *expression) eval(basenode *TreeNode) int64 {
+func (e *expression) eval(basenode *TreeNode) int64 {
 	for _, node := range basenode.items {
 		switch node.Value.Category() {
 		case CatFunction:
-			return this.switchFunction(node)
+			return e.switchFunction(node)
 
 		case CatValue:
-			return this.getNumber(node)
+			return e.getNumber(node)
 
 		case CatOther:
-			return this.switchOther(node)
+			return e.switchOther(node)
 		}
 	}
 	panic("eval failed")
 }
 
-func (this *expression) switchOther(node *TreeNode) int64 {
+func (e *expression) switchOther(node *TreeNode) int64 {
 	switch v1 := node.Value.(type) {
 	case *GroupToken:
 		if v1.GroupType == "()" {
-			return this.eval(node)
+			return e.eval(node)
 		}
 	}
 	panic("invalid node " + node.String())
 }
 
-func (this *expression) switchFunction(node *TreeNode) int64 {
+func (e *expression) switchFunction(node *TreeNode) int64 {
 	val1 := node.Value.(*OperatorToken)
 	switch strings.ToLower(val1.Operator) {
 	case "=":
-		return this.evalEquals(node.Items())
+		return e.evalEquals(node.Items())
 	case "==":
-		return this.evalEquals(node.Items())
+		return e.evalEquals(node.Items())
 	case "!=":
-		return this.evalNotEquals(node.Items())
+		return e.evalNotEquals(node.Items())
 
 	case ">":
-		return this.evalMathOperator(this.evalMathGreater, node.Items())
+		return e.evalMathOperator(e.evalMathGreater, node.Items())
 	case "<":
-		return this.evalMathOperator(this.evalMathLess, node.Items())
+		return e.evalMathOperator(e.evalMathLess, node.Items())
 	case ">=":
-		return this.evalMathOperator(this.evalMathGreaterOrEqual, node.Items())
+		return e.evalMathOperator(e.evalMathGreaterOrEqual, node.Items())
 	case "<=":
-		return this.evalMathOperator(this.evalMathLessOrEqual, node.Items())
+		return e.evalMathOperator(e.evalMathLessOrEqual, node.Items())
 	case "+":
-		return this.evalMathOperator(this.evalMathPlus, node.Items())
+		return e.evalMathOperator(e.evalMathPlus, node.Items())
 	case "-":
-		return this.evalMathOperator(this.evalMathMinus, node.Items())
+		return e.evalMathOperator(e.evalMathMinus, node.Items())
 	case "&":
-		return this.evalMathOperator(this.evalMathAnd, node.Items())
+		return e.evalMathOperator(e.evalMathAnd, node.Items())
 	case "|":
-		return this.evalMathOperator(this.evalMathOr, node.Items())
+		return e.evalMathOperator(e.evalMathOr, node.Items())
 	case "^":
-		return this.evalMathOperator(this.evalMathXor, node.Items())
+		return e.evalMathOperator(e.evalMathXor, node.Items())
 	case "<<":
-		return this.evalMathOperator(this.evalMathLShift, node.Items())
+		return e.evalMathOperator(e.evalMathLShift, node.Items())
 	case ">>":
-		return this.evalMathOperator(this.evalMathRShift, node.Items())
+		return e.evalMathOperator(e.evalMathRShift, node.Items())
 
 	case "and":
-		return this.evalAnd(node.Items())
+		return e.evalAnd(node.Items())
 	case "or":
-		return this.evalOr(node.Items())
+		return e.evalOr(node.Items())
 	case "&&":
-		return this.evalAnd(node.Items())
+		return e.evalAnd(node.Items())
 	case "||":
-		return this.evalOr(node.Items())
+		return e.evalOr(node.Items())
 
 	case "like":
-		return this.evalLike(node.Items())
+		return e.evalLike(node.Items())
 
 	default:
 		panic("function not supported: " + val1.Operator)
@@ -104,17 +104,17 @@ func (this *expression) switchFunction(node *TreeNode) int64 {
 
 }
 
-func (this *expression) getString(node *TreeNode) string {
+func (e *expression) getString(node *TreeNode) string {
 	switch v := node.Value.(type) {
 	case *NumberToken:
 		return strconv.FormatInt(v.Value, 10)
 	case *IdentityToken:
-		return this.getValue(v)
+		return e.getValue(v)
 	case *OperatorToken:
-		return strconv.FormatInt(this.switchFunction(node), 10)
+		return strconv.FormatInt(e.switchFunction(node), 10)
 	case *GroupToken:
 		if v.GroupType == "()" {
-			return strconv.FormatInt(this.eval(node), 10)
+			return strconv.FormatInt(e.eval(node), 10)
 		}
 		panic("unexpected grouping type: " + node.String())
 	case *TextToken:
@@ -125,26 +125,26 @@ func (this *expression) getString(node *TreeNode) string {
 	}
 }
 
-func (this *expression) evalEquals(args []*TreeNode) int64 {
+func (e *expression) evalEquals(args []*TreeNode) int64 {
 	cnt := len(args)
 	switch {
 	case cnt < 2:
 		panic("operator missing arguments")
 	case cnt == 2:
 		if n, ok := args[0].Value.(*IdentityToken); ok {
-			if n.Name == "rk" && this.queryGame == "mariokartwii" {
-				return this.evalEqualsRK(this.getString(args[1]))
+			if n.Name == "rk" && e.queryGame == "mariokartwii" {
+				return e.evalEqualsRK(e.getString(args[1]))
 			}
 		}
 
-		if this.getString(args[0]) == this.getString(args[1]) {
+		if e.getString(args[0]) == e.getString(args[1]) {
 			return 1
 		}
 		return 0
 	default:
-		arg := this.getString(args[0])
+		arg := e.getString(args[0])
 		for i := 1; i < cnt; i++ {
-			if arg != this.getString(args[i]) {
+			if arg != e.getString(args[i]) {
 				return 0
 			}
 		}
@@ -153,8 +153,8 @@ func (this *expression) evalEquals(args []*TreeNode) int64 {
 }
 
 // Operator override
-func (this *expression) evalEqualsRK(value string) int64 {
-	rk := this.context["rk"]
+func (e *expression) evalEqualsRK(value string) int64 {
+	rk := e.context["rk"]
 	// Check and remove regional searches due to the limited player count
 	// China (ID 6) gets a pass because it was never released
 	if len(rk) == 4 && (strings.HasPrefix(rk, "vs_") || strings.HasPrefix(rk, "bt_")) && rk[3] >= '0' && rk[3] < '6' {
@@ -171,20 +171,20 @@ func (this *expression) evalEqualsRK(value string) int64 {
 	return 0
 }
 
-func (this *expression) evalNotEquals(args []*TreeNode) int64 {
+func (e *expression) evalNotEquals(args []*TreeNode) int64 {
 	cnt := len(args)
 	switch {
 	case cnt < 2:
 		panic("operator missing arguments")
 	case cnt == 2:
-		if this.getString(args[0]) != this.getString(args[1]) {
+		if e.getString(args[0]) != e.getString(args[1]) {
 			return 1
 		}
 		return 0
 	default:
-		arg := this.getString(args[0])
+		arg := e.getString(args[0])
 		for i := 1; i < cnt; i++ {
-			if arg == this.getString(args[i]) {
+			if arg == e.getString(args[i]) {
 				return 0
 			}
 		}
@@ -192,57 +192,57 @@ func (this *expression) evalNotEquals(args []*TreeNode) int64 {
 	}
 }
 
-func (this *expression) evalAnd(args []*TreeNode) int64 {
+func (e *expression) evalAnd(args []*TreeNode) int64 {
 	cnt := len(args)
 	if cnt < 2 {
 		panic("operator missing arguments")
 	}
 
 	for i := 0; i < cnt; i++ {
-		if this.getString(args[i]) == "0" {
+		if e.getString(args[i]) == "0" {
 			return 0
 		}
 	}
 	return 1
 }
 
-func (this *expression) evalOr(args []*TreeNode) int64 {
+func (e *expression) evalOr(args []*TreeNode) int64 {
 	cnt := len(args)
 	if cnt < 2 {
 		panic("operator missing arguments")
 	}
 
 	for i := 0; i < cnt; i++ {
-		if this.getString(args[i]) != "0" {
+		if e.getString(args[i]) != "0" {
 			return 1
 		}
 	}
 	return 0
 }
 
-func (this *expression) getNumber(node *TreeNode) int64 {
+func (e *expression) getNumber(node *TreeNode) int64 {
 	switch v := node.Value.(type) {
 	case *NumberToken:
 		return v.Value
 	case *IdentityToken:
-		r1 := this.getValue(v)
-		return this.toInt64(r1)
+		r1 := e.getValue(v)
+		return e.toInt64(r1)
 	case *OperatorToken:
-		return this.switchFunction(node)
+		return e.switchFunction(node)
 	case *GroupToken:
 		if v.GroupType == "()" {
-			return this.eval(node)
+			return e.eval(node)
 		}
 		panic("unexpected grouping type: " + node.String())
 	case *TextToken:
-		return this.toInt64(node.Value.(*TextToken).Text)
+		return e.toInt64(node.Value.(*TextToken).Text)
 
 	default:
 		panic("unexpected value: " + node.String())
 	}
 }
 
-func (this *expression) evalMathOperator(fn func(int64, int64) int64, args []*TreeNode) int64 {
+func (e *expression) evalMathOperator(fn func(int64, int64) int64, args []*TreeNode) int64 {
 	cnt := len(args)
 	switch {
 	case cnt < 2:
@@ -250,101 +250,101 @@ func (this *expression) evalMathOperator(fn func(int64, int64) int64, args []*Tr
 	case cnt == 2:
 		if n, ok := args[0].Value.(*IdentityToken); ok {
 			// Remove VR search due to the limited player count
-			if (n.Name == "ev" || n.Name == "eb") && this.queryGame == "mariokartwii" {
+			if (n.Name == "ev" || n.Name == "eb") && e.queryGame == "mariokartwii" {
 				return 1
 			}
 		}
 
-		return fn(this.getNumber(args[0]), this.getNumber(args[1]))
+		return fn(e.getNumber(args[0]), e.getNumber(args[1]))
 	default:
-		answ := fn(this.getNumber(args[0]), this.getNumber(args[1]))
+		answ := fn(e.getNumber(args[0]), e.getNumber(args[1]))
 		for i := 2; i < cnt; i++ {
-			answ = fn(answ, this.getNumber(args[i]))
+			answ = fn(answ, e.getNumber(args[i]))
 		}
 		return answ
 	}
 }
 
-func (this *expression) evalMathPlus(val1, val2 int64) int64 {
+func (e *expression) evalMathPlus(val1, val2 int64) int64 {
 	return val1 + val2
 }
 
-func (this *expression) evalMathMinus(val1, val2 int64) int64 {
+func (e *expression) evalMathMinus(val1, val2 int64) int64 {
 	return val1 - val2
 }
 
-func (this *expression) evalMathGreater(val1, val2 int64) int64 {
+func (e *expression) evalMathGreater(val1, val2 int64) int64 {
 	if val1 > val2 {
 		return 1
 	}
 	return 0
 }
 
-func (this *expression) evalMathLess(val1, val2 int64) int64 {
+func (e *expression) evalMathLess(val1, val2 int64) int64 {
 	if val1 < val2 {
 		return 1
 	}
 	return 0
 }
 
-func (this *expression) evalMathGreaterOrEqual(val1, val2 int64) int64 {
+func (e *expression) evalMathGreaterOrEqual(val1, val2 int64) int64 {
 	if val1 >= val2 {
 		return 1
 	}
 	return 0
 }
 
-func (this *expression) evalMathLessOrEqual(val1, val2 int64) int64 {
+func (e *expression) evalMathLessOrEqual(val1, val2 int64) int64 {
 	if val1 <= val2 {
 		return 1
 	}
 	return 0
 }
 
-func (this *expression) evalMathAnd(val1, val2 int64) int64 {
+func (e *expression) evalMathAnd(val1, val2 int64) int64 {
 	return val1 & val2
 }
 
-func (this *expression) evalMathOr(val1, val2 int64) int64 {
+func (e *expression) evalMathOr(val1, val2 int64) int64 {
 	return val1 | val2
 }
 
-func (this *expression) evalMathXor(val1, val2 int64) int64 {
+func (e *expression) evalMathXor(val1, val2 int64) int64 {
 	return val1 ^ val2
 }
 
-func (this *expression) evalMathLShift(val1, val2 int64) int64 {
+func (e *expression) evalMathLShift(val1, val2 int64) int64 {
 	return val1 << val2
 }
 
-func (this *expression) evalMathRShift(val1, val2 int64) int64 {
+func (e *expression) evalMathRShift(val1, val2 int64) int64 {
 	return val1 >> val2
 }
 
-func (this *expression) evalLike(args []*TreeNode) int64 {
+func (e *expression) evalLike(args []*TreeNode) int64 {
 	cnt := len(args)
 	switch {
 	case cnt < 2:
 		panic("operator missing arguments")
 	case cnt == 2:
-		return this.evalLikeSingle(args[0], args[1])
+		return e.evalLikeSingle(args[0], args[1])
 	default:
-		panic("operator like does not support multiple arguments")
+		panic("operator LIKE does not support multiple arguments")
 	}
 }
 
-func (this *expression) evalLikeSingle(arg1, arg2 *TreeNode) int64 {
-	val1 := this.getString(arg1)
-	val2 := this.getString(arg2)
+func (e *expression) evalLikeSingle(arg1, arg2 *TreeNode) int64 {
+	val1 := e.getString(arg1)
+	val2 := e.getString(arg2)
 
 	allowedCharacters := `abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_%\`
 
 	regexString := "^"
 
-	// Convert SQL like pattern to regex
+	// Convert SQL LIKE pattern to regex
 	for i, c := range val2 {
-		if strings.IndexRune(allowedCharacters, c) < 0 {
-			panic("invalid character in like pattern: " + string(c))
+		if !strings.ContainsRune(allowedCharacters, c) {
+			panic("invalid character in LIKE pattern: " + string(c))
 		}
 
 		if i != 0 && val2[i-1] == '\\' {
@@ -384,11 +384,11 @@ func (this *expression) evalLikeSingle(arg1, arg2 *TreeNode) int64 {
 }
 
 // Get a value from the context.
-func (this *expression) getValue(token *IdentityToken) string {
-	return this.context[token.Name]
+func (e *expression) getValue(token *IdentityToken) string {
+	return e.context[token.Name]
 }
 
-func (this *expression) toInt64(value string) int64 {
+func (e *expression) toInt64(value string) int64 {
 	val, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		panic(err)

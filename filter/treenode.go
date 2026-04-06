@@ -18,12 +18,12 @@ func NewTreeNode(value Token) *TreeNode {
 }
 
 // Parent Returns the current element parent
-func (this *TreeNode) Parent() *TreeNode {
-	return this.parent
+func (n *TreeNode) Parent() *TreeNode {
+	return n.parent
 }
 
-func (this *TreeNode) Root() *TreeNode {
-	p := this
+func (n *TreeNode) Root() *TreeNode {
+	p := n
 	for p.parent != nil {
 		p = p.parent
 	}
@@ -32,43 +32,43 @@ func (this *TreeNode) Root() *TreeNode {
 
 // setParent sets the current nodes parent value.
 // Warning: does not add the node as a child
-func (this *TreeNode) setParent(element *TreeNode) {
-	if this.parent != nil {
+func (n *TreeNode) setParent(element *TreeNode) {
+	if n.parent != nil {
 		panic("TreeNode already attached to a parent node")
 	}
-	this.parent = element
+	n.parent = element
 }
 
-func (this *TreeNode) LastElement() *TreeNode {
-	if len(this.items) == 0 {
+func (n *TreeNode) LastElement() *TreeNode {
+	if len(n.items) == 0 {
 		return nil
 	}
-	return this.items[len(this.items)-1]
+	return n.items[len(n.items)-1]
 }
 
-func (this *TreeNode) Last() Token {
-	last := this.LastElement()
+func (n *TreeNode) Last() Token {
+	last := n.LastElement()
 	if last != nil {
 		return last.Value
 	}
 	return nil
 }
 
-func (this *TreeNode) Items() []*TreeNode {
-	return this.items
+func (n *TreeNode) Items() []*TreeNode {
+	return n.items
 }
 
 // Add adds a TreeElement to the end of the children items of the current node.
-func (this *TreeNode) AddElement(element *TreeNode) *TreeNode {
-	element.setParent(this)
-	this.items = append(this.items, element)
+func (n *TreeNode) AddElement(element *TreeNode) *TreeNode {
+	element.setParent(n)
+	n.items = append(n.items, element)
 	return element
 }
 
 // Add adds a value to the end of the children items of the current node.
-func (this *TreeNode) Add(value Token) *TreeNode {
+func (n *TreeNode) Add(value Token) *TreeNode {
 	element := NewTreeNode(value)
-	return this.AddElement(element)
+	return n.AddElement(element)
 }
 
 // Push, removes the current element from its current parent, place the new value
@@ -78,27 +78,27 @@ func (this *TreeNode) Add(value Token) *TreeNode {
 // tree:  A(B)
 // B.Push(C)
 // tree:  A(C(B))
-func (this *TreeNode) PushElement(element *TreeNode) *TreeNode {
-	parent := this.Parent()
+func (n *TreeNode) PushElement(element *TreeNode) *TreeNode {
+	parent := n.Parent()
 	if parent != nil {
 		//replace the current node with the new node
-		index := parent.indexOf(this)
+		index := parent.indexOf(n)
 		parent.items[index] = element
 		element.setParent(parent)
-		this.parent = nil
+		n.parent = nil
 	}
 	//add the current node to the new node
-	element.AddElement(this)
+	element.AddElement(n)
 	return element
 }
 
-func (this *TreeNode) Push(value Token) *TreeNode {
-	return this.PushElement(NewTreeNode(value))
+func (n *TreeNode) Push(value Token) *TreeNode {
+	return n.PushElement(NewTreeNode(value))
 }
 
 // FindChildElement Finds a child element in the current nodes children
-func (this *TreeNode) indexOf(element *TreeNode) int {
-	for i, v := range this.items {
+func (n *TreeNode) indexOf(element *TreeNode) int {
+	for i, v := range n.items {
 		if v == element {
 			return i
 		}
@@ -106,23 +106,23 @@ func (this *TreeNode) indexOf(element *TreeNode) int {
 	return -1
 }
 
-func (this *TreeNode) StringContent() string {
-	lines := make([]string, len(this.items))
-	for i, v := range this.items {
+func (n *TreeNode) StringContent() string {
+	lines := make([]string, len(n.items))
+	for i, v := range n.items {
 		lines[i] = v.String()
 	}
-	if this.Value.Error() != nil {
-		return fmt.Sprintf("[ERROR: %s]", this.Value.Error())
+	if n.Value.Error() != nil {
+		return fmt.Sprintf("[ERROR: %s]", n.Value.Error())
 	} else if len(lines) > 0 {
-		return fmt.Sprintf("%s", strings.Join(lines, ","))
+		return strings.Join(lines, ",")
 	} else {
 		return ""
 	}
 }
 
-func (this *TreeNode) String() string {
-	if this.StringContent() == "" {
-		return this.Value.String()
+func (n *TreeNode) String() string {
+	if n.StringContent() == "" {
+		return n.Value.String()
 	}
-	return fmt.Sprintf("[%s:%s]", this.Value.String(), this.StringContent())
+	return fmt.Sprintf("[%s:%s]", n.Value.String(), n.StringContent())
 }

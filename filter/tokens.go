@@ -31,28 +31,20 @@ func NewEmptyToken() *EmptyToken {
 	return &EmptyToken{CatOther, nil}
 }
 
-func (this *EmptyToken) Category() TokenCategory {
-	return this.tokencat
+func (t *EmptyToken) Category() TokenCategory {
+	return t.tokencat
 }
 
-func (this *EmptyToken) Error() error {
-	return this.err
+func (t *EmptyToken) Error() error {
+	return t.err
 }
 
-func (this *EmptyToken) SetError(err error) {
-	this.err = err
+func (t *EmptyToken) SetError(err error) {
+	t.err = err
 }
 
-func (this *EmptyToken) String() string {
+func (t *EmptyToken) String() string {
 	return "Base()"
-}
-
-type ErrorToken struct {
-	EmptyToken
-}
-
-func NewErrorToken(err string) *ErrorToken {
-	return &ErrorToken{EmptyToken{CatOther, fmt.Errorf(err)}}
 }
 
 type NumberToken struct {
@@ -65,14 +57,13 @@ func NewNumberToken(value string) *NumberToken {
 	val1, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		panic("number node failed to parse string to number (" + value + ")")
-		return node
 	}
 	node.Value = val1
 	return node
 }
 
-func (this *NumberToken) String() string {
-	return fmt.Sprintf("Number(%v)", this.Value)
+func (t *NumberToken) String() string {
+	return fmt.Sprintf("Number(%v)", t.Value)
 }
 
 type IdentityToken struct {
@@ -84,8 +75,8 @@ func NewIdentityToken(name string) *IdentityToken {
 	return &IdentityToken{EmptyToken{CatValue, nil}, name}
 }
 
-func (this *IdentityToken) String() string {
-	return fmt.Sprintf("Identity(%s)", this.Name)
+func (t *IdentityToken) String() string {
+	return fmt.Sprintf("Identity(%s)", t.Name)
 }
 
 type FuncToken struct {
@@ -98,16 +89,16 @@ func NewFuncToken(name string) *FuncToken {
 	return &FuncToken{EmptyToken{CatFunction, nil}, name, make([]*TreeNode, 0)}
 }
 
-func (this *FuncToken) AddArgument(arg *TreeNode) {
-	this.Arguments = append(this.Arguments, arg)
+func (t *FuncToken) AddArgument(arg *TreeNode) {
+	t.Arguments = append(t.Arguments, arg)
 }
 
-func (this *FuncToken) String() string {
-	args := make([]string, len(this.Arguments))
-	for i, v := range this.Arguments {
-		args[i] = fmt.Sprintf("%s", strings.Replace(v.String(), "\n", ",", -1))
+func (t *FuncToken) String() string {
+	args := make([]string, len(t.Arguments))
+	for i, v := range t.Arguments {
+		args[i] = strings.ReplaceAll(v.String(), "\n", ",")
 	}
-	return fmt.Sprintf("Func %s(%s)", this.Name, args)
+	return fmt.Sprintf("Func %s(%s)", t.Name, args)
 }
 
 type OperatorToken struct {
@@ -122,36 +113,36 @@ func NewOperatorToken(operator string) *OperatorToken {
 	return op
 }
 
-func (this *OperatorToken) SetOperator(operator string) {
-	this.Operator = operator
-	this.lvl = operators.Level(operator)
-	if this.lvl < 0 {
+func (t *OperatorToken) SetOperator(operator string) {
+	t.Operator = operator
+	t.lvl = operators.Level(operator)
+	if t.lvl < 0 {
 		panic(fmt.Sprintf("invalid operator %q", operator))
 	}
 }
 
 // OperatorPrecedence return true if the operator argument is lower than the current operator.
-func (this *OperatorToken) Precedence(operator string) int {
+func (t *OperatorToken) Precedence(operator string) int {
 	lvl := operators.Level(operator)
 	switch {
-	case lvl == this.lvl:
+	case lvl == t.lvl:
 		return 0
-	case lvl > this.lvl:
+	case lvl > t.lvl:
 		return 1
-	case lvl < this.lvl:
+	case lvl < t.lvl:
 		return -1
 	}
 	panic("unreachable code")
 }
 
-func (this *OperatorToken) String() string {
-	return fmt.Sprintf("Func(%s)", this.Operator)
+func (t *OperatorToken) String() string {
+	return fmt.Sprintf("Func(%s)", t.Operator)
 }
 
 type OperatorPrecedence [][]string
 
-func (this OperatorPrecedence) Level(operator string) int {
-	for level, operators := range this {
+func (op OperatorPrecedence) Level(operator string) int {
+	for level, operators := range op {
 		for _, op := range operators {
 			if op == strings.ToLower(operator) {
 				return 5 - level
@@ -161,12 +152,10 @@ func (this OperatorPrecedence) Level(operator string) int {
 	return -1
 }
 
-func (this OperatorPrecedence) All() []string {
+func (op OperatorPrecedence) All() []string {
 	out := make([]string, 0)
-	for _, operators := range this {
-		for _, op := range operators {
-			out = append(out, op)
-		}
+	for _, operators := range op {
+		out = append(out, operators...)
 	}
 	return out
 }
@@ -190,8 +179,8 @@ func NewLRFuncToken(name string) *LRFuncToken {
 	return &LRFuncToken{EmptyToken{CatFunction, nil}, name}
 }
 
-func (this *LRFuncToken) String() string {
-	return fmt.Sprintf("Func(%s)", this.Name)
+func (t *LRFuncToken) String() string {
+	return fmt.Sprintf("Func(%s)", t.Name)
 }
 
 type GroupToken struct {
@@ -203,8 +192,8 @@ func NewGroupToken(group string) *GroupToken {
 	return &GroupToken{EmptyToken{CatOther, nil}, group}
 }
 
-func (this *GroupToken) String() string {
-	return fmt.Sprintf("Group(%s)", this.GroupType)
+func (t *GroupToken) String() string {
+	return fmt.Sprintf("Group(%s)", t.GroupType)
 }
 
 type TextToken struct {
@@ -216,6 +205,6 @@ func NewTextToken(text string) *TextToken {
 	return &TextToken{EmptyToken{CatValue, nil}, text}
 }
 
-func (this *TextToken) String() string {
-	return fmt.Sprintf("%q", this.Text)
+func (t *TextToken) String() string {
+	return fmt.Sprintf("%q", t.Text)
 }

@@ -32,147 +32,144 @@ func NewScanner(template string) *Scanner {
 	return &Scanner{input: template}
 }
 
-func (this *Scanner) StartPosition() int {
-	return int(this.start)
+func (s *Scanner) StartPosition() int {
+	return int(s.start)
 }
 
-func (this *Scanner) SetPosition(pos int) {
-	this.pos = Pos(pos)
+func (s *Scanner) SetPosition(pos int) {
+	s.pos = Pos(pos)
 }
 
-func (this *Scanner) SetStartPosition(pos int) {
-	this.start = Pos(pos)
+func (s *Scanner) SetStartPosition(pos int) {
+	s.start = Pos(pos)
 }
 
 // Token return the current selected text and move the start position to the current position
-func (this *Scanner) Commit() string {
-	r1 := this.input[this.start:this.pos]
-	this.start = this.pos
-	this.prevState = this.SaveState()
+func (s *Scanner) Commit() string {
+	r1 := s.input[s.start:s.pos]
+	s.start = s.pos
+	s.prevState = s.SaveState()
 	return r1
 }
 
 // IsEOF check if the end of the current string has been reached.
-func (this *Scanner) IsEOF() bool {
-	return int(this.pos) >= len(this.input)
+func (s *Scanner) IsEOF() bool {
+	return int(s.pos) >= len(s.input)
 }
 
-func (this *Scanner) Size() int {
-	return len(this.input)
+func (s *Scanner) Size() int {
+	return len(s.input)
 }
 
-func (this *Scanner) MoveStart(pos int) {
-	this.start = this.start + Pos(pos)
+func (s *Scanner) MoveStart(pos int) {
+	s.start = s.start + Pos(pos)
 }
 
 // Next returns the next rune in the input.
-func (this *Scanner) Next() rune {
-	this.safebackup = true
-	if this.IsEOF() {
-		this.width = 0
+func (s *Scanner) Next() rune {
+	s.safebackup = true
+	if s.IsEOF() {
+		s.width = 0
 		return eof
 	}
-	r, w := utf8.DecodeRuneInString(this.input[this.pos:])
-	this.width = Pos(w)
-	this.pos += this.width
-	this.curr = r
+	r, w := utf8.DecodeRuneInString(s.input[s.pos:])
+	s.width = Pos(w)
+	s.pos += s.width
+	s.curr = r
 	return r
 }
 
-func (this *Scanner) Skip() {
-	this.Next()
-	this.Commit()
+func (s *Scanner) Skip() {
+	s.Next()
+	s.Commit()
 }
 
 // Peek returns but does not consume the next rune in the input.
-func (this *Scanner) Peek() rune {
-	r := this.Next()
-	this.Backup()
+func (s *Scanner) Peek() rune {
+	r := s.Next()
+	s.Backup()
 	return r
 }
 
 // Backup steps back one rune. Can only be called once per call of next.
-func (this *Scanner) Backup() {
-	this.pos -= this.width
+func (s *Scanner) Backup() {
+	s.pos -= s.width
 }
 
 // Rollback move the curr pos back to the start pos.
-func (this *Scanner) Rollback() {
-	this.LoadState(this.prevState)
+func (s *Scanner) Rollback() {
+	s.LoadState(s.prevState)
 }
 
 // Ignore skips over the pending input before this point.
-func (this *Scanner) Ignore() {
-	this.start = this.pos
+func (s *Scanner) Ignore() {
+	s.start = s.pos
 }
 
 // accept consumes the next rune if it's from the valid set.
-func (this *Scanner) Accept(valid string) bool {
-	if strings.IndexRune(valid, this.Next()) >= 0 {
+func (s *Scanner) Accept(valid string) bool {
+	if strings.ContainsRune(valid, s.Next()) {
 		return true
 	}
-	this.Backup()
+	s.Backup()
 	return false
 }
 
 // acceptRun consumes a run of runes from the valid set.
-func (this *Scanner) AcceptRun(valid string) (found int) {
-	for strings.IndexRune(valid, this.Next()) >= 0 {
+func (s *Scanner) AcceptRun(valid string) (found int) {
+	for strings.ContainsRune(valid, s.Next()) {
 		found++
 	}
-	this.Backup()
+	s.Backup()
 	return found
 }
 
 // runTo consumes a run of runes until an item in the valid set is found.
-func (this *Scanner) RunTo(valid string) rune {
+func (s *Scanner) RunTo(valid string) rune {
 	for {
-		r := this.Next()
+		r := s.Next()
 		if r == eof {
 			return r
 		}
-		if strings.IndexRune(valid, r) >= 0 {
+		if strings.ContainsRune(valid, r) {
 			return r
 		}
 	}
-	this.Backup()
-	return eof
 }
 
-func (this *Scanner) Prefix(pre string) bool {
-	if strings.HasPrefix(this.input[this.pos:], pre) {
-		this.pos += Pos(len(pre))
+func (s *Scanner) Prefix(pre string) bool {
+	if strings.HasPrefix(s.input[s.pos:], pre) {
+		s.pos += Pos(len(pre))
 		return true
 	}
 	return false
 }
 
-func (this *Scanner) SkipSpaces() {
-	for IsSpace(this.Next()) {
+func (s *Scanner) SkipSpaces() {
+	for IsSpace(s.Next()) {
 	}
-	this.Backup()
-	this.Ignore()
+	s.Backup()
+	s.Ignore()
 }
 
-func (this *Scanner) SkipToNewLine() {
+func (s *Scanner) SkipToNewLine() {
 	for {
-		r := this.Next()
-		if this.IsEOF() {
+		r := s.Next()
+		if s.IsEOF() {
 			break
 		}
 		if r == '\n' {
 			break
 		}
 	}
-	this.Ignore()
-	return
+	s.Ignore()
 }
 
 // lineNumber reports which line we're on, based on the position of
 // the previous item returned by nextItem. Doing it this way
 // means we don't have to worry about peek double counting.
-func (this *Scanner) LineNumber() int {
-	return 1 + strings.Count(this.input[:this.pos], "\n")
+func (s *Scanner) LineNumber() int {
+	return 1 + strings.Count(s.input[:s.pos], "\n")
 }
 
 type ScannerState struct {
@@ -181,10 +178,10 @@ type ScannerState struct {
 	width Pos
 }
 
-func (this *Scanner) SaveState() ScannerState {
-	return ScannerState{start: this.start, pos: this.pos, width: this.width}
+func (s *Scanner) SaveState() ScannerState {
+	return ScannerState{start: s.start, pos: s.pos, width: s.width}
 }
 
-func (this *Scanner) LoadState(state ScannerState) {
-	this.start, this.pos, this.width = state.start, state.pos, state.width
+func (s *Scanner) LoadState(state ScannerState) {
+	s.start, s.pos, s.width = state.start, state.pos, state.width
 }
