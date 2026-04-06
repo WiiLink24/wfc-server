@@ -33,9 +33,7 @@ func HandleWebRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := u.Path
-	if strings.HasPrefix(path, "/") {
-		path = path[1:]
-	}
+	path = strings.TrimPrefix(path, "/")
 
 	gameName := path
 	subPath := ""
@@ -97,7 +95,10 @@ func HandleWebRequest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Powered-By", "ASP.NET")
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	w.WriteHeader(200)
-	w.Write(response)
+	_, err = w.Write(response)
+	if err != nil {
+		logging.Error("GSTATS", "Error writing response:", err)
+	}
 }
 
 func calculateToken(u *url.URL, host string) string {
@@ -113,6 +114,9 @@ func calculateToken(u *url.URL, host string) string {
 }
 
 func handleGet2(game *common.GameInfo, query url.Values) []byte {
+	// TODO
+	common.MaybeUnused(game, query)
+
 	data := binary.LittleEndian.AppendUint32([]byte{}, 1) // RNK_GET
 	data = binary.LittleEndian.AppendUint32(data, 0)      // count
 	return data
@@ -131,5 +135,8 @@ func replyHTTPError(w http.ResponseWriter, errorCode int, errorString string) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	w.Header().Set("Connection", "close")
 	w.WriteHeader(errorCode)
-	w.Write([]byte(response))
+	_, err := w.Write([]byte(response))
+	if err != nil {
+		logging.Error("GSTATS", "Error writing response:", err)
+	}
 }
