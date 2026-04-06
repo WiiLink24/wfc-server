@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"wwfc/api"
@@ -22,7 +23,6 @@ import (
 	"wwfc/logging"
 	"wwfc/nas"
 	"wwfc/natneg"
-	"wwfc/nhttp"
 	"wwfc/qr2"
 	"wwfc/race"
 	"wwfc/sake"
@@ -284,7 +284,7 @@ var (
 
 	// This mutex could be locked for a very long time, don't use deadlock detection
 	rpcMutex   sync.Mutex
-	rpcWaiting nhttp.AtomicBool
+	rpcWaiting atomic.Bool
 
 	rpcBusyCount sync.WaitGroup
 	backendReady = make(chan struct{})
@@ -297,7 +297,7 @@ var (
 
 // frontendMain starts the backend process and communicates with it using RPC
 func frontendMain(noSignal, noBackend bool) {
-	rpcWaiting.SetFalse()
+	rpcWaiting.Store(false)
 
 	integrated = !noBackend
 
@@ -345,7 +345,7 @@ func frontendMain(noSignal, noBackend bool) {
 
 	// If we're waiting for the backend to connect, then don't try to lock the
 	// mutex because it's never going to unlock
-	if rpcWaiting.IsSet() {
+	if rpcWaiting.Load() {
 		logging.Notice("FRONTEND", "Backend rpcClient is not connected")
 		return
 	}
@@ -423,7 +423,7 @@ func startBackendProcess(reload bool, wait bool) {
 // waitForBackend waits for the backend to start.
 // Expects the RPC mutex to be locked.
 func waitForBackend() {
-	rpcWaiting.SetTrue()
+	rpcWaiting.Store(true)
 	<-backendReady
 	backendReady = make(chan struct{})
 
@@ -433,7 +433,7 @@ func waitForBackend() {
 			rpcClient = client
 			rpcMutex.Unlock()
 
-			rpcWaiting.SetFalse()
+			rpcWaiting.Store(false)
 			logging.Notice("FRONTEND", "Connected to backend")
 
 			return

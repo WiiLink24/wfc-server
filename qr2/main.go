@@ -4,11 +4,11 @@ import (
 	"encoding/binary"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
-	"wwfc/nhttp"
 
 	"github.com/logrusorgru/aurora/v3"
 )
@@ -32,7 +32,7 @@ const (
 
 var (
 	masterConn net.PacketConn
-	inShutdown nhttp.AtomicBool
+	inShutdown atomic.Bool
 	waitGroup  = sync.WaitGroup{}
 )
 
@@ -61,7 +61,7 @@ func StartServer(reload bool) {
 	}
 
 	masterConn = conn
-	inShutdown.SetFalse()
+	inShutdown.Store(false)
 
 	if reload {
 		err := loadSessions()
@@ -98,7 +98,7 @@ func StartServer(reload bool) {
 		logging.Notice("QR2", "Listening on", aurora.BrightCyan(address))
 
 		for {
-			if inShutdown.IsSet() {
+			if inShutdown.Load() {
 				return
 			}
 
@@ -116,7 +116,7 @@ func StartServer(reload bool) {
 }
 
 func Shutdown() {
-	inShutdown.SetTrue()
+	inShutdown.Store(true)
 	common.ShouldNotError(masterConn.Close())
 	waitGroup.Wait()
 

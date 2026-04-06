@@ -1,9 +1,12 @@
 package nas
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -13,7 +16,6 @@ import (
 	"wwfc/common"
 	"wwfc/gamestats"
 	"wwfc/logging"
-	"wwfc/nhttp"
 	"wwfc/race"
 	"wwfc/sake"
 
@@ -22,9 +24,18 @@ import (
 
 var (
 	serverName           string
-	server               *nhttp.Server
+	server               *http.Server
 	payloadServerAddress string
 )
+
+type nasListener struct {
+	net.Listener
+}
+
+type nasConn struct {
+	net.Conn
+	reader io.Reader
+}
 
 func StartServer(reload bool) {
 	// Get config
@@ -45,21 +56,29 @@ func StartServer(reload bool) {
 		logging.Info("NAS", err)
 	}
 
-	server = &nhttp.Server{
+	server = &http.Server{
 		Addr:        address,
 		Handler:     http.HandlerFunc(handleRequest),
 		IdleTimeout: 20 * time.Second,
 		ReadTimeout: 10 * time.Second,
 	}
 
-	go func() {
-		logging.Notice("NAS", "Starting HTTP server on", aurora.BrightCyan(address))
+	logging.Notice("NAS", "Starting HTTP server on", aurora.BrightCyan(address))
 
-		err := server.ListenAndServe()
-		if err != nil && !errors.Is(err, nhttp.ErrServerClosed) {
+	l, err := net.Listen("tcp", address)
+	common.ShouldNotError(err)
+	listener := &nasListener{Listener: l}
+
+	go func(l net.Listener) {
+		defer func() {
+			common.ShouldNotError(listener.Close())
+		}()
+
+		err := server.Serve(listener)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			panic(err)
 		}
-	}()
+	}(listener)
 }
 
 func Shutdown() {
@@ -74,6 +93,58 @@ func Shutdown() {
 	if err != nil {
 		logging.Error("NAS", "Error on HTTP shutdown:", err)
 	}
+}
+
+func (l *nasListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	return &nasConn{
+		Conn:   conn,
+		reader: filterDuplicateHost(conn),
+	}, nil
+}
+
+func (c *nasConn) Read(b []byte) (int, error) {
+	return c.reader.Read(b)
+}
+
+// filterDuplicateHost wraps a net.Conn and filters out duplicate Host headers from the HTTP request,
+// making the invalid requests sent by DWC acceptable to the standard library's HTTP server.
+func filterDuplicateHost(c net.Conn) io.Reader {
+	r := bufio.NewReader(c)
+
+	// Read the first line of the HTTP request
+	line, err := r.ReadString('\n')
+	if err != nil {
+		return io.MultiReader(strings.NewReader(line), r)
+	}
+	// Is this an HTTP request?
+	if !strings.HasSuffix(line, "HTTP/1.1\r\n") {
+		return io.MultiReader(strings.NewReader(line), r)
+	}
+
+	// Iterate through the HTTP headers and remove any duplicate Host headers
+	var headers bytes.Buffer
+	hostSeen := false
+	for {
+		headerLine, err := r.ReadString('\n')
+		if err != nil || headerLine == "\r\n" {
+			headers.WriteString(headerLine)
+			break
+		}
+		if strings.HasPrefix(strings.ToLower(headerLine), "host:") {
+			if hostSeen {
+				continue
+			}
+			hostSeen = true
+		}
+		headers.WriteString(headerLine)
+	}
+
+	return io.MultiReader(strings.NewReader(line+headers.String()), r)
 }
 
 var regexRaceHost = regexp.MustCompile(`(\.|^)race\.(gs\.|gamespy\.com$)`)
