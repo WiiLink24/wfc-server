@@ -45,13 +45,16 @@ func HandlePacket(index uint64, data []byte) {
 			replyError(moduleName, index, gpcm.ErrParse)
 
 		case "ka":
-			common.SendPacket(ServerName, index, []byte(`\ka\\final\`))
+			err = common.SendPacket(ServerName, index, []byte(`\ka\\final\`))
 
 		case "otherslist":
-			common.SendPacket(ServerName, index, []byte(handleOthersList(command)))
+			err = common.SendPacket(ServerName, index, []byte(handleOthersList(command)))
 
 		case "search":
-			common.SendPacket(ServerName, index, []byte(handleSearch(command)))
+			err = common.SendPacket(ServerName, index, []byte(handleSearch(command)))
 		}
+	}
+	if err != nil {
+		logging.Error(moduleName, "Failed to send packet:", err)
 	}
 }
