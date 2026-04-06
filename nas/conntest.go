@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-func handleConnectionTest(w http.ResponseWriter) {
+func handleConnectionTest(w http.ResponseWriter, r *http.Request) {
 	response := "\n"
 	response += `            <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">` + "\n"
 	response += `            <html>` + "\n"

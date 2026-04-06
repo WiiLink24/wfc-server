@@ -23,7 +23,9 @@ var (
 	dlcDir = "./dlc"
 )
 
-func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
+func handleAuthRequest(w http.ResponseWriter, r *http.Request) {
+	moduleName := getModuleName(r)
+
 	err := r.ParseForm()
 	if err != nil {
 		logging.Error(moduleName, "Failed to parse form")
@@ -88,7 +90,8 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 	reply := map[string]string{}
 	var response []byte
 
-	if r.URL.String() == "/ac" {
+	switch r.URL.String() {
+	case "/ac":
 		action, ok := fields["action"]
 		if !ok || action == "" {
 			logging.Error(moduleName, "No action in form")
@@ -114,7 +117,8 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 				"returncd": "109",
 			}
 		}
-	} else if r.URL.String() == "/pr" {
+
+	case "/pr":
 		words, ok := fields["words"]
 		if words == "" || !ok {
 			logging.Error(moduleName, "No words in form")
@@ -123,7 +127,8 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 		}
 
 		reply = handleProfanity(r.PostForm, unitcd)
-	} else if r.URL.String() == "/download" {
+
+	case "/download":
 		action, ok := fields["action"]
 		if !ok || action == "" {
 			logging.Error(moduleName, "No action in form")

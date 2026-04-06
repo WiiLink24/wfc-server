@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/http"
 	"wwfc/common"
 	"wwfc/database"
 )
@@ -29,4 +30,12 @@ func StartServer(reload bool) {
 
 func Shutdown() {
 	db.Close()
+}
+
+func RegisterHandlers(mux *http.ServeMux) {
+	mux.HandleFunc("/api/groups", HandleGroups)
+	mux.HandleFunc("/api/stats", HandleStats)
+	mux.HandleFunc("/api/ban", HandleBan)
+	mux.HandleFunc("/api/unban", HandleUnban)
+	mux.HandleFunc("/api/kick", HandleKick)
 }

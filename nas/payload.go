@@ -9,19 +9,23 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"time"
 	"wwfc/logging"
 
 	"github.com/logrusorgru/aurora/v3"
 )
 
-func downloadStage1(w http.ResponseWriter, stage1Ver int) {
+func downloadStage1(w http.ResponseWriter, r *http.Request) {
+	stage1Ver := r.URL.Path[len(r.URL.Path)-1] - '0'
+
 	path := "payload/stage1.bin"
 	if stage1Ver != 0 {
-		path = "payload/stage1v" + strconv.Itoa(stage1Ver) + ".bin"
+		path = "payload/stage1v" + strconv.Itoa(int(stage1Ver)) + ".bin"
 	}
 	dat, err := os.ReadFile(path)
 	if err != nil {
@@ -38,9 +42,54 @@ func downloadStage1(w http.ResponseWriter, stage1Ver int) {
 	}
 }
 
-func handlePayloadRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
+func forwardPayloadRequest(w http.ResponseWriter, r *http.Request) {
+	moduleName := getModuleName(r)
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	r.URL.Scheme = "http"
+	r.URL.Host = payloadServerAddress
+	r.RequestURI = ""
+	r.Host = payloadServerAddress
+
+	resp, err := client.Do(r)
+	if err != nil {
+		logging.Error(moduleName, "Error forwarding payload request:", err)
+		replyHTTPError(w, http.StatusBadGateway, "502 Bad Gateway")
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	// Copy the response headers and status code
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+
+	// Copy the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logging.Error(moduleName, "Error reading payload response body:", err)
+		replyHTTPError(w, http.StatusInternalServerError, "500 Internal Server Error")
+		return
+	}
+	_, err = w.Write(body)
+	if err != nil {
+		logging.Error(moduleName, "Error writing payload response body:", err)
+	}
+}
+
+func handlePayloadRequest(w http.ResponseWriter, r *http.Request) {
 	// Example request:
 	// GET /payload?g=RMCPD00&s=4e44b095817f8cfb62e6cffd57e9cfd411004a492784039ea4b2b7ca64717c91&h=9fdb6f60
+
+	moduleName := getModuleName(r)
 
 	u, err := url.Parse(r.URL.String())
 	if err != nil {

@@ -175,7 +175,9 @@ var (
 	}
 )
 
-func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
+func handleStorageRequest(w http.ResponseWriter, r *http.Request) {
+	moduleName := "SAKE:Storage:" + r.RemoteAddr
+
 	headerAction := r.Header.Get("SOAPAction")
 	if headerAction == "" {
 		logging.Error(moduleName, "No SOAPAction in header")

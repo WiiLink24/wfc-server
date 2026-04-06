@@ -72,30 +72,32 @@ const (
 	xmlNamespace    = "http://gamespy.net/RaceService/"
 )
 
-var marioKartWiiGameID = common.GetGameIDOrPanic("mariokartwii") // 1687
+var marioKartWiiGameID = 1687
 
-func handleNintendoRacingServiceRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
-	soapActionHeader := request.Header.Get("SOAPAction")
+func handleNintendoRacingServiceRequest(w http.ResponseWriter, r *http.Request) {
+	moduleName := "RACE:RacingService:" + r.RemoteAddr
+
+	soapActionHeader := r.Header.Get("SOAPAction")
 	if soapActionHeader == "" {
 		logging.Error(moduleName, "No SOAPAction header")
-		writeErrorResponse(raceServiceResultParseError, responseWriter)
+		writeErrorResponse(raceServiceResultParseError, w)
 		return
 	}
 
 	slashIndex := strings.LastIndex(soapActionHeader, "/")
 	if slashIndex == -1 {
 		logging.Error(moduleName, "Invalid SOAPAction header")
-		writeErrorResponse(raceServiceResultParseError, responseWriter)
+		writeErrorResponse(raceServiceResultParseError, w)
 		return
 	}
 	quotationMarkIndex := strings.Index(soapActionHeader[slashIndex+1:], "\"")
 	if quotationMarkIndex == -1 {
 		logging.Error(moduleName, "Invalid SOAPAction header")
-		writeErrorResponse(raceServiceResultParseError, responseWriter)
+		writeErrorResponse(raceServiceResultParseError, w)
 		return
 	}
 
-	requestBody, err := io.ReadAll(request.Body)
+	requestBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}
@@ -103,7 +105,7 @@ func handleNintendoRacingServiceRequest(moduleName string, responseWriter http.R
 	soapAction := soapActionHeader[slashIndex+1 : slashIndex+1+quotationMarkIndex]
 	switch soapAction {
 	case "GetTopTenRankings":
-		handleGetTopTenRankingsRequest(moduleName, responseWriter, requestBody)
+		handleGetTopTenRankingsRequest(moduleName, w, requestBody)
 
 	// TODO SubmitScores
 	default:

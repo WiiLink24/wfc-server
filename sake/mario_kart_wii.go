@@ -176,11 +176,6 @@ func getMarioKartWiiStoredGhostDataRecord(moduleName string, request StorageRequ
 }
 
 func handleMarioKartWiiFileDownloadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
-	if strings.HasSuffix(request.URL.Path, "ghostdownload.aspx") {
-		handleMarioKartWiiGhostDownloadRequest(moduleName, responseWriter, request)
-		return
-	}
-
 	query := request.URL.Query()
 
 	fileIdString := query.Get("fileid")
@@ -214,7 +209,9 @@ func handleMarioKartWiiFileDownloadRequest(moduleName string, responseWriter htt
 	}
 }
 
-func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
+func handleMarioKartWiiGhostDownloadRequest(responseWriter http.ResponseWriter, request *http.Request) {
+	moduleName := "SAKE:File:GhostDownload:" + request.RemoteAddr
+
 	query := request.URL.Query()
 
 	regionIdString := query.Get("region")

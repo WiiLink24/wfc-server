@@ -24,32 +24,40 @@ var fileUploadHandlers = map[int]func(string, http.ResponseWriter, *http.Request
 	common.GetGameIDOrPanic("mariokartwii"): handleMarioKartWiiFileUploadRequest,
 }
 
-func handleFileRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request,
-	fileRequest FileRequest) {
+func handleFileDownloadRequest(w http.ResponseWriter, r *http.Request) {
+	moduleName := "SAKE:File:" + r.RemoteAddr
 
-	gameIdString := request.URL.Query().Get("gameid")
+	gameIdString := r.URL.Query().Get("gameid")
 	gameId, err := strconv.Atoi(gameIdString)
 	if err != nil {
-		logging.Error(moduleName, "Invalid GameSpy game id")
+		logging.Error(moduleName, "Invalid GameSpy game ID:", aurora.Cyan(gameIdString))
 		return
 	}
 
-	var handler func(string, http.ResponseWriter, *http.Request)
-	var handlerExists bool
-	switch fileRequest {
-	case FileRequestDownload:
-		handler, handlerExists = fileDownloadHandlers[gameId]
-	case FileRequestUpload:
-		handler, handlerExists = fileUploadHandlers[gameId]
-	default:
-		logging.Error(moduleName, "Invalid file request")
-		return
-	}
-
+	handler, handlerExists := fileDownloadHandlers[gameId]
 	if !handlerExists {
-		logging.Warn(moduleName, "Unhandled file request for GameSpy game id:", aurora.Cyan(gameId))
+		logging.Warn(moduleName, "Unhandled file download request for GameSpy game ID:", aurora.Cyan(gameId))
 		return
 	}
 
-	handler(moduleName, responseWriter, request)
+	handler(moduleName, w, r)
+}
+
+func handleFileUploadRequest(w http.ResponseWriter, r *http.Request) {
+	moduleName := "SAKE:File:" + r.RemoteAddr
+
+	gameIdString := r.URL.Query().Get("gameid")
+	gameId, err := strconv.Atoi(gameIdString)
+	if err != nil {
+		logging.Error(moduleName, "Invalid GameSpy game ID:", aurora.Cyan(gameIdString))
+		return
+	}
+
+	handler, handlerExists := fileUploadHandlers[gameId]
+	if !handlerExists {
+		logging.Warn(moduleName, "Unhandled file upload request for GameSpy game ID:", aurora.Cyan(gameId))
+		return
+	}
+
+	handler(moduleName, w, r)
 }
