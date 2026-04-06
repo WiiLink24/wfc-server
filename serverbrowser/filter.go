@@ -15,7 +15,7 @@ import (
 
 // Example: dwc_mver = 90 and dwc_pid != 43 and maxplayers = 11 and numplayers < 11 and dwc_mtype = 0 and dwc_hoststate = 2 and dwc_suspend = 0 and (rk = 'vs' and ev >= 4250 and ev <= 5750 and p = 0)
 
-func filterServers(moduleName string, servers []map[string]string, queryGame string, expression string, publicIP string) []map[string]string {
+func filterServers(moduleName string, servers []map[string]string, queryGame string, expression string) []map[string]string {
 	// Matchmaking search
 	tree, err := filter.Parse(expression)
 	if err != nil {

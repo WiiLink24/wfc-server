@@ -43,18 +43,13 @@ func StartServer(reload bool) {
 
 	// Load connection state
 	file, err := os.Open("state/sb_connections.gob")
-	if err != nil {
-		panic(err)
-	}
+	common.ShouldNotError(err)
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	decoder := gob.NewDecoder(file)
-
-	err = decoder.Decode(&connBuffers)
-	file.Close()
-
-	if err != nil {
-		panic(err)
-	}
+	common.ShouldNotError(decoder.Decode(&connBuffers))
 
 	logging.Notice("SB", "Loaded", aurora.Cyan(len(connBuffers)), "connections")
 }
@@ -62,17 +57,13 @@ func StartServer(reload bool) {
 func Shutdown() {
 	// Save connection state
 	file, err := os.OpenFile("state/sb_connections.gob", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		panic(err)
-	}
+	common.ShouldNotError(err)
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	encoder := gob.NewEncoder(file)
-
-	err = encoder.Encode(connBuffers)
-	file.Close()
-	if err != nil {
-		panic(err)
-	}
+	common.ShouldNotError(encoder.Encode(connBuffers))
 
 	logging.Notice("SB", "Saved", aurora.Cyan(len(connBuffers)), "connections")
 }
@@ -108,7 +99,7 @@ func HandlePacket(index uint64, data []byte, address string) {
 
 	if len(*buffer)+len(data) > 0x1000 {
 		logging.Error(moduleName, "Buffer overflow")
-		common.CloseConnection(ServerName, index)
+		_ = common.CloseConnection(ServerName, index)
 		buffer = nil
 		return
 	}
@@ -124,7 +115,7 @@ func HandlePacket(index uint64, data []byte, address string) {
 	packetSize := binary.BigEndian.Uint16((*buffer)[:2])
 	if packetSize < 3 || packetSize > 0x1000 {
 		logging.Error(moduleName, "Invalid packet size - terminating")
-		common.CloseConnection(ServerName, index)
+		_ = common.CloseConnection(ServerName, index)
 		buffer = nil
 		return
 	}

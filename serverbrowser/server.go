@@ -41,12 +41,12 @@ const (
 )
 
 var (
-	IndexOutOfBoundsError = errors.New("index is out of bounds")
+	ErrIndexOutOfBoundsError = errors.New("index is out of bounds")
 )
 
 func popString(buffer []byte, index int) (string, int, error) {
 	if index < 0 || index >= len(buffer) {
-		return "", 0, IndexOutOfBoundsError
+		return "", 0, ErrIndexOutOfBoundsError
 	}
 
 	str, err := common.GetString(buffer[index:])
@@ -62,10 +62,10 @@ func popBytes(buffer []byte, index int, size int) ([]byte, int, error) {
 	bufferLen := len(buffer)
 
 	if index < 0 || index >= bufferLen {
-		return nil, 0, IndexOutOfBoundsError
+		return nil, 0, ErrIndexOutOfBoundsError
 	}
 	if size < 0 || index+size > bufferLen {
-		return nil, 0, IndexOutOfBoundsError
+		return nil, 0, ErrIndexOutOfBoundsError
 	}
 
 	return buffer[index : index+size], index + size, nil
@@ -73,7 +73,7 @@ func popBytes(buffer []byte, index int, size int) ([]byte, int, error) {
 
 func popUint32(buffer []byte, index int) (uint32, int, error) {
 	if index < 0 || index+4 > len(buffer) {
-		return 0, 0, IndexOutOfBoundsError
+		return 0, 0, ErrIndexOutOfBoundsError
 	}
 
 	return binary.BigEndian.Uint32(buffer[index:]), index + 4, nil
@@ -113,7 +113,7 @@ func handleServerListRequest(moduleName string, connIndex uint64, address string
 		return
 	}
 
-	options, index, err := popUint32(buffer, index)
+	options, _, err := popUint32(buffer, index)
 	if err != nil {
 		logging.Error(moduleName, "Invalid options")
 		return
@@ -178,7 +178,7 @@ func handleServerListRequest(moduleName string, connIndex uint64, address string
 			// Self lookup is handled differently
 			servers = filterSelfLookup(moduleName, qr2.GetSessionServers(), queryGame, match[1], callerPublicIP)
 		} else {
-			servers = filterServers(moduleName, qr2.GetSessionServers(), queryGame, filter, callerPublicIP)
+			servers = filterServers(moduleName, qr2.GetSessionServers(), queryGame, filter)
 		}
 	}
 
@@ -247,7 +247,8 @@ func handleServerListRequest(moduleName string, connIndex uint64, address string
 
 				err = nil
 				for _, s := range ipSplit {
-					val, err := strconv.ParseUint(s, 10, 8)
+					var val uint64
+					val, err = strconv.ParseUint(s, 10, 8)
 					if err != nil {
 						break
 					}
@@ -328,10 +329,13 @@ func handleServerListRequest(moduleName string, connIndex uint64, address string
 	}
 
 	// Write the encrypted reply
-	common.SendPacket(ServerName, connIndex, common.EncryptTypeX([]byte(gameInfo.SecretKey), challenge, output))
+	if err := common.SendPacket(ServerName, connIndex, common.EncryptTypeX([]byte(gameInfo.SecretKey), challenge, output)); err != nil {
+		logging.Error(moduleName, "Failed to send packet:", err)
+	}
 }
 
 func handleSendMessageRequest(moduleName string, connIndex uint64, address string, buffer []byte) {
+	common.MaybeUnused(connIndex)
 	// Read search ID from buffer
 	searchID := uint64(binary.BigEndian.Uint32(buffer[3:7]))
 	searchID |= uint64(binary.BigEndian.Uint16(buffer[7:9])) << 32
