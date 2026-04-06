@@ -127,7 +127,7 @@ var TableDefinitions = map[string]SakeTable{
 		OwnerPermDelete:         PermissionAllowed,
 		Hardened:                true,
 		Reserved:                true,
-		SearchForRecordsHandler: getMarioKartWiiStoredGhostDataRecord,
+		SearchForRecordsHandler: getMarioKartWiiGhostDataRecord,
 		Fields: map[string]SakeFieldDefinition{
 			"fileid": {
 				Type: database.SakeFieldTypeInt,

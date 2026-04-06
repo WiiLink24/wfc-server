@@ -209,7 +209,9 @@ func handleMarioKartWiiFileDownloadRequest(moduleName string, responseWriter htt
 
 	responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultSuccess))
 	responseWriter.Header().Set("Content-Length", strconv.Itoa(len(file)))
-	responseWriter.Write(file)
+	if _, err := responseWriter.Write(file); err != nil {
+		logging.Error(moduleName, "Failed to write response:", err)
+	}
 }
 
 func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
@@ -274,7 +276,9 @@ func handleMarioKartWiiGhostDownloadRequest(moduleName string, responseWriter ht
 
 	responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultSuccess))
 	responseWriter.Header().Set("Content-Length", strconv.Itoa(len(responseBody)))
-	responseWriter.Write(responseBody)
+	if _, err := responseWriter.Write(responseBody); err != nil {
+		logging.Error(moduleName, "Failed to write response:", err)
+	}
 }
 
 func handleMarioKartWiiFileUploadRequest(moduleName string, responseWriter http.ResponseWriter, request *http.Request) {
@@ -365,7 +369,9 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 		responseWriter.Header().Set(SakeFileResultHeader, strconv.Itoa(SakeFileResultFileNotFound))
 		return
 	}
-	defer file.Close()
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	if fileHeader.Size < common.RKGDFileMinSize || fileHeader.Size > common.RKGDFileMaxSize {
 		logging.Error(moduleName, "The size of the ghost file is invalid:", aurora.Cyan(fileHeader.Size))
@@ -392,7 +398,7 @@ func handleMarioKartWiiGhostUploadRequest(moduleName string, responseWriter http
 	ghostData.RecalculateCRC()
 
 	if isContest {
-		ghostFile = nil
+		ghostData = nil
 	}
 
 	err = db.InsertMarioKartWiiGhostFile(regionId, courseId, score, pid, playerInfo, []byte(ghostData))
@@ -462,10 +468,9 @@ func filterMarioKartWiiFriendInfo(value string, isOwner bool) (string, Result) {
 	}
 
 	binaryData, err := base64.StdEncoding.DecodeString(value)
-	if err != nil {
-		// Shouldn't happen after validation
-		panic(err)
-	}
+	// Shouldn't error after validation
+	common.ShouldNotError(err)
+
 	// Only change if the Mii checksum is valid
 	if len(binaryData) < 0x4C {
 		return value, ResultSuccess

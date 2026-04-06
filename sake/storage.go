@@ -232,7 +232,9 @@ func handleStorageRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "text/xml")
 	w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
-	w.Write(payload)
+	if _, err := w.Write(payload); err != nil {
+		logging.Error(moduleName, "Failed to write response:", err)
+	}
 }
 
 func getRequestIdentity(moduleName string, request StorageRequestCommon) (uint32, common.GameInfo, Result) {
