@@ -69,13 +69,13 @@ func (client *NATNEGClient) sendConnectRequestPacket(conn net.PacketConn, destin
 	connectHeader = append(connectHeader, 0x42, 0x00)
 
 	destIPAddr, err := net.ResolveUDPAddr("udp", destination.NegotiateIP)
-	if err != nil {
-		panic(err)
-	}
-	conn.WriteTo(connectHeader, destIPAddr)
+	common.ShouldNotError(err)
+	_, _ = conn.WriteTo(connectHeader, destIPAddr)
 }
 
 func (session *NATNEGSession) handleConnectReply(conn net.PacketConn, addr net.Addr, buffer []byte, moduleName string, version byte) {
+	common.MaybeUnused(conn, addr, buffer, moduleName, version)
+
 	// portType := buffer[0]
 	clientIndex := buffer[1]
 	// useGamePort := buffer[2]

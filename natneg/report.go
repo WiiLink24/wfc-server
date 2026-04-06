@@ -18,7 +18,7 @@ func (session *NATNEGSession) handleReport(conn net.PacketConn, addr net.Addr, b
 	response := createPacketHeader(version, NNReportReply, session.Cookie)
 	response = append(response, buffer[:9]...)
 	response[14] = 0
-	conn.WriteTo(response, addr)
+	_, _ = conn.WriteTo(response, addr)
 
 	// portType := buffer[0]
 	clientIndex := buffer[1]

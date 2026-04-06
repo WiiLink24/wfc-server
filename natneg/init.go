@@ -51,7 +51,10 @@ func (session *NATNEGSession) handleInit(conn net.PacketConn, addr net.Addr, buf
 	ackHeader := createPacketHeader(version, NNInitReply, session.Cookie)
 	ackHeader = append(ackHeader, portType, clientIndex)
 	ackHeader = append(ackHeader, 0xff, 0xff, 0x6d, 0x16, 0xb5, 0x7d, 0xea)
-	conn.WriteTo(ackHeader, addr)
+	if _, err := conn.WriteTo(ackHeader, addr); err != nil {
+		logging.Error(moduleName, "Error writing init acknowledgement:", err)
+		return
+	}
 
 	sender, exists := session.Clients[clientIndex]
 	if !exists {

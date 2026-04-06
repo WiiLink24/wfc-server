@@ -106,15 +106,12 @@ func StartServer(reload bool) {
 		if err != nil {
 			panic(err)
 		}
+		defer func() {
+			common.ShouldNotError(file.Close())
+		}()
 
 		decoder := gob.NewDecoder(file)
-
-		err = decoder.Decode(&sessions)
-		file.Close()
-
-		if err != nil {
-			panic(err)
-		}
+		common.ShouldNotError(decoder.Decode(&sessions))
 
 		for _, session := range sessions {
 			cur := session
@@ -132,7 +129,9 @@ func StartServer(reload bool) {
 		defer waitGroup.Done()
 
 		// Close the listener when the application closes.
-		defer conn.Close()
+		defer func() {
+			common.ShouldNotError(conn.Close())
+		}()
 		logging.Notice("NATNEG", "Listening on", aurora.BrightCyan(address))
 
 		for {
@@ -155,7 +154,7 @@ func StartServer(reload bool) {
 
 func Shutdown() {
 	inShutdown.SetTrue()
-	natnegConn.Close()
+	common.ShouldNotError(natnegConn.Close())
 	waitGroup.Wait()
 
 	// Save state
@@ -166,15 +165,12 @@ func Shutdown() {
 	if err != nil {
 		panic(err)
 	}
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	encoder := gob.NewEncoder(file)
-
-	err = encoder.Encode(sessions)
-	file.Close()
-
-	if err != nil {
-		panic(err)
-	}
+	common.ShouldNotError(encoder.Encode(sessions))
 
 	logging.Notice("NATNEG", "Saved", aurora.Cyan(len(sessions)), "sessions")
 }
@@ -314,21 +310,19 @@ func closeSession(moduleName string, session *NATNEGSession) {
 			continue
 		}
 
-		logging.Info("NATNEG", "Disconnecting client", aurora.Cyan(client.Index))
+		logging.Info(moduleName, "Disconnecting client", aurora.Cyan(client.Index))
 		// Send report ack, which will cause the client to cancel
 		reportAck := createPacketHeader(session.Version, NNReportReply, session.Cookie)
 		reportAck = append(reportAck, 0x00, client.Index, 0x00)
 		reportAck = append(reportAck, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00)
 
 		addr, err := net.ResolveUDPAddr("udp", client.NegotiateIP)
-		if err != nil {
-			panic(err)
-		}
+		common.ShouldNotError(err)
 
-		natnegConn.WriteTo(reportAck, addr)
+		_, _ = natnegConn.WriteTo(reportAck, addr)
 	}
 
-	logging.Info("NATNEG", "Deleted session")
+	logging.Info(moduleName, "Deleted session")
 }
 
 func getPortTypeName(portType byte) string {
@@ -349,6 +343,8 @@ func getPortTypeName(portType byte) string {
 		return "NATNEG3"
 	}
 }
+
+var _ = common.MaybeUnused(getPortTypeName)
 
 func (client *NATNEGClient) isMapped() bool {
 	if client.NegotiateIP == "" || client.ServerIP == "" {

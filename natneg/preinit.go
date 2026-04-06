@@ -39,5 +39,5 @@ func (session *NATNEGSession) handlePreinit(conn net.PacketConn, addr net.Addr, 
 	packet := createPacketHeader(version, NNPreInitReply, session.Cookie)
 	buffer[1] = NNPreInitReady
 	packet = append(packet, buffer[:6]...)
-	conn.WriteTo(packet, addr)
+	_, _ = conn.WriteTo(packet, addr)
 }
