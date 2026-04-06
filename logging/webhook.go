@@ -8,15 +8,6 @@ import (
 	"strings"
 )
 
-func contains(slice []string, item string) bool {
-	for _, v := range slice {
-		if v == item {
-			return true
-		}
-	}
-	return false
-}
-
 type WebhookAuthorConfig struct {
 	Name string `xml:",chardata"`
 	URL  string `xml:"url,attr,omitempty"`
@@ -87,7 +78,10 @@ func (w WebhookConfig) ReportEvent(eventType string, eventData map[string]any) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		Error("LOGGING", "Received non-2xx response from webhook:", resp.Status)
 	}
-	resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		Error("LOGGING", "Failed to close webhook response body:", err)
+	}
+
 }
 
 func (w WebhookConfig) RegisterWebhook() {
