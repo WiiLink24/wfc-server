@@ -1,0 +1,13 @@
+version: "2"
+linters:
+  exclusions:
+    paths:
+      - "nhttp/ascii.go"
+      - "nhttp/buffer.go"
+      - "nhttp/chunked.go"
+      - "nhttp/errors.go"
+      - "nhttp/handler.go"
+      - "nhttp/request.go"
+      - "nhttp/response.go"
+      - "nhttp/server.go"
+      - "nhttp/transfer.go"
