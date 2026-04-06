@@ -7,6 +7,9 @@ import (
 	"strings"
 	"time"
 	"wwfc/common"
+	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 func sendChallenge(conn net.PacketConn, addr net.UDPAddr, session Session, lookupAddr uint64) {
@@ -47,10 +50,14 @@ func sendChallenge(conn net.PacketConn, addr net.UDPAddr, session Session, looku
 	response = append(response, 0)
 
 	go func() {
-		for {
-			conn.WriteTo(response, &addr)
+		for i := 0; i < 5; i++ {
+			_, err := conn.WriteTo(response, &addr)
 
 			time.Sleep(1 * time.Second)
+
+			if err != nil {
+				continue
+			}
 
 			mutex.Lock()
 			session, ok := sessions[lookupAddr]
@@ -61,5 +68,9 @@ func sendChallenge(conn net.PacketConn, addr net.UDPAddr, session Session, looku
 			addr = session.Addr
 			mutex.Unlock()
 		}
+		logging.Info("QR2", "Failed to send challenge to", aurora.Cyan(addr.String()))
+		mutex.Lock()
+		defer mutex.Unlock()
+		removeSession(lookupAddr)
 	}()
 }

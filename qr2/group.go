@@ -139,6 +139,7 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 }
 
 func processTellAddr(moduleName string, sender *Session, destination *Session) {
+	common.MaybeUnused(moduleName)
 	if sender.groupPointer != nil && sender.groupPointer == destination.groupPointer {
 		// Just assume the connection is successful if TELL_ADDR is used
 		sender.Data["+conn_"+destination.Data["+joinindex"]] = "2"
@@ -264,6 +265,8 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 }
 
 func checkReservationAllowed(moduleName string, sender, destination *Session, joinType byte) string {
+	common.MaybeUnused(moduleName)
+
 	if sender.login == nil || destination.login == nil {
 		return ""
 	}
@@ -602,11 +605,12 @@ func saveGroups() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	encoder := gob.NewEncoder(file)
-	err = encoder.Encode(groups)
-	file.Close()
-	return err
+	return encoder.Encode(groups)
 }
 
 // loadGroups loads the groups state from disk.
@@ -616,10 +620,12 @@ func loadGroups() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	decoder := gob.NewDecoder(file)
 	err = decoder.Decode(&groups)
-	file.Close()
 	if err != nil {
 		return err
 	}

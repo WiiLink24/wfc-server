@@ -77,11 +77,12 @@ func getGroupsRaw(gameNames []string, groupNames []string) []GroupInfo {
 			SortedJoinIndex: []string{},
 		}
 
-		if group.MatchType == "0" || group.MatchType == "1" {
+		switch group.MatchType {
+		case "0", "1":
 			groupInfo.MatchType = "anybody"
-		} else if group.MatchType == "2" || group.MatchType == "3" {
+		case "2", "3":
 			groupInfo.MatchType = "private"
-		} else {
+		default:
 			groupInfo.MatchType = "unknown"
 		}
 

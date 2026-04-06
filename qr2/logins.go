@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"os"
 	"strconv"
+	"wwfc/common"
 )
 
 type LoginInfo struct {
@@ -71,11 +72,12 @@ func saveLogins() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	encoder := gob.NewEncoder(file)
-	err = encoder.Encode(logins)
-	file.Close()
-	return err
+	return encoder.Encode(logins)
 }
 
 // Load logins from a file. Expects the mutex to be locked, and the sessions to already be loaded.
@@ -84,10 +86,12 @@ func loadLogins() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	decoder := gob.NewDecoder(file)
 	err = decoder.Decode(&logins)
-	file.Close()
 	if err != nil {
 		return err
 	}

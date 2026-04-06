@@ -314,7 +314,8 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 	cmd := message[8]
 	common.LogMatchCommand(moduleName, destPid, cmd, matchData)
 
-	if cmd == common.MatchReservation {
+	switch cmd {
+	case common.MatchReservation:
 		resvError := checkReservationAllowed(moduleName, sender, receiver, matchData.Reservation.MatchType)
 		if resvError != "ok" {
 			if resvError == "restricted" || resvError == "restricted_join" {
@@ -340,7 +341,8 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 
 		sender.Reservation = matchData
 		sender.ReservationID = receiver.SearchID
-	} else if cmd == common.MatchResvOK || cmd == common.MatchResvDeny || cmd == common.MatchResvWait {
+
+	case common.MatchResvOK, common.MatchResvDeny, common.MatchResvWait:
 		if receiver.ReservationID != sender.SearchID || receiver.Reservation.Reservation == nil {
 			logging.Warn(moduleName, "Destination has no reservation with the sender")
 			if receiver.groupPointer == nil || receiver.groupPointer != sender.groupPointer {
@@ -361,7 +363,8 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 		} else if receiver.ReservationID == sender.SearchID {
 			receiver.ReservationID = 0
 		}
-	} else if cmd == common.MatchTellAddr {
+
+	case common.MatchTellAddr:
 		processTellAddr(moduleName, sender, receiver)
 	}
 

@@ -92,7 +92,9 @@ func StartServer(reload bool) {
 		defer waitGroup.Done()
 
 		// Close the listener when the application closes.
-		defer conn.Close()
+		defer func() {
+			common.ShouldNotError(conn.Close())
+		}()
 		logging.Notice("QR2", "Listening on", aurora.BrightCyan(address))
 
 		for {
@@ -115,7 +117,7 @@ func StartServer(reload bool) {
 
 func Shutdown() {
 	inShutdown.SetTrue()
-	masterConn.Close()
+	common.ShouldNotError(masterConn.Close())
 	waitGroup.Wait()
 
 	mutex.Lock()
@@ -179,7 +181,7 @@ func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
 			session.Authenticated = true
 			mutex.Unlock()
 
-			conn.WriteTo(createResponseHeader(ClientRegisteredReply, session.SessionID), &addr)
+			_, _ = conn.WriteTo(createResponseHeader(ClientRegisteredReply, session.SessionID), &addr)
 		} else {
 			mutex.Unlock()
 		}
@@ -216,14 +218,14 @@ func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte) {
 
 	case KeepAliveRequest:
 		// logging.Info(moduleName, "Command:", aurora.Yellow("KEEPALIVE"))
-		conn.WriteTo(createResponseHeader(KeepAliveRequest, 0), &addr)
+		_, _ = conn.WriteTo(createResponseHeader(KeepAliveRequest, 0), &addr)
 
 		session.LastKeepAlive = time.Now().UTC().Unix()
 		return
 
 	case AvailableRequest:
 		logging.Info("QR2", "Command:", aurora.Yellow("AVAILABLE"))
-		conn.WriteTo(createResponseHeader(AvailableRequest, 0), &addr)
+		_, _ = conn.WriteTo(createResponseHeader(AvailableRequest, 0), &addr)
 		return
 
 	case ClientRegisteredReply:

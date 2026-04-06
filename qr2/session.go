@@ -315,11 +315,12 @@ func saveSessions() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	encoder := gob.NewEncoder(file)
-	err = encoder.Encode(sessions)
-	file.Close()
-	return err
+	return encoder.Encode(sessions)
 }
 
 // Load the sessions from a file. Expects the mutex to be locked.
@@ -328,10 +329,12 @@ func loadSessions() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	decoder := gob.NewDecoder(file)
 	err = decoder.Decode(&sessions)
-	file.Close()
 	if err != nil {
 		return err
 	}
