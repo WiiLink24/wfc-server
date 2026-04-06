@@ -2,9 +2,19 @@ package common
 
 import "reflect"
 
-func MaybeUnused(v ...interface{}) {
+// MaybeUnused is a helper function to mark variables as used to avoid compiler warnings.
+func MaybeUnused(v ...interface{}) struct{} {
+	return struct{}{}
 }
 
+// ShouldNotError panics if the error is not nil.
+func ShouldNotError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// ReverseMap takes a map and returns a new map with the keys and values reversed.
 func ReverseMap(m interface{}) interface{} {
 	inputType := reflect.TypeOf(m)
 	inputValue := reflect.ValueOf(m)

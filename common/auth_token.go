@@ -85,8 +85,6 @@ func MarshalNASAuthToken(gamecd string, userid uint64, gsbrcd string, cfc uint64
 }
 
 func UnmarshalNASAuthToken(token string) (gamecd string, issuetime time.Time, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, challenge string, unitcd byte, isLocalhost bool, err error) {
-	err = nil
-
 	if !strings.HasPrefix(token, "NDS") {
 		err = errors.New("invalid auth token prefix")
 		return
@@ -143,9 +141,8 @@ func MarshalGPCMLoginTicket(profileId uint32) string {
 }
 
 func UnmarshalGPCMLoginTicket(ticket string) (profileId uint32, issuetime time.Time, err error) {
-	err = nil
-
-	blob, err := Base64DwcEncoding.DecodeString(ticket)
+	var blob []byte
+	blob, err = Base64DwcEncoding.DecodeString(ticket)
 	if err != nil {
 		return
 	}
@@ -155,7 +152,8 @@ func UnmarshalGPCMLoginTicket(ticket string) (profileId uint32, issuetime time.T
 		return
 	}
 
-	block, err := aes.NewCipher(loginTicketKey)
+	var block cipher.Block
+	block, err = aes.NewCipher(loginTicketKey)
 	if err != nil {
 		panic(err)
 	}

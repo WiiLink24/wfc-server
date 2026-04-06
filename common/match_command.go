@@ -560,7 +560,8 @@ func EncodeMatchCommand(command byte, data MatchCommandData) ([]byte, bool) {
 		message = binary.BigEndian.AppendUint32(message, data.Reservation.PublicIP)
 		message = binary.LittleEndian.AppendUint32(message, uint32(data.Reservation.PublicPort))
 
-		if version == 11 {
+		switch version {
+		case 11:
 			isFriendInt := uint32(0)
 			if data.Reservation.IsFriend {
 				isFriendInt = 1
@@ -568,7 +569,7 @@ func EncodeMatchCommand(command byte, data MatchCommandData) ([]byte, bool) {
 			message = binary.LittleEndian.AppendUint32(message, isFriendInt)
 
 			message = binary.LittleEndian.AppendUint32(message, data.Reservation.LocalPlayerCount)
-		} else if version == 90 {
+		case 90:
 			message = binary.BigEndian.AppendUint32(message, data.Reservation.LocalIP)
 			message = binary.LittleEndian.AppendUint32(message, uint32(data.Reservation.LocalPort))
 			message = binary.LittleEndian.AppendUint32(message, data.Reservation.Unknown)
