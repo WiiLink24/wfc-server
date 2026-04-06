@@ -3,6 +3,7 @@ package database
 import (
 	"encoding/json"
 	"errors"
+	"wwfc/common"
 	"wwfc/filter"
 
 	"github.com/jackc/pgconn"
@@ -80,6 +81,8 @@ var (
 	ErrSakeFieldLimitExceeded = errors.New("record has too many fields")
 )
 
+var _ = common.MaybeUnused(deleteSakeRecordQuery)
+
 func parseSakeFieldsFromJson(fieldsJson []byte) (map[string]SakeField, error) {
 	var fields map[string]SakeField
 	err := json.Unmarshal(fieldsJson, &fields)
@@ -94,6 +97,7 @@ func (c *Connection) GetSakeRecords(gameId int, ownerIds []int32, tableId string
 	if fields == nil {
 		fields = []string{}
 	}
+	common.MaybeUnused(fields)
 	if ownerIds == nil {
 		ownerIds = []int32{}
 	}

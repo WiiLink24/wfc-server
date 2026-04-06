@@ -23,54 +23,54 @@ func createSqlFilter(conn *pgconn.PgConn, basenode *filter.TreeNode) (value stri
 		}
 	}()
 
-	this := &expression{basenode, "", conn}
-	this.filterAppendRoot(basenode)
-	return "(" + this.query + ")", nil
+	e := &expression{basenode, "", conn}
+	e.filterAppendRoot(basenode)
+	return "(" + e.query + ")", nil
 }
 
-func (this *expression) filterAppendRoot(basenode *filter.TreeNode) {
+func (e *expression) filterAppendRoot(basenode *filter.TreeNode) {
 	for _, node := range basenode.Items() {
 		switch node.Value.Category() {
 		case filter.CatFunction:
-			this.filterSwitchFunction(node)
+			e.filterSwitchFunction(node)
 			return
 
 		case filter.CatValue:
-			this.filterAppendNode(node)
+			e.filterAppendNode(node)
 			return
 
 		case filter.CatOther:
-			this.filterSwitchOther(node)
+			e.filterSwitchOther(node)
 			return
 		}
 	}
 	panic("eval failed")
 }
 
-func (this *expression) filterSwitchOther(node *filter.TreeNode) {
+func (e *expression) filterSwitchOther(node *filter.TreeNode) {
 	switch v1 := node.Value.(type) {
 	case *filter.GroupToken:
 		if v1.GroupType == "()" {
-			this.filterAppendRoot(node)
+			e.filterAppendRoot(node)
 			return
 		}
 	}
 	panic("invalid node " + node.String())
 }
 
-func (this *expression) filterSwitchFunction(node *filter.TreeNode) {
+func (e *expression) filterSwitchFunction(node *filter.TreeNode) {
 	val1 := node.Value.(*filter.OperatorToken)
 	switch strings.ToLower(val1.Operator) {
 	case "=", "!=":
-		this.filterAppendOperator(strings.ToLower(val1.Operator), node.Items())
+		e.filterAppendOperator(strings.ToLower(val1.Operator), node.Items())
 
 	case ">", "<", ">=", "<=", "+", "-", "&", "|", "^", "<<", ">>":
-		this.filterAppendMathOperator(strings.ToLower(val1.Operator), node.Items())
+		e.filterAppendMathOperator(strings.ToLower(val1.Operator), node.Items())
 
 	case "and":
-		this.filterAppendAnd(node.Items())
+		e.filterAppendAnd(node.Items())
 	case "or":
-		this.filterAppendOr(node.Items())
+		e.filterAppendOr(node.Items())
 
 	default:
 		panic("function not supported: " + val1.Operator)
@@ -78,110 +78,110 @@ func (this *expression) filterSwitchFunction(node *filter.TreeNode) {
 
 }
 
-func (this *expression) filterAppendNode(node *filter.TreeNode) {
+func (e *expression) filterAppendNode(node *filter.TreeNode) {
 	switch v := node.Value.(type) {
 	case *filter.NumberToken:
-		this.query += "'" + strconv.FormatInt(v.Value, 10) + "'"
+		e.query += "'" + strconv.FormatInt(v.Value, 10) + "'"
 	case *filter.IdentityToken:
-		this.filterAppendQueryValue(v)
+		e.filterAppendQueryValue(v)
 	case *filter.OperatorToken:
-		this.filterSwitchFunction(node)
+		e.filterSwitchFunction(node)
 	case *filter.GroupToken:
 		if v.GroupType == "()" {
-			this.query += "("
-			this.filterAppendRoot(node)
-			this.query += ")"
+			e.query += "("
+			e.filterAppendRoot(node)
+			e.query += ")"
 			return
 		}
 		panic("unexpected grouping type '" + v.GroupType + "': " + node.String())
 	case *filter.TextToken:
-		this.query += "(" + this.filterPushArg(v.Text) + ")::varchar"
+		e.query += "(" + e.filterPushArg(v.Text) + ")::varchar"
 
 	default:
 		panic("unexpected value: " + node.String())
 	}
 }
 
-func (this *expression) filterAppendAnd(args []*filter.TreeNode) {
+func (e *expression) filterAppendAnd(args []*filter.TreeNode) {
 	cnt := len(args)
 	if cnt < 2 {
 		panic("operator missing arguments")
 	}
 
-	this.query += "( "
-	this.filterAppendNode(args[0])
-	this.query += " AND "
-	this.filterAppendNode(args[1])
-	this.query += " )"
+	e.query += "( "
+	e.filterAppendNode(args[0])
+	e.query += " AND "
+	e.filterAppendNode(args[1])
+	e.query += " )"
 }
 
-func (this *expression) filterAppendOr(args []*filter.TreeNode) {
+func (e *expression) filterAppendOr(args []*filter.TreeNode) {
 	cnt := len(args)
 	if cnt < 2 {
 		panic("operator missing arguments")
 	}
 
-	this.query += "( "
-	this.filterAppendNode(args[0])
-	this.query += " OR "
-	this.filterAppendNode(args[1])
-	this.query += " )"
+	e.query += "( "
+	e.filterAppendNode(args[0])
+	e.query += " OR "
+	e.filterAppendNode(args[1])
+	e.query += " )"
 }
 
-func (this *expression) filterAppendOperator(operator string, args []*filter.TreeNode) {
+func (e *expression) filterAppendOperator(operator string, args []*filter.TreeNode) {
 	cnt := len(args)
 	if cnt != 2 {
 		panic("operator requires exactly 2 arguments")
 	}
-	this.query += "( "
-	this.filterAppendNode(args[0])
-	this.query += " " + operator + " "
-	this.filterAppendNode(args[1])
-	this.query += " )"
+	e.query += "( "
+	e.filterAppendNode(args[0])
+	e.query += " " + operator + " "
+	e.filterAppendNode(args[1])
+	e.query += " )"
 }
 
-func (this *expression) filterAppendMathOperator(operator string, args []*filter.TreeNode) {
+func (e *expression) filterAppendMathOperator(operator string, args []*filter.TreeNode) {
 	cnt := len(args)
 	if cnt != 2 {
 		panic("operator requires exactly 2 arguments")
 	}
-	this.query += "( ("
-	this.filterAppendNode(args[0])
-	this.query += ")::int " + operator + " ("
-	this.filterAppendNode(args[1])
-	this.query += ")::int )"
+	e.query += "( ("
+	e.filterAppendNode(args[0])
+	e.query += ")::int " + operator + " ("
+	e.filterAppendNode(args[1])
+	e.query += ")::int )"
 }
 
 // Get a value from the record
-func (this *expression) filterAppendQueryValue(token *filter.IdentityToken) {
+func (e *expression) filterAppendQueryValue(token *filter.IdentityToken) {
 	if token.Name == "ownerid" {
-		this.query += "(owner_id)"
+		e.query += "(owner_id)"
 		return
 	}
 	if token.Name == "recordid" {
-		this.query += "(record_id)"
+		e.query += "(record_id)"
 		return
 	}
 	if token.Name == "gameid" {
-		this.query += "(game_id)"
+		e.query += "(game_id)"
 		return
 	}
 	if token.Name == "tableid" {
-		this.query += "(table_id)"
+		e.query += "(table_id)"
 		return
 	}
 
-	this.query += "COALESCE(fields->" + this.filterPushArg(token.Name) + "->>'value', '0')"
+	e.query += "COALESCE(fields->" + e.filterPushArg(token.Name) + "->>'value', '0')"
 
 }
 
-func (this *expression) filterPushArg(arg string) string {
+func (e *expression) filterPushArg(arg string) string {
 	// This is scary!!!
-	if this.conn == nil {
-		return `'` + strings.Replace(arg, "'", "''", -1) + `'`
+	if e.conn == nil {
+		return `'` + strings.ReplaceAll(arg, "'", "''") + `'`
 	}
 
-	str, err := this.conn.EscapeString(arg)
+	str, err := e.conn.EscapeString(arg)
 	if err != nil {
 		panic(err)
 	}

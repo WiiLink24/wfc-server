@@ -101,10 +101,7 @@ func (c *Connection) UpdateProfile(user *User, data map[string]string) {
 	firstName, firstNameExists := data["firstname"]
 	lastName, lastNameExists := data["lastname"]
 	openHost, openHostExists := data["wl:oh"]
-	openHostBool := false
-	if openHostExists && openHost != "0" {
-		openHostBool = true
-	}
+	openHostBool := openHostExists && openHost != "0"
 
 	_, err := c.pool.Exec(c.ctx, UpdateUserTable, user.ProfileId, firstName, firstNameExists, lastName, lastNameExists, openHostBool, openHostExists)
 	if err != nil {

@@ -6,11 +6,11 @@ import (
 	"wwfc/filter"
 )
 
-func testGenerateFilter(t *testing.T, expression string) (string, error) {
+func testGenerateFilter(t *testing.T, expression string) {
 	tree, err := filter.Parse(expression)
 	if err != nil {
 		t.Error(err)
-		return "", err
+		return
 	}
 
 	fmt.Printf("tree: %s\n", tree.String())
@@ -18,12 +18,10 @@ func testGenerateFilter(t *testing.T, expression string) (string, error) {
 	query, err := createSqlFilter(nil, tree)
 	if err != nil {
 		t.Error(err)
-		return "", err
+		return
 	}
 
 	fmt.Printf("query: %s\n", query)
-
-	return query, err
 }
 
 func TestSakeFilter(t *testing.T) {
