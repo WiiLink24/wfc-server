@@ -308,10 +308,11 @@ var (
 		ErrorCode: 22002,
 		MessageRMC: map[byte]string{
 			LangEnglish: "" +
-				"You have been kicked from WiiLink WFC.\n" +
+				"You have been kicked from\n" +
+				"WiiLink WFC by a moderator.\n" +
 				"Reason: %[3]s\n" +
 				"Error Code: %[1]d\n" +
-				"Support Info: NG%08[2]x\n",
+				"Support Info: NG%08[2]x",
 		},
 	}
 
