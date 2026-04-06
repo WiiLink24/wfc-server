@@ -32,7 +32,10 @@ func downloadStage1(w http.ResponseWriter, stage1Ver int) {
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
-	w.Write(payload)
+	_, err = w.Write(payload)
+	if err != nil {
+		logging.Error("NAS", "Error writing stage 1 payload:", err)
+	}
 }
 
 func handlePayloadRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
@@ -171,5 +174,8 @@ func handlePayloadRequest(moduleName string, w http.ResponseWriter, r *http.Requ
 	dat = append(append(dat[:0x10], signature...), dat[0x110:]...)
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(dat)))
-	w.Write(dat)
+	_, err = w.Write(dat)
+	if err != nil {
+		logging.Error("NAS", "Error writing payload response body:", err)
+	}
 }

@@ -195,7 +195,7 @@ func replyHTTPError(w http.ResponseWriter, errorCode int, errorString string) {
 	w.Header().Set("Connection", "close")
 	w.Header().Set("Server", "Nintendo")
 	w.WriteHeader(errorCode)
-	w.Write([]byte(response))
+	_, _ = w.Write([]byte(response))
 }
 
 func handleNASTest(w http.ResponseWriter) {
@@ -214,7 +214,7 @@ func handleNASTest(w http.ResponseWriter) {
 	w.Header().Set("Server", "Nintendo")
 
 	w.WriteHeader(200)
-	w.Write([]byte(response))
+	_, _ = w.Write([]byte(response))
 }
 
 func forwardPayloadRequest(moduleName string, w http.ResponseWriter, r *http.Request) {
@@ -233,7 +233,9 @@ func forwardPayloadRequest(moduleName string, w http.ResponseWriter, r *http.Req
 		replyHTTPError(w, http.StatusBadGateway, "502 Bad Gateway")
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Copy the response headers and status code
 	for key, values := range resp.Header {
@@ -246,9 +248,12 @@ func forwardPayloadRequest(moduleName string, w http.ResponseWriter, r *http.Req
 	// Copy the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logging.Error(moduleName, "Error reading response body:", err)
+		logging.Error(moduleName, "Error reading payload response body:", err)
 		replyHTTPError(w, http.StatusInternalServerError, "500 Internal Server Error")
 		return
 	}
-	w.Write(body)
+	_, err = w.Write(body)
+	if err != nil {
+		logging.Error(moduleName, "Error writing payload response body:", err)
+	}
 }

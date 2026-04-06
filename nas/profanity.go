@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"wwfc/common"
 )
 
 var profanityFilePath = "./profanity.txt"
@@ -13,15 +14,15 @@ var profanityFileLines []string = nil
 var lastModTime time.Time
 
 var symbolEquivalences = map[rune]rune{
-    '1': 'i',
-    '0': 'o',
-    '5': 's',
-    '4': 'a',
-    '3': 'e',
-    '7': 't',
-    '9': 'g',
-    '2': 'z',
-    '(': 'c',
+	'1': 'i',
+	'0': 'o',
+	'5': 's',
+	'4': 'a',
+	'3': 'e',
+	'7': 't',
+	'9': 'g',
+	'2': 'z',
+	'(': 'c',
 }
 
 func CacheProfanityFile() error {
@@ -38,7 +39,9 @@ func CacheProfanityFile() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		common.ShouldNotError(file.Close())
+	}()
 
 	profanityFileLines = nil
 	scanner := bufio.NewScanner(file)

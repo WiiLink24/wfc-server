@@ -159,7 +159,7 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 			param.Set(key, common.Base64DwcEncoding.EncodeToString([]byte(value)))
 		}
 		response = []byte(param.Encode())
-		response = []byte(strings.Replace(string(response), "%2A", "*", -1))
+		response = []byte(strings.ReplaceAll(string(response), "%2A", "*"))
 	}
 
 	// DWC treats the response like a null terminated string
@@ -167,7 +167,10 @@ func handleAuthRequest(moduleName string, w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
-	w.Write(response)
+	_, err = w.Write(response)
+	if err != nil {
+		logging.Error("NAS", "Error writing response:", err)
+	}
 }
 
 func acctcreate() map[string]string {

@@ -75,7 +75,7 @@ func startHTTPSProxy(config common.Config) {
 		}
 	}()
 
-	if !(exploitWii || exploitDS) {
+	if !exploitWii && !exploitDS {
 		// Only handle real TLS requests
 		for {
 			conn, err := l.Accept()
@@ -86,7 +86,7 @@ func startHTTPSProxy(config common.Config) {
 			go func() {
 				moduleName := "NAS-TLS:" + conn.RemoteAddr().String()
 
-				conn.SetDeadline(time.Now().UTC().Add(25 * time.Second))
+				_ = conn.SetDeadline(time.Now().UTC().Add(25 * time.Second))
 
 				handleRealTLS(moduleName, conn, nasAddr)
 			}()
@@ -241,7 +241,7 @@ func startHTTPSProxy(config common.Config) {
 
 			moduleName := "NAS-TLS:" + conn.RemoteAddr().String()
 
-			conn.SetDeadline(time.Now().UTC().Add(5 * time.Second))
+			_ = conn.SetDeadline(time.Now().UTC().Add(5 * time.Second))
 
 			handleTLS(moduleName, conn, nasAddr, serverCertsRecordWii, rsaKeyWii, serverCertsRecordDS, rsaKeyDS)
 		}()
@@ -259,7 +259,9 @@ func handleTLS(moduleName string, rawConn net.Conn, nasAddr string, serverCertsR
 
 	conn := newBufferedConn(rawConn)
 
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	// Read client hello
 	// fmt.Printf("Client Hello:\n")
@@ -316,7 +318,7 @@ func handleTLS(moduleName string, rawConn net.Conn, nasAddr string, serverCertsR
 		}
 	}
 
-	conn.SetDeadline(time.Now().UTC().Add(25 * time.Second))
+	_ = conn.SetDeadline(time.Now().UTC().Add(25 * time.Second))
 
 	// logging.Info(moduleName, "Forwarding client hello:", aurora.Cyan(fmt.Sprintf("% X ", helloBytes)))
 	handleRealTLS(moduleName, conn, nasAddr)
@@ -684,7 +686,9 @@ func proxyConsoleTLS(moduleName string, conn bufferedConn, nasAddr string, versi
 		panic(err)
 	}
 
-	defer newConn.Close()
+	defer func() {
+		_ = newConn.Close()
+	}()
 
 	// Read bytes from the HTTP server and forward them through the TLS connection
 	go func() {
@@ -734,11 +738,7 @@ func proxyConsoleTLS(moduleName string, conn bufferedConn, nasAddr string, versi
 		index += n
 		total += n
 
-		for {
-			if index < 5 {
-				break
-			}
-
+		for index < 5 {
 			if buf[0] < 0x15 || buf[0] > 0x17 {
 				logging.Error(moduleName, "Invalid record type")
 				return
@@ -842,7 +842,9 @@ func handleRealTLS(moduleName string, conn net.Conn, nasAddr string) {
 		panic(err)
 	}
 
-	defer newConn.Close()
+	defer func() {
+		_ = newConn.Close()
+	}()
 
 	// Read bytes from the HTTP server and forward them through the TLS connection
 	go func() {
