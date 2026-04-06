@@ -27,7 +27,7 @@ func kickPlayer(profileID uint32, reason string) {
 
 		case "network_error":
 			// No error message
-			common.CloseConnection(ServerName, session.ConnIndex)
+			common.ShouldNotError(common.CloseConnection(ServerName, session.ConnIndex))
 			return
 		}
 

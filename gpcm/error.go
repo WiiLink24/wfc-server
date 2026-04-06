@@ -419,67 +419,77 @@ func (err GPError) GetMessageTranslate(gameName string, region byte, lang byte, 
 		command.OtherValues["fatal"] = ""
 	}
 
-	if err.Fatal && err.WWFCMessage.ErrorCode != 0 {
-		switch gameName {
-		case "mariokartwii":
-			reason := err.Reason
-			wwfcMessage := err.WWFCMessage
+	if !err.Fatal || err.WWFCMessage.ErrorCode == 0 {
+		return common.CreateGameSpyMessage(command), err.WWFCMessage.ErrorCode
+	}
 
-			if reason == "" {
-				reason = "None provided."
+	errMsg := ""
+	reason := ""
+	var wwfcMessage *WWFCErrorMessage
+	switch gameName {
+	case "mariokartwii":
+		reason = err.Reason
+		wwfcMessage = &err.WWFCMessage
 
-				engMsg := err.WWFCMessage.MessageRMC[LangEnglish]
+		if reason == "" {
+			reason = "None provided."
 
-				if engMsg == WWFCMsgKickedCustom.MessageRMC[LangEnglish] {
-					wwfcMessage = WWFCMsgKickedModerator
-				} else if engMsg == WWFCMsgProfileRestrictedCustom.MessageRMC[LangEnglish] {
-					wwfcMessage = WWFCMsgProfileRestricted
-				} else if engMsg == WWFCMsgProfileRestrictedNowCustom.MessageRMC[LangEnglish] {
-					wwfcMessage = WWFCMsgProfileRestrictedNow
-				}
-			}
-
-			errMsg := wwfcMessage.MessageRMC[lang]
-			if errMsg == "" && lang != LangEnglish {
-				if lang == LangSpanishEU {
-					errMsg = wwfcMessage.MessageRMC[LangSpanish]
-				} else if lang == LangFrenchEU {
-					errMsg = wwfcMessage.MessageRMC[LangFrench]
-				}
-
-				if errMsg == "" {
-					errMsg = wwfcMessage.MessageRMC[LangEnglish]
-				}
-			}
-
-			if errMsg != "" {
-				errMsg = fmt.Sprintf(errMsg, wwfcMessage.ErrorCode, ngid, reason)
-				errMsgUTF16 := utf16.Encode([]rune(errMsg))
-				errMsgByteArray := common.UTF16ToByteArray(errMsgUTF16)
-				command.OtherValues["wl:errmsg"] = common.Base64DwcEncoding.EncodeToString(errMsgByteArray)
+			switch engMsg := err.WWFCMessage.MessageRMC[LangEnglish]; engMsg {
+			case WWFCMsgKickedCustom.MessageRMC[LangEnglish]:
+				wwfcMessage = &WWFCMsgKickedModerator
+			case WWFCMsgProfileRestrictedCustom.MessageRMC[LangEnglish]:
+				wwfcMessage = &WWFCMsgProfileRestricted
+			case WWFCMsgProfileRestrictedNowCustom.MessageRMC[LangEnglish]:
+				wwfcMessage = &WWFCMsgProfileRestrictedNow
 			}
 		}
 
-		command.OtherValues["wl:err"] = strconv.Itoa(err.WWFCMessage.ErrorCode)
+		errMsg = wwfcMessage.MessageRMC[lang]
+		if errMsg == "" || lang == LangEnglish {
+			break
+		}
+
+		switch lang {
+		case LangSpanishEU:
+			errMsg = wwfcMessage.MessageRMC[LangSpanish]
+		case LangFrenchEU:
+			errMsg = wwfcMessage.MessageRMC[LangFrench]
+		}
+
+		if errMsg == "" {
+			errMsg = wwfcMessage.MessageRMC[LangEnglish]
+		}
 	}
+
+	if errMsg != "" && wwfcMessage != nil {
+		errMsg = fmt.Sprintf(errMsg, wwfcMessage.ErrorCode, ngid, reason)
+		errMsgUTF16 := utf16.Encode([]rune(errMsg))
+		errMsgByteArray := common.UTF16ToByteArray(errMsgUTF16)
+		command.OtherValues["wl:errmsg"] = common.Base64DwcEncoding.EncodeToString(errMsgByteArray)
+	}
+
+	command.OtherValues["wl:err"] = strconv.Itoa(err.WWFCMessage.ErrorCode)
 
 	return common.CreateGameSpyMessage(command), err.WWFCMessage.ErrorCode
 }
 
-func (g *GameSpySession) replyError(err GPError) {
-	logging.Error(g.ModuleName, "Reply error:", err.ErrorString)
+func (g *GameSpySession) replyError(gpErr GPError) {
+	logging.Error(g.ModuleName, "Reply error:", gpErr.ErrorString)
 	if !g.LoginInfoSet {
-		msg := err.GetMessage()
+		msg := gpErr.GetMessage()
 		// logging.Info(g.ModuleName, "Sending error message:", msg)
-		common.SendPacket(ServerName, g.ConnIndex, []byte(msg))
-		if err.Fatal {
-			common.CloseConnection(ServerName, g.ConnIndex)
+		err := common.SendPacket(ServerName, g.ConnIndex, []byte(msg))
+		if gpErr.Fatal || err != nil {
+			if err != nil {
+				logging.Error("GPCM", "Failed to send packet:", err)
+			}
+			common.ShouldNotError(common.CloseConnection(ServerName, g.ConnIndex))
 		}
 		logging.Event("gpcm_returned_error", map[string]any{
 			"profile_id":   g.User.ProfileId,
-			"error_code":   err.ErrorCode,
-			"error_string": err.ErrorString,
-			"fatal":        err.Fatal,
+			"error_code":   gpErr.ErrorCode,
+			"error_string": gpErr.ErrorString,
+			"fatal":        gpErr.Fatal,
 		})
 		return
 	}
@@ -489,18 +499,21 @@ func (g *GameSpySession) replyError(err GPError) {
 		deviceId = g.User.NgDeviceId[0]
 	}
 
-	msg, wwfcErrorCode := err.GetMessageTranslate(g.GameName, g.Region, g.Language, g.ConsoleFriendCode, deviceId)
+	msg, wwfcErrorCode := gpErr.GetMessageTranslate(g.GameName, g.Region, g.Language, g.ConsoleFriendCode, deviceId)
 	// logging.Info(g.ModuleName, "Sending error message:", msg)
-	common.SendPacket(ServerName, g.ConnIndex, []byte(msg))
-	if err.Fatal {
-		common.CloseConnection(ServerName, g.ConnIndex)
+	err := common.SendPacket(ServerName, g.ConnIndex, []byte(msg))
+	if gpErr.Fatal || err != nil {
+		if err != nil {
+			logging.Error("GPCM", "Failed to send packet:", err)
+		}
+		common.ShouldNotError(common.CloseConnection(ServerName, g.ConnIndex))
 	}
 
 	logging.Event("gpcm_returned_error", map[string]any{
 		"profile_id":         g.User.ProfileId,
-		"error_code":         err.ErrorCode,
-		"error_string":       err.ErrorString,
-		"fatal":              err.Fatal,
+		"error_code":         gpErr.ErrorCode,
+		"error_string":       gpErr.ErrorString,
+		"fatal":              gpErr.Fatal,
 		"wiilink_error_code": wwfcErrorCode,
 	})
 }

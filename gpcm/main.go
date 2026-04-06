@@ -169,7 +169,11 @@ func NewConnection(index uint64, address string) {
 			"id":        "1",
 		},
 	})
-	common.SendPacket(ServerName, index, []byte(payload))
+	if err := common.SendPacket(ServerName, index, []byte(payload)); err != nil {
+		logging.Error("GPCM", "Failed to send login challenge packet:", err)
+		_ = common.CloseConnection(ServerName, index)
+		return
+	}
 
 	logging.Notice(session.ModuleName, "Connection established from", address)
 
@@ -185,6 +189,7 @@ func HandlePacket(index uint64, data []byte) {
 
 	if session == nil {
 		logging.Error("GPCM", "Cannot find session for this connection index:", aurora.Cyan(index))
+		_ = common.CloseConnection(ServerName, index)
 		return
 	}
 
@@ -238,7 +243,7 @@ func HandlePacket(index uint64, data []byte) {
 	// Commands must be handled in a certain order, not in the order supplied by the client
 
 	commands = session.handleCommand("ka", commands, func(command common.GameSpyCommand) {
-		common.SendPacket(ServerName, session.ConnIndex, []byte(`\ka\\final\`))
+		_ = common.SendPacket(ServerName, session.ConnIndex, []byte(`\ka\\final\`))
 	})
 	commands = session.handleCommand("login", commands, session.login)
 	commands = session.handleCommand("wl:exlogin", commands, session.exLogin)
@@ -278,8 +283,11 @@ func HandlePacket(index uint64, data []byte) {
 			data = append(data, session.WriteBuffer[c])
 		}
 
-		common.SendPacket(ServerName, session.ConnIndex, data)
-		session.WriteBuffer = ""
+		if err := common.SendPacket(ServerName, session.ConnIndex, data); err != nil {
+			logging.Error(session.ModuleName, "Failed to send response packet:", err)
+		} else {
+			session.WriteBuffer = ""
+		}
 	}
 }
 
@@ -323,7 +331,7 @@ func saveState() error {
 	defer mutex.Unlock()
 
 	err = encoder.Encode(sessions)
-	file.Close()
+	common.ShouldNotError(file.Close())
 	return err
 }
 
@@ -339,7 +347,7 @@ func loadState() error {
 	defer mutex.Unlock()
 
 	err = decoder.Decode(&sessions)
-	file.Close()
+	common.ShouldNotError(file.Close())
 	if err != nil {
 		return err
 	}

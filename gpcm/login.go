@@ -247,7 +247,12 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 
 	deviceAuth := false
 	defaultKey := false
-	if g.UnitCode == UnitCodeWii {
+	switch g.UnitCode {
+	case UnitCodeDS:
+		g.NeedsExploit = common.DoesGameNeedExploit(g.GameName)
+		deviceAuth = true
+
+	case UnitCodeWii:
 		if isLocalhost && !payloadVerExists && !signatureExists {
 			// Players using the DNS, need patching using a QR2 exploit
 			if !common.DoesGameNeedExploit(g.GameName) {
@@ -269,10 +274,8 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 			}
 			deviceAuth = true
 		}
-	} else if g.UnitCode == UnitCodeDS {
-		g.NeedsExploit = common.DoesGameNeedExploit(g.GameName)
-		deviceAuth = true
-	} else {
+
+	default:
 		logging.Error(g.ModuleName, "Invalid unit code specified:", aurora.Cyan(unitcd))
 		g.replyError(ErrLogin)
 		return
@@ -393,7 +396,10 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		OtherValues:  otherValues,
 	})
 
-	common.SendPacket(ServerName, g.ConnIndex, []byte(payload))
+	if err := common.SendPacket(ServerName, g.ConnIndex, []byte(payload)); err != nil {
+		logging.Error("GPCM", "Failed to send login response packet")
+		panic(err)
+	}
 
 	logging.Event(
 		"logged_in",
@@ -505,21 +511,22 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 	if err != nil {
 		logging.Error(g.ModuleName, "DB error:", err)
 
-		if err == database.ErrProfileIDInUse {
+		switch err {
+		case database.ErrProfileIDInUse:
 			g.replyError(GPError{
 				ErrorCode:   ErrLogin.ErrorCode,
 				ErrorString: "The profile ID is already in use.",
 				Fatal:       true,
 				WWFCMessage: WWFCMsgProfileIDInUse,
 			})
-		} else if err == database.ErrReservedProfileIDRange {
+		case database.ErrReservedProfileIDRange:
 			g.replyError(GPError{
 				ErrorCode:   ErrLogin.ErrorCode,
 				ErrorString: "The profile ID is in a reserved range.",
 				Fatal:       true,
 				WWFCMessage: WWFCMsgProfileIDInvalid,
 			})
-		} else if err == database.ErrDeviceIDMismatch {
+		case database.ErrDeviceIDMismatch:
 			if strings.HasPrefix(g.HostPlatform, "Dolphin") {
 				g.replyError(GPError{
 					ErrorCode:   ErrLogin.ErrorCode,
@@ -535,7 +542,7 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 					WWFCMessage: WWFCMsgConsoleMismatch,
 				})
 			}
-		} else if err == database.ErrProhibitedDeviceID {
+		case database.ErrProhibitedDeviceID:
 			if strings.HasPrefix(g.HostPlatform, "Dolphin") {
 				g.replyError(GPError{
 					ErrorCode:   ErrLogin.ErrorCode,
@@ -551,7 +558,7 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 					WWFCMessage: WWFCMsgUnknownLoginError,
 				})
 			}
-		} else if err == database.ErrProfileBannedTOS {
+		case database.ErrProfileBannedTOS:
 			g.replyError(GPError{
 				ErrorCode:   ErrLogin.ErrorCode,
 				ErrorString: "The profile is banned from the service. Reason: " + user.BanReason,
@@ -559,7 +566,7 @@ func (g *GameSpySession) performLoginWithDatabase(userId uint64, gsbrCode string
 				WWFCMessage: WWFCMsgProfileBannedTOS,
 				Reason:      user.BanReason,
 			})
-		} else {
+		default:
 			g.replyError(GPError{
 				ErrorCode:   ErrLogin.ErrorCode,
 				ErrorString: "There was an error logging in to the GP backend.",

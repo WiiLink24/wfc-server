@@ -1,7 +1,6 @@
 package gpcm
 
 import (
-	"errors"
 	"strconv"
 	"strings"
 	"wwfc/common"
@@ -11,19 +10,18 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 )
 
-func removeFromUint32Array(arrayPointer *[]uint32, index int) error {
+func removeFromUint32Array(arrayPointer *[]uint32, index int) {
 	array := *arrayPointer
 	arrayLength := len(array)
 
 	if index < 0 || index >= arrayLength {
-		return errors.New("index is out of bounds")
+		return // Ignore?
 	}
 
 	lastIndex := arrayLength - 1
 
 	array[index] = array[lastIndex]
 	*arrayPointer = array[:lastIndex]
-	return nil
 }
 
 func (g *GameSpySession) isFriendAdded(profileId uint32) bool {
@@ -261,7 +259,10 @@ func sendMessageToSession(msgType string, from uint32, session *GameSpySession, 
 			"msg": msg,
 		},
 	})
-	common.SendPacket(ServerName, session.ConnIndex, []byte(message))
+	if err := common.SendPacket(ServerName, session.ConnIndex, []byte(message)); err != nil {
+		logging.Error("GPCM", "Failed to send packet:", err)
+		common.ShouldNotError(common.CloseConnection(ServerName, session.ConnIndex))
+	}
 }
 
 func sendMessageToSessionBuffer(msgType string, from uint32, session *GameSpySession, msg string) {
