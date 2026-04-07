@@ -32,8 +32,12 @@ func (l *nasListener) Accept() (net.Conn, error) {
 	pr, pw := io.Pipe()
 	go func() {
 		r := bufio.NewReader(conn)
-		filterDuplicateHost(r, pw)
-		_, err := io.Copy(pw, r)
+		_, err := pw.Write(filterDuplicateHost(r))
+		if err != nil {
+			_ = pw.CloseWithError(err)
+			return
+		}
+		_, err = io.Copy(pw, r)
 		_ = pw.CloseWithError(err)
 	}()
 	return &nasConn{
@@ -48,17 +52,15 @@ func (c *nasConn) Read(b []byte) (int, error) {
 
 // filterDuplicateHost wraps a net.Conn and filters out duplicate Host headers from the HTTP request,
 // making the invalid requests sent by DWC acceptable to the standard library's HTTP server.
-func filterDuplicateHost(r *bufio.Reader, p *io.PipeWriter) {
+func filterDuplicateHost(r *bufio.Reader) []byte {
 	// Read the first line of the HTTP request
 	line, err := r.ReadString('\n')
 	if err != nil {
-		_, _ = p.Write([]byte(line))
-		return
+		return []byte(line)
 	}
 	// Is this an HTTP request?
 	if !strings.HasSuffix(line, "HTTP/1.1\r\n") {
-		_, _ = p.Write([]byte(line))
-		return
+		return []byte(line)
 	}
 
 	// Iterate through the HTTP headers and remove any duplicate Host headers
@@ -79,7 +81,7 @@ func filterDuplicateHost(r *bufio.Reader, p *io.PipeWriter) {
 		headers.WriteString(headerLine)
 	}
 
-	_, _ = p.Write([]byte(line + headers.String()))
+	return []byte(line + headers.String())
 }
 
 func listenAndServe(address string) {
