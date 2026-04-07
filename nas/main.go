@@ -18,7 +18,7 @@ import (
 
 var (
 	serverName           string
-	server               *http.Server
+	server, tlsServer    *http.Server
 	payloadServerAddress string
 )
 
@@ -37,7 +37,7 @@ func StartServer(reload bool) {
 	payloadServerAddress = config.PayloadServerAddress
 
 	if config.EnableHTTPS {
-		go startHTTPSProxy(config)
+		go setupTLS(config)
 	}
 
 	err := CacheProfanityFile()
@@ -81,7 +81,20 @@ func StartServer(reload bool) {
 	sakeMux.HandleFunc("/", handleUnknown)
 	raceMux.HandleFunc("/", handleUnknown)
 
-	go listenAndServe(address)
+	go listenAndServe()
+	if config.EnableHTTPS {
+		tlsServer = &http.Server{
+			Addr:        *config.NASAddressHTTPS + ":" + config.NASPortHTTPS,
+			Handler:     server.Handler,
+			IdleTimeout: server.IdleTimeout,
+			ReadTimeout: server.ReadTimeout,
+		}
+
+		go func() {
+			setupTLS(config)
+			listenAndServeTLS()
+		}()
+	}
 }
 
 func Shutdown() {

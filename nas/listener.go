@@ -14,16 +14,34 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 )
 
-type nasListener struct {
+type httpListener struct {
 	net.Listener
 }
 
-type nasConn struct {
+type nasInConn struct {
 	net.Conn
-	reader io.Reader
+	in io.Reader
 }
 
-func (l *nasListener) Accept() (net.Conn, error) {
+type nasIOConn struct {
+	net.Conn
+	in  io.Reader
+	out io.Writer
+}
+
+func (c nasInConn) Read(b []byte) (int, error) {
+	return c.in.Read(b)
+}
+
+func (c nasIOConn) Read(b []byte) (int, error) {
+	return c.in.Read(b)
+}
+
+func (c nasIOConn) Write(b []byte) (int, error) {
+	return c.out.Write(b)
+}
+
+func (l *httpListener) Accept() (net.Conn, error) {
 	conn, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
@@ -40,14 +58,10 @@ func (l *nasListener) Accept() (net.Conn, error) {
 		_, err = io.Copy(pw, r)
 		_ = pw.CloseWithError(err)
 	}()
-	return &nasConn{
-		Conn:   conn,
-		reader: pr,
+	return &nasInConn{
+		Conn: conn,
+		in:   pr,
 	}, nil
-}
-
-func (c *nasConn) Read(b []byte) (int, error) {
-	return c.reader.Read(b)
 }
 
 // filterDuplicateHost wraps a net.Conn and filters out duplicate Host headers from the HTTP request,
@@ -84,18 +98,55 @@ func filterDuplicateHost(r *bufio.Reader) []byte {
 	return []byte(line + headers.String())
 }
 
-func listenAndServe(address string) {
-	logging.Notice("NAS", "Starting HTTP server on", aurora.BrightCyan(address))
+func listenAndServe() {
+	logging.Notice("NAS", "Starting HTTP server on", aurora.BrightCyan(server.Addr))
 
-	l, err := net.Listen("tcp", address)
+	l, err := net.Listen("tcp", server.Addr)
 	common.ShouldNotError(err)
-	listener := &nasListener{Listener: l}
+	listener := &httpListener{Listener: l}
 
 	defer func() {
 		common.ShouldNotError(listener.Close())
 	}()
 
 	err = server.Serve(listener)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		panic(err)
+	}
+}
+
+type tlsListener struct {
+	net.Listener
+}
+
+func (l *tlsListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	readFromServer, writeFromServer := io.Pipe()
+	readToServer, writeToServer := io.Pipe()
+	go handleIncomingTLS(conn, readFromServer, writeToServer)
+	return &nasIOConn{
+		Conn: conn,
+		in:   readToServer,
+		out:  writeFromServer,
+	}, nil
+}
+
+func listenAndServeTLS() {
+	logging.Notice("NAS", "Starting HTTPS server on", aurora.BrightCyan(tlsServer.Addr))
+
+	l, err := net.Listen("tcp", tlsServer.Addr)
+	common.ShouldNotError(err)
+	listener := &tlsListener{Listener: l}
+
+	defer func() {
+		common.ShouldNotError(listener.Close())
+	}()
+
+	err = tlsServer.Serve(listener)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
