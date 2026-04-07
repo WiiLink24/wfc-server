@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"strings"
@@ -29,143 +30,141 @@ func generateRandom(n int) []byte {
 var (
 	authTokenKey   = generateRandom(16)
 	authTokenIV    = generateRandom(16)
-	authTokenMagic = generateRandom(14)
+	authTokenMagic = generateRandom(8)
 
 	loginTicketKey   = generateRandom(16)
 	loginTicketIV    = generateRandom(16)
 	loginTicketMagic = generateRandom(4)
 )
 
-func appendString(blob []byte, value string, maxlen int) []byte {
-	if len([]byte(value)) < maxlen {
-		blob = append(blob, append([]byte(value), make([]byte, maxlen-len(value))...)...)
-	} else {
-		blob = append(blob, []byte(value)[:maxlen]...)
-	}
+var (
+	ErrTokenMagic   = errors.New("invalid auth token or login ticket magic")
+	ErrTokenExpired = errors.New("auth token or login ticket expired")
+	ErrTokenLength  = errors.New("invalid auth token or login ticket length")
+)
 
-	return blob
+type NASAuthToken struct {
+	IssueTime         uint64
+	UserID            uint64
+	ConsoleFriendCode uint64
+	Region            byte
+	Lang              byte
+	UnitCode          byte
+	GameCode          [4]byte
+	GsbrCode          [16]byte
+	Challenge         [8]byte
+	InGameScreenName  [64]byte
+	Magic             [8]byte
 }
 
-func MarshalNASAuthToken(gamecd string, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, unitcd byte, isLocalhost bool) (string, string) {
-	blob := binary.LittleEndian.AppendUint64([]byte{}, uint64(time.Now().UTC().Unix()))
+var nasAuthTokenSize = (binary.Size(NASAuthToken{}) + aes.BlockSize - 1) & ^(aes.BlockSize - 1)
 
-	blob = appendString(blob, gamecd, 4)
+func (t NASAuthToken) Marshal() string {
+	t.IssueTime = uint64(time.Now().UTC().Unix())
+	copy(t.Magic[:], authTokenMagic)
 
-	blob = append(blob, binary.LittleEndian.AppendUint64([]byte{}, userid)[:6]...)
+	var buf bytes.Buffer
+	ShouldNotError(binary.Write(&buf, binary.LittleEndian, t))
 
-	blob = append(blob, byte(min(len([]byte(gsbrcd)), 16)))
-	blob = appendString(blob, gsbrcd, 16)
-
-	blob = append(blob, binary.LittleEndian.AppendUint64([]byte{}, cfc)[:7]...)
-	blob = append(blob, region, lang)
-
-	blob = append(blob, byte(min(len([]byte(ingamesn)), 75)))
-	blob = appendString(blob, ingamesn, 75)
-
-	challenge := RandomString(8)
-	blob = append(blob, []byte(challenge)...)
-
-	blob = append(blob, byte(unitcd))
-
-	if isLocalhost {
-		blob = append(blob, 0x01)
-	} else {
-		blob = append(blob, 0x00)
-	}
-
-	blob = append(blob, authTokenMagic...)
+	// Pad to CBC block size
+	data := append(buf.Bytes(), make([]byte, nasAuthTokenSize-len(buf.Bytes()))...)
 
 	block, err := aes.NewCipher(authTokenKey)
-	if err != nil {
-		panic(err)
-	}
+	ShouldNotError(err)
+	cipher.NewCBCEncrypter(block, authTokenIV).CryptBlocks(data, data)
 
-	cipher.NewCBCEncrypter(block, authTokenIV).CryptBlocks(blob, blob)
-	return "NDS" + Base64DwcEncoding.EncodeToString(blob), challenge
+	return "NDS" + Base64DwcEncoding.EncodeToString(data)
 }
 
-func UnmarshalNASAuthToken(token string) (gamecd string, issuetime time.Time, userid uint64, gsbrcd string, cfc uint64, region byte, lang byte, ingamesn string, challenge string, unitcd byte, isLocalhost bool, err error) {
-	if !strings.HasPrefix(token, "NDS") {
-		err = errors.New("invalid auth token prefix")
-		return
+func (t *NASAuthToken) Unmarshal(data string) error {
+	if !strings.HasPrefix(data, "NDS") {
+		return ErrTokenLength
 	}
 
-	blob, err := Base64DwcEncoding.DecodeString(token[3:])
+	blob, err := Base64DwcEncoding.DecodeString(data[3:])
 	if err != nil {
-		return
+		return err
 	}
 
-	if len(blob) != 0x90 {
-		err = errors.New("invalid auth token length")
-		return
+	if len(blob) != nasAuthTokenSize {
+		return ErrTokenLength
 	}
 
 	block, err := aes.NewCipher(authTokenKey)
-	if err != nil {
-		panic(err)
-	}
-
+	ShouldNotError(err)
 	cipher.NewCBCDecrypter(block, authTokenIV).CryptBlocks(blob, blob)
 
-	if !bytes.Equal(blob[0x90-len(authTokenMagic):0x90], authTokenMagic) {
-		err = errors.New("invalid auth token magic")
-		return
+	reader := bytes.NewReader(blob)
+	if err := binary.Read(reader, binary.LittleEndian, t); err != nil {
+		return err
 	}
 
-	issuetime = time.Unix(int64(binary.LittleEndian.Uint64(blob[0x0:0x8])), 0)
-	gamecd = string(blob[0x8:0xC])
-	userid = binary.LittleEndian.Uint64(append(bytes.Clone(blob[0xC:0x12]), 0, 0))
-	gsbrcd = string(blob[0x13 : 0x13+min(blob[0x12], 16)])
-	cfc = binary.LittleEndian.Uint64(append(bytes.Clone(blob[0x23:0x2A]), 0))
-	region = blob[0x2A]
-	lang = blob[0x2B]
-	ingamesn = string(blob[0x2D : 0x2D+min(blob[0x2C], 75)])
-	challenge = string(blob[0x78:0x80])
-	unitcd = blob[0x80]
-	isLocalhost = blob[0x81] == 0x01
-	return
+	if !bytes.Equal(t.Magic[:], authTokenMagic) {
+		return ErrTokenMagic
+	}
+
+	currentTime := time.Now().UTC()
+	issueTime := time.Unix(int64(t.IssueTime), 0)
+	if issueTime.Before(currentTime.Add(-10*time.Minute)) || issueTime.After(currentTime) {
+		return ErrTokenExpired
+	}
+
+	return nil
 }
 
-func MarshalGPCMLoginTicket(profileId uint32) string {
-	blob := binary.LittleEndian.AppendUint64([]byte{}, uint64(time.Now().UTC().Unix()))
-	blob = binary.LittleEndian.AppendUint32(blob, profileId)
-	blob = append(blob, loginTicketMagic...)
+type GPCMLoginTicket struct {
+	IssueTime uint64
+	ProfileID uint32
+	Magic     [4]byte
+}
+
+var gpcmLoginTicketSize = (binary.Size(GPCMLoginTicket{}) + aes.BlockSize - 1) & ^(aes.BlockSize - 1)
+
+func (t GPCMLoginTicket) Marshal() string {
+	t.IssueTime = uint64(time.Now().UTC().Unix())
+	copy(t.Magic[:], loginTicketMagic)
+
+	var buf bytes.Buffer
+	ShouldNotError(binary.Write(&buf, binary.LittleEndian, t))
+
+	// Pad to CBC block size
+	data := append(buf.Bytes(), make([]byte, gpcmLoginTicketSize-len(buf.Bytes()))...)
 
 	block, err := aes.NewCipher(loginTicketKey)
-	if err != nil {
-		panic(err)
-	}
+	ShouldNotError(err)
+	cipher.NewCBCEncrypter(block, loginTicketIV).CryptBlocks(data, data)
 
-	cipher.NewCBCEncrypter(block, loginTicketIV).CryptBlocks(blob, blob)
-	return Base64DwcEncoding.EncodeToString(blob)
+	return base64.StdEncoding.EncodeToString(data)
 }
 
-func UnmarshalGPCMLoginTicket(ticket string) (profileId uint32, issuetime time.Time, err error) {
-	var blob []byte
-	blob, err = Base64DwcEncoding.DecodeString(ticket)
+func (t *GPCMLoginTicket) Unmarshal(ticket string) error {
+	blob, err := base64.StdEncoding.DecodeString(ticket)
 	if err != nil {
-		return
+		return err
 	}
 
-	if len(blob) != 0x10 {
-		err = errors.New("invalid login ticket length")
-		return
+	if len(blob) != gpcmLoginTicketSize {
+		return ErrTokenLength
 	}
 
-	var block cipher.Block
-	block, err = aes.NewCipher(loginTicketKey)
-	if err != nil {
-		panic(err)
-	}
-
+	block, err := aes.NewCipher(loginTicketKey)
+	ShouldNotError(err)
 	cipher.NewCBCDecrypter(block, loginTicketIV).CryptBlocks(blob, blob)
 
-	if !bytes.Equal(blob[0xC:0x10], loginTicketMagic) {
-		err = errors.New("invalid login ticket magic")
-		return
+	reader := bytes.NewReader(blob)
+	if err := binary.Read(reader, binary.LittleEndian, t); err != nil {
+		return err
 	}
 
-	issuetime = time.Unix(int64(binary.LittleEndian.Uint64(blob[0x0:0x8])), 0)
-	profileId = binary.LittleEndian.Uint32(blob[0x8:0xC])
-	return
+	if !bytes.Equal(t.Magic[:], loginTicketMagic) {
+		return ErrTokenMagic
+	}
+
+	currentTime := time.Now().UTC()
+	issueTime := time.Unix(int64(t.IssueTime), 0)
+	if issueTime.Before(currentTime.Add(-48*time.Hour)) || issueTime.After(currentTime) {
+		return ErrTokenExpired
+	}
+
+	return nil
 }

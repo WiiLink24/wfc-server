@@ -2,6 +2,8 @@ package common
 
 import (
 	"encoding/base64"
+	"encoding/binary"
+	"unicode/utf16"
 )
 
 var (
@@ -39,4 +41,35 @@ func reverse(s string) string {
 	}
 
 	return string(rns)
+}
+
+func UTF16Encode(s string, order binary.ByteOrder) []byte {
+	encoded := utf16.Encode([]rune(s))
+	buf := make([]byte, len(encoded)*2)
+	for i, v := range encoded {
+		order.PutUint16(buf[i*2:], v)
+	}
+	return buf
+}
+
+func UTF16Decode(u []byte, order binary.ByteOrder) string {
+	decoded := make([]uint16, len(u)/2)
+	for i := range decoded {
+		v := order.Uint16(u[i*2:])
+		if v == 0 {
+			decoded = decoded[:i]
+			break
+		}
+		decoded[i] = v
+	}
+	return string(utf16.Decode(decoded))
+}
+
+func NullTerminatedString(u []byte) string {
+	for i, b := range u {
+		if b == 0 {
+			return string(u[:i])
+		}
+	}
+	return string(u)
 }
