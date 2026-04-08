@@ -40,7 +40,12 @@ func handleDownloadEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	if actionFunc, exists := dlsActions[action]; exists {
 		reply := actionFunc(moduleName, fields)
-		writeAuthResponse(w, reply)
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Length", strconv.Itoa(len(reply)))
+		_, err := w.Write(reply)
+		if err != nil {
+			logging.Error(moduleName, "Error writing response:", err)
+		}
 		return
 	}
 
@@ -48,8 +53,8 @@ func handleDownloadEndpoint(w http.ResponseWriter, r *http.Request) {
 	replyHTTPError(w, 400, "400 Bad Request")
 }
 
-func dlsCount(moduleName string, fields map[string]string) []byte {
-	dlcFolder := filepath.Join(dlcDir, fields["rhgamecd"])
+func dlsCount(moduleName string, fields map[string][]byte) []byte {
+	dlcFolder := filepath.Join(dlcDir, string(fields["rhgamecd"]))
 
 	dir, err := os.ReadDir(dlcFolder)
 	if err != nil {
