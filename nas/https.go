@@ -738,7 +738,7 @@ func proxyConsoleTLS(moduleName string, conn bufferedConn, nasAddr string, versi
 		index += n
 		total += n
 
-		for index < 5 {
+		for index >= 5 {
 			if buf[0] < 0x15 || buf[0] > 0x17 {
 				logging.Error(moduleName, "Invalid record type")
 				return
