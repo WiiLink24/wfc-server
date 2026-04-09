@@ -235,7 +235,7 @@ func handleIncomingTLS(rawConn net.Conn, fromServer *io.PipeReader, toServer *io
 	closed := false
 	if rsaKeyWii == nil && rsaKeyDS == nil {
 		// Only handle real TLS requests
-		err, closed = proxyRealTLS(moduleName, rawConn, fromServer, toServer)
+		err, closed = proxyRealTLS(rawConn, fromServer, toServer)
 	} else {
 		err, closed = handleTLS(moduleName, rawConn, fromServer, toServer)
 	}
@@ -247,8 +247,7 @@ func handleIncomingTLS(rawConn net.Conn, fromServer *io.PipeReader, toServer *io
 }
 
 func peekBytes(r *bufio.Reader, expected []byte) (bool, error) {
-	buf := make([]byte, len(expected))
-	_, err := r.Peek(len(expected))
+	buf, err := r.Peek(len(expected))
 	if err != nil {
 		if err == io.EOF {
 			return false, nil
@@ -304,7 +303,7 @@ func handleTLS(moduleName string, rawConn net.Conn, fromServer *io.PipeReader, t
 		version = VersionSSL30
 
 	default:
-		return proxyRealTLS(moduleName, conn, fromServer, toServer)
+		return proxyRealTLS(conn, fromServer, toServer)
 	}
 
 	if err != nil {
@@ -314,21 +313,18 @@ func handleTLS(moduleName string, rawConn net.Conn, fromServer *io.PipeReader, t
 		return errors.New("invalid TLS handshake result"), false
 	}
 
-	if err == nil && macFn != nil && cipher != nil && clientCipher != nil {
-		conn := &consoleTLSConn{
-			Conn:         conn,
-			MacFn:        macFn,
-			Cipher:       cipher,
-			ClientCipher: clientCipher,
-			Version:      version,
-		}
-		return proxyConsoleTLS(moduleName, conn, fromServer, toServer)
+	tlsConn := &consoleTLSConn{
+		Conn:         conn,
+		MacFn:        macFn,
+		Cipher:       cipher,
+		ClientCipher: clientCipher,
+		Version:      version,
 	}
-	return err, false
+	return tlsConn.proxyConsoleTLS(fromServer, toServer)
 }
 
 // proxyRealTLS handles the TLS request legitimately using crypto/tls
-func proxyRealTLS(moduleName string, rawConn net.Conn, fromServer *io.PipeReader, toServer *io.PipeWriter) (err error, closed bool) {
+func proxyRealTLS(rawConn net.Conn, fromServer *io.PipeReader, toServer *io.PipeWriter) (err error, closed bool) {
 	defer toServer.CloseWithError(err)
 
 	if realTLSConfig == nil {
@@ -345,7 +341,6 @@ func proxyRealTLS(moduleName string, rawConn net.Conn, fromServer *io.PipeReader
 
 	go func() {
 		_, err = io.Copy(tlsConn, fromServer)
-		logging.Info(moduleName, "Closed connection from server")
 		_ = tlsConn.Close()
 	}()
 	_, err = io.Copy(toServer, tlsConn)
@@ -365,13 +360,19 @@ type consoleTLSConn struct {
 }
 
 func (c *consoleTLSConn) Read(b []byte) (n int, err error) {
+	if c.decodedBuffer.Len() != 0 {
+		return c.decodedBuffer.Read(b)
+	}
+
 	recordLength := uint16(0)
-	for len(b) > c.decodedBuffer.Len() {
+	for c.encodedBuffer.Len() < int(recordLength)+5 {
 		for c.encodedBuffer.Len() < int(recordLength)+5 {
-			_, err = c.encodedBuffer.ReadFrom(c.Conn)
+			readBuf := make([]byte, 1024)
+			n, err = c.Conn.Read(readBuf)
 			if err != nil {
 				return 0, err
 			}
+			c.encodedBuffer.Write(readBuf[:n])
 		}
 
 		buf := c.encodedBuffer.Bytes()
@@ -387,32 +388,29 @@ func (c *consoleTLSConn) Read(b []byte) (n int, err error) {
 		if recordLength < 17 || (recordLength+5) > 0x1000 {
 			return 0, errors.New("invalid record length")
 		}
-
-		if c.encodedBuffer.Len() < int(recordLength)+5 {
-			continue
-		}
-
-		// Decrypt content
-		c.ClientCipher.XORKeyStream(buf[5:5+recordLength], buf[5:5+recordLength])
-
-		if buf[0] != 0x17 {
-			if buf[0] == 0x15 || buf[5] == 0x01 || buf[6] == 0x00 {
-				// Alert: connection closed
-				if err = c.Close(); err != nil {
-					return 0, err
-				}
-				return 0, io.EOF
-			}
-			return 0, errors.New("non-application data received")
-		}
-		// Write the decrypted content to the buffer
-		c.decodedBuffer.Write(buf[5 : 5+recordLength-16])
-
-		c.encodedBuffer.Next(5 + int(recordLength))
 	}
 
-	_, err = c.decodedBuffer.Read(b)
-	return len(b), err
+	// Decrypt content
+	buf := c.encodedBuffer.Bytes()
+	c.ClientCipher.XORKeyStream(buf[5:5+recordLength], buf[5:5+recordLength])
+
+	if buf[0] != 0x17 {
+		if buf[0] == 0x15 || buf[5] == 0x01 || buf[6] == 0x00 {
+			// Alert: connection closed
+			if err = c.Close(); err != nil {
+				return 0, err
+			}
+			return 0, io.EOF
+		}
+		return 0, errors.New("non-application data received")
+	}
+	// Write the decrypted content to the buffer
+	if int(recordLength-16) > len(b) {
+		c.decodedBuffer.Write(buf[5+len(b) : 5+recordLength-16])
+	}
+	c.encodedBuffer.Next(5 + int(recordLength))
+
+	return copy(b, buf[5:5+recordLength-16]), nil
 }
 
 func (c *consoleTLSConn) Write(b []byte) (n int, err error) {
@@ -421,23 +419,20 @@ func (c *consoleTLSConn) Write(b []byte) (n int, err error) {
 	return c.Conn.Write(record)
 }
 
-func proxyConsoleTLS(moduleName string, conn *consoleTLSConn, fromServer *io.PipeReader, toServer *io.PipeWriter) (err error, closed bool) {
+func (c *consoleTLSConn) proxyConsoleTLS(fromServer *io.PipeReader, toServer *io.PipeWriter) (err error, closed bool) {
 	go func() {
-		_, err = io.Copy(conn, fromServer)
-		logging.Info(moduleName, "Closed connection from server")
-		_ = conn.Close()
+		_, err = io.Copy(c, fromServer)
+		_ = c.Close()
 	}()
-	_, err = io.Copy(toServer, conn)
+	_, err = io.Copy(toServer, c)
 	return err, true
 }
 
 func handleWiiTLSHandshake(moduleName string, conn nasInConn) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher, err error) {
-	// fmt.Printf("\n")
-
 	clientHello := make([]byte, 0x2D)
-	_, err = io.ReadFull(conn.in, clientHello)
+	_, err = io.ReadFull(conn, clientHello)
 	if err != nil {
-		logging.Error(moduleName, "Failed to read from client:", err)
+		logging.Error(moduleName, "Failed to read client hello:", err)
 		return
 	}
 
@@ -469,8 +464,6 @@ func handleWiiTLSHandshake(moduleName string, conn nasInConn) (macFn macFunction
 	// Append the certs record to the server hello buffer
 	serverHello = append(serverHello, serverCertsRecordWii...)
 
-	// fmt.Printf("Server Hello:\n% X\n", serverHello)
-
 	finishHash.Write(serverHello[0x5:0x2F])
 	finishHash.Write(serverHello[0x34 : 0x34+(len(serverCertsRecordWii)-14)])
 	finishHash.Write(serverHello[0x34+(len(serverCertsRecordWii)-14)+5 : 0x34+(len(serverCertsRecordWii)-14)+5+4])
@@ -489,11 +482,10 @@ func handleWiiTLSHandshake(moduleName string, conn nasInConn) (macFn macFunction
 		var n int
 		n, err = conn.Read(buf[index:])
 		if err != nil {
-			logging.Error(moduleName, "Failed to read from client:", err)
+			logging.Error(moduleName, "Failed to read client key exchange:", err)
 			return
 		}
 
-		// fmt.Printf("% X ", buf[index:index+n])
 		index += n
 
 		// Check client key exchange header
@@ -527,7 +519,6 @@ func handleWiiTLSHandshake(moduleName string, conn nasInConn) (macFn macFunction
 			return
 		}
 	}
-	// fmt.Printf("\n")
 
 	encryptedPreMasterSecret := buf[0x0B : 0x0B+0x80]
 	clientFinish := buf[0x96 : 0x96+0x20]
@@ -561,16 +552,7 @@ func handleWiiTLSHandshake(moduleName string, conn nasInConn) (macFn macFunction
 	masterSecret := make([]byte, 48)
 	prf10(masterSecret, preMasterSecret, []byte("master secret"), clientServerRandom)
 
-	// fmt.Printf("Master secret:\n% X\n", masterSecret)
-
 	_, serverMAC, clientKey, serverKey, _, _ := keysFromMasterSecret(VersionTLS10, masterSecret, clientRandom, serverRandom, 16, 16, 16)
-
-	// fmt.Printf("Client MAC:\n% X\n", clientMAC)
-	// fmt.Printf("Server MAC:\n% X\n", serverMAC)
-	// fmt.Printf("Client key:\n% X\n", clientKey)
-	// fmt.Printf("Server key:\n% X\n", serverKey)
-	// fmt.Printf("Client IV:\n% X\n", clientIV)
-	// fmt.Printf("Server IV:\n% X\n", serverIV)
 
 	// Create the server RC4 cipher
 	cipher, err = rc4.NewCipher(serverKey)
@@ -590,8 +572,6 @@ func handleWiiTLSHandshake(moduleName string, conn nasInConn) (macFn macFunction
 	// Decrypt client finish
 	clientCipher.XORKeyStream(clientFinish, clientFinish)
 	finishHash.Write(clientFinish[:0x10])
-
-	// fmt.Printf("Client Finish:\n% X\n", clientFinish)
 
 	// Send ChangeCipherSpec
 	_, err = conn.Write([]byte{0x14, 0x03, 0x01, 0x00, 0x01, 0x01})
@@ -615,7 +595,7 @@ func handleDSSSLHandshake(moduleName string, conn nasInConn) (macFn macFunction,
 	clientHello := make([]byte, 0x34)
 	_, err = io.ReadFull(conn.in, clientHello)
 	if err != nil {
-		logging.Error(moduleName, "Failed to read from client:", err)
+		logging.Error(moduleName, "Failed to read client hello:", err)
 		return
 	}
 
@@ -646,8 +626,6 @@ func handleDSSSLHandshake(moduleName string, conn nasInConn) (macFn macFunction,
 	// Append the certs record to the server hello buffer
 	serverHello = append(serverHello, serverCertsRecordDS...)
 
-	// fmt.Printf("Server Hello:\n% X\n", serverHello)
-
 	finishHash.Write(serverHello[0x5:0x2F])
 	finishHash.Write(serverHello[0x34 : 0x34+(len(serverCertsRecordDS)-14)])
 	finishHash.Write(serverHello[0x34+(len(serverCertsRecordDS)-14)+5 : 0x34+(len(serverCertsRecordDS)-14)+5+4])
@@ -658,7 +636,6 @@ func handleDSSSLHandshake(moduleName string, conn nasInConn) (macFn macFunction,
 		return
 	}
 
-	// fmt.Printf("Client key exchange:\n")
 	buf := make([]byte, 0x1000)
 	index := 0
 	// Read client key exchange (+ change cipher spec + finished)
@@ -666,11 +643,10 @@ func handleDSSSLHandshake(moduleName string, conn nasInConn) (macFn macFunction,
 		var n int
 		n, err = conn.Read(buf[index:])
 		if err != nil {
-			logging.Error(moduleName, "Failed to read from client:", err)
+			logging.Error(moduleName, "Failed to read client key exchange:", err)
 			return
 		}
 
-		// fmt.Printf("% X ", buf[index:index+n])
 		index += n
 
 		// Check client key exchange header
@@ -704,7 +680,6 @@ func handleDSSSLHandshake(moduleName string, conn nasInConn) (macFn macFunction,
 			return
 		}
 	}
-	// fmt.Printf("\n")
 
 	encryptedPreMasterSecret := buf[0x09 : 0x09+0x80]
 	clientFinish := buf[0x94 : 0x94+0x38]
@@ -738,16 +713,7 @@ func handleDSSSLHandshake(moduleName string, conn nasInConn) (macFn macFunction,
 	masterSecret := make([]byte, 48)
 	prf30(masterSecret, preMasterSecret, []byte("master secret"), clientServerRandom)
 
-	// fmt.Printf("Master secret:\n% X\n", masterSecret)
-
 	_, serverMAC, clientKey, serverKey, _, _ := keysFromMasterSecret(VersionSSL30, masterSecret, clientRandom, serverRandom, 16, 16, 16)
-
-	// fmt.Printf("Client MAC:\n% X\n", clientMAC)
-	// fmt.Printf("Server MAC:\n% X\n", serverMAC)
-	// fmt.Printf("Client key:\n% X\n", clientKey)
-	// fmt.Printf("Server key:\n% X\n", serverKey)
-	// fmt.Printf("Client IV:\n% X\n", clientIV)
-	// fmt.Printf("Server IV:\n% X\n", serverIV)
 
 	// Create the server RC4 cipher
 	cipher, err = rc4.NewCipher(serverKey)
@@ -767,8 +733,6 @@ func handleDSSSLHandshake(moduleName string, conn nasInConn) (macFn macFunction,
 	// Decrypt client finish
 	clientCipher.XORKeyStream(clientFinish, clientFinish)
 	finishHash.Write(clientFinish[:0x28])
-
-	// fmt.Printf("Client Finish:\n% X\n", clientFinish)
 
 	// Send ChangeCipherSpec
 	_, err = conn.Write([]byte{0x14, 0x03, 0x00, 0x00, 0x01, 0x01})
@@ -951,8 +915,6 @@ type finishedHash struct {
 }
 
 func (h *finishedHash) Write(msg []byte) int {
-	// fmt.Printf("Write finished hash: % X\n", msg)
-
 	h.client.Write(msg)
 	h.server.Write(msg)
 
