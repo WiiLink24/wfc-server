@@ -30,7 +30,7 @@ import (
 // See here: https://github.com/shutterbug2000/wii-ssl-bug
 // https://github.com/KaeruTeam/nds-constraint
 
-// Don't use this for anything else, it's not secure
+// Don't use this TLS implementation for anything else, it's not secure
 
 var (
 	rsaKeyWii            *rsa.PrivateKey
@@ -226,43 +226,39 @@ func setupExploitDS(config common.Config) {
 	}...)
 }
 
-// handleIncomingTLS handles incoming requests from the listener.
-func handleIncomingTLS(rawConn net.Conn, fromServer *io.PipeReader, toServer *io.PipeWriter) {
-	moduleName := "NAS-TLS:" + rawConn.RemoteAddr().String()
-
-	var err error
-	closed := false
-	if rsaKeyWii == nil && rsaKeyDS == nil {
-		// Only handle real TLS requests
-		err, closed = proxyRealTLS(rawConn, fromServer, toServer)
-	} else {
-		err, closed = handleTLS(moduleName, rawConn, fromServer, toServer)
-	}
-
-	toServer.CloseWithError(err)
-	if !closed {
-		_ = rawConn.Close()
-	}
+type tlsConnection struct {
+	net.Conn
+	handshake bool
+	tlsConn   io.ReadWriter
 }
 
-var errUnexpectedBytes = errors.New("unexpected bytes")
-
-func readBytes(r io.Reader, expected []byte, consumed []byte) ([]byte, error) {
-	index := len(consumed)
-	buf := make([]byte, len(expected))
-	copy(buf, consumed)
-
-	for index < len(expected) {
-		n, err := r.Read(buf[index:])
-		if err != nil {
-			return buf[:index+n], err
+func (c *tlsConnection) Read(b []byte) (int, error) {
+	if !c.handshake {
+		if err := c.handleTLSHandshake(); err != nil {
+			return 0, err
 		}
-		if !bytes.Equal(buf[index:index+n], expected[index:index+n]) {
-			return buf[:index+n], errUnexpectedBytes
-		}
-		index += n
 	}
-	return buf, nil
+
+	return c.tlsConn.Read(b)
+}
+
+func (c *tlsConnection) Write(b []byte) (int, error) {
+	if !c.handshake {
+		if err := c.handleTLSHandshake(); err != nil {
+			return 0, err
+		}
+	}
+
+	return c.tlsConn.Write(b)
+}
+
+func (c *tlsConnection) Close() error {
+	if c.tlsConn != nil {
+		if tlsConn, ok := c.tlsConn.(*tls.Conn); ok {
+			return tlsConn.Close()
+		}
+	}
+	return c.Conn.Close()
 }
 
 var (
@@ -276,31 +272,39 @@ var (
 	}
 )
 
-// handleTLS handles the TLS request from the Wii or the DS. It may call handleRealTLS if the request is from a modern web browser.
-func handleTLS(moduleName string, conn net.Conn, fromServer *io.PipeReader, toServer *io.PipeWriter) (error, bool) {
-	// Recover from panics
+// handleTLSHandshake handles the TLS request from the Wii or the DS, and creates tlsConn for further communication.
+// It may call handleRealTLS if the request is from a modern web browser.
+func (c *tlsConnection) handleTLSHandshake() error {
+	moduleName := "NAS-TLS:" + c.Conn.RemoteAddr().String()
+
+	// Recover from panics. TODO: is this really necessary?
 	defer func() {
 		if r := recover(); r != nil {
 			logging.Error(moduleName, "Panic:", r)
 		}
 	}()
 
+	if rsaKeyDS == nil && rsaKeyWii == nil {
+		// Only handle real TLS connections
+		return c.handleRealTLSHandshake(c.Conn)
+	}
+
 	// Read client hello
 	var peekMatchWii, peekMatchDS bool
 	consumed := []byte{}
 	var err error
 	if rsaKeyDS != nil {
-		consumed, err = readBytes(conn, dsClientHelloPrefix, consumed)
+		consumed, err = readBytes(c.Conn, dsClientHelloPrefix, consumed)
 		peekMatchDS = err == nil
 	}
 
 	if rsaKeyWii != nil && err == errUnexpectedBytes {
-		consumed, err = readBytes(conn, wiiClientHelloPrefix, consumed)
+		consumed, err = readBytes(c.Conn, wiiClientHelloPrefix, consumed)
 		peekMatchWii = err == nil
 	}
 
 	if err != nil && err != errUnexpectedBytes {
-		return err, false
+		return err
 	}
 
 	var macFn macFunction
@@ -308,58 +312,53 @@ func handleTLS(moduleName string, conn net.Conn, fromServer *io.PipeReader, toSe
 	var version uint16
 	switch {
 	case peekMatchWii:
-		macFn, cipher, clientCipher, err = handleWiiTLSHandshake(moduleName, conn)
+		macFn, cipher, clientCipher, err = handleWiiTLSHandshake(moduleName, c.Conn)
 		version = VersionTLS10
 	case peekMatchDS:
-		macFn, cipher, clientCipher, err = handleDSSSLHandshake(moduleName, conn)
+		macFn, cipher, clientCipher, err = handleDSSSLHandshake(moduleName, c.Conn)
 		version = VersionSSL30
 
 	case err == errUnexpectedBytes:
-		return proxyRealTLS(nasInConn{
-			Conn: conn,
-			in:   io.MultiReader(bytes.NewReader(consumed), conn),
-		}, fromServer, toServer)
+		return c.handleRealTLSHandshake(nasInConn{
+			Conn: c.Conn,
+			in:   io.MultiReader(bytes.NewReader(consumed), c.Conn),
+		})
 	}
 
 	if err != nil {
-		return err, false
+		return err
 	}
 	if macFn == nil || cipher == nil || clientCipher == nil {
-		return errors.New("invalid TLS handshake result"), false
+		return errors.New("invalid TLS handshake result")
 	}
 
-	tlsConn := &consoleTLSConn{
-		Conn:         conn,
+	c.tlsConn = &consoleTLSConn{
+		Conn:         c.Conn,
 		MacFn:        macFn,
 		Cipher:       cipher,
 		ClientCipher: clientCipher,
 		Version:      version,
 	}
-	return tlsConn.proxyConsoleTLS(fromServer, toServer)
+	c.handshake = true
+	return nil
 }
 
-// proxyRealTLS handles the TLS request legitimately using crypto/tls
-func proxyRealTLS(rawConn net.Conn, fromServer *io.PipeReader, toServer *io.PipeWriter) (err error, closed bool) {
-	defer toServer.CloseWithError(err)
-
+// handleRealTLSHandshake handles the TLS request handshake legitimately using crypto/tls, and creates tlsConn
+func (c *tlsConnection) handleRealTLSHandshake(rawConn net.Conn) error {
 	if realTLSConfig == nil {
-		return errors.New("realTLSConfig is not set"), false
+		return errors.New("realTLSConfig is not set")
 	}
 
 	tlsConn := tls.Server(rawConn, realTLSConfig)
 
-	err = tlsConn.Handshake()
+	err := tlsConn.Handshake()
 	if err != nil {
 		_ = tlsConn.Close()
-		return err, false
+		return err
 	}
-
-	go func() {
-		_, err = io.Copy(tlsConn, fromServer)
-		_ = tlsConn.Close()
-	}()
-	_, err = io.Copy(toServer, tlsConn)
-	return err, true
+	c.tlsConn = tlsConn
+	c.handshake = true
+	return nil
 }
 
 type consoleTLSConn struct {
@@ -432,15 +431,6 @@ func (c *consoleTLSConn) Write(b []byte) (n int, err error) {
 	var record []byte
 	record, c.seq = encryptTLS(c.MacFn, c.Cipher, b, c.seq, []byte{0x17, 0x03, 0x01, byte(len(b) >> 8), byte(len(b))})
 	return c.Conn.Write(record)
-}
-
-func (c *consoleTLSConn) proxyConsoleTLS(fromServer *io.PipeReader, toServer *io.PipeWriter) (err error, closed bool) {
-	go func() {
-		_, err = io.Copy(c, fromServer)
-		_ = c.Close()
-	}()
-	_, err = io.Copy(toServer, c)
-	return err, true
 }
 
 func handleWiiTLSHandshake(moduleName string, conn io.ReadWriter) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher, err error) {
@@ -765,6 +755,26 @@ func handleDSSSLHandshake(moduleName string, conn io.ReadWriter) (macFn macFunct
 	_, err = conn.Write(finishedRecord)
 
 	return
+}
+
+var errUnexpectedBytes = errors.New("unexpected bytes")
+
+func readBytes(r io.Reader, expected []byte, consumed []byte) ([]byte, error) {
+	index := len(consumed)
+	buf := make([]byte, len(expected))
+	copy(buf, consumed)
+
+	for index < len(expected) {
+		n, err := r.Read(buf[index:])
+		if err != nil {
+			return buf[:index+n], err
+		}
+		if !bytes.Equal(buf[index:index+n], expected[index:index+n]) {
+			return buf[:index+n], errUnexpectedBytes
+		}
+		index += n
+	}
+	return buf, nil
 }
 
 // The following functions are modified from the crypto standard library

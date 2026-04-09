@@ -23,12 +23,6 @@ type nasInConn struct {
 	in io.Reader
 }
 
-type nasIOConn struct {
-	net.Conn
-	in  io.Reader
-	out io.Writer
-}
-
 func (c nasInConn) Read(b []byte) (int, error) { return c.in.Read(b) }
 
 func (c nasInConn) Close() error {
@@ -37,21 +31,6 @@ func (c nasInConn) Close() error {
 		_ = closer.Close()
 	}
 	return err
-}
-
-func (c nasIOConn) Read(b []byte) (int, error) { return c.in.Read(b) }
-
-func (c nasIOConn) Write(b []byte) (int, error) { return c.out.Write(b) }
-
-func (c nasIOConn) Close() error {
-	// Don't actually close the underlying connection here
-	if closer, ok := c.in.(io.Closer); ok {
-		_ = closer.Close()
-	}
-	if closer, ok := c.out.(io.Closer); ok {
-		_ = closer.Close()
-	}
-	return nil
 }
 
 func (l *httpListener) Accept() (net.Conn, error) {
@@ -103,25 +82,23 @@ func (l *tlsListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
-	// We're gonna need like 3 pipes here, from client -> tls -> filter -> server
-	readFromServer, writeFromServer := io.Pipe()
-	readToServer, writeToServer := io.Pipe()
-	readToFilter, writeToFilter := io.Pipe()
+	tlsConn := tlsConnection{
+		Conn: conn,
+	}
 
+	pr, pw := io.Pipe()
 	go func() {
-		r := bufio.NewReader(readToFilter)
-		if err := filterDuplicateHost(writeToServer, r); err != nil {
-			_ = writeToServer.CloseWithError(err)
+		r := bufio.NewReader(&tlsConn)
+		if err := filterDuplicateHost(pw, r); err != nil {
+			_ = pw.CloseWithError(err)
 			return
 		}
-		_, err := io.Copy(writeToServer, r)
-		_ = writeToServer.CloseWithError(err)
+		_, err := io.Copy(pw, r)
+		_ = pw.CloseWithError(err)
 	}()
-	go handleIncomingTLS(conn, readFromServer, writeToFilter)
-	return &nasIOConn{
-		Conn: conn,
-		in:   readToServer,
-		out:  writeFromServer,
+	return &nasInConn{
+		Conn: &tlsConn,
+		in:   pr,
 	}, nil
 }
 
