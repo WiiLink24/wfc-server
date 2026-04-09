@@ -29,16 +29,29 @@ type nasIOConn struct {
 	out io.Writer
 }
 
-func (c nasInConn) Read(b []byte) (int, error) {
-	return c.in.Read(b)
+func (c nasInConn) Read(b []byte) (int, error) { return c.in.Read(b) }
+
+func (c nasInConn) Close() error {
+	err := c.Conn.Close()
+	if closer, ok := c.in.(io.Closer); ok {
+		_ = closer.Close()
+	}
+	return err
 }
 
-func (c nasIOConn) Read(b []byte) (int, error) {
-	return c.in.Read(b)
-}
+func (c nasIOConn) Read(b []byte) (int, error) { return c.in.Read(b) }
 
-func (c nasIOConn) Write(b []byte) (int, error) {
-	return c.out.Write(b)
+func (c nasIOConn) Write(b []byte) (int, error) { return c.out.Write(b) }
+
+func (c nasIOConn) Close() error {
+	// Don't actually close the underlying connection here
+	if closer, ok := c.in.(io.Closer); ok {
+		_ = closer.Close()
+	}
+	if closer, ok := c.out.(io.Closer); ok {
+		_ = closer.Close()
+	}
+	return nil
 }
 
 func (l *httpListener) Accept() (net.Conn, error) {
@@ -50,52 +63,17 @@ func (l *httpListener) Accept() (net.Conn, error) {
 	pr, pw := io.Pipe()
 	go func() {
 		r := bufio.NewReader(conn)
-		_, err := pw.Write(filterDuplicateHost(r))
-		if err != nil {
+		if err := filterDuplicateHost(pw, r); err != nil {
 			_ = pw.CloseWithError(err)
 			return
 		}
-		_, err = io.Copy(pw, r)
+		_, err := io.Copy(pw, r)
 		_ = pw.CloseWithError(err)
 	}()
 	return &nasInConn{
 		Conn: conn,
 		in:   pr,
 	}, nil
-}
-
-// filterDuplicateHost wraps a net.Conn and filters out duplicate Host headers from the HTTP request,
-// making the invalid requests sent by DWC acceptable to the standard library's HTTP server.
-func filterDuplicateHost(r *bufio.Reader) []byte {
-	// Read the first line of the HTTP request
-	line, err := r.ReadString('\n')
-	if err != nil {
-		return []byte(line)
-	}
-	// Is this an HTTP request?
-	if !strings.HasSuffix(line, "HTTP/1.1\r\n") {
-		return []byte(line)
-	}
-
-	// Iterate through the HTTP headers and remove any duplicate Host headers
-	var headers bytes.Buffer
-	hostSeen := false
-	for {
-		headerLine, err := r.ReadString('\n')
-		if err != nil || headerLine == "\r\n" {
-			headers.WriteString(headerLine)
-			break
-		}
-		if strings.HasPrefix(strings.ToLower(headerLine), "host:") {
-			if hostSeen {
-				continue
-			}
-			hostSeen = true
-		}
-		headers.WriteString(headerLine)
-	}
-
-	return []byte(line + headers.String())
 }
 
 func listenAndServe() {
@@ -125,9 +103,21 @@ func (l *tlsListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
+	// We're gonna need like 3 pipes here, from client -> tls -> filter -> server
 	readFromServer, writeFromServer := io.Pipe()
 	readToServer, writeToServer := io.Pipe()
-	go handleIncomingTLS(conn, readFromServer, writeToServer)
+	readToFilter, writeToFilter := io.Pipe()
+
+	go func() {
+		r := bufio.NewReader(readToFilter)
+		if err := filterDuplicateHost(writeToServer, r); err != nil {
+			_ = writeToServer.CloseWithError(err)
+			return
+		}
+		_, err := io.Copy(writeToServer, r)
+		_ = writeToServer.CloseWithError(err)
+	}()
+	go handleIncomingTLS(conn, readFromServer, writeToFilter)
 	return &nasIOConn{
 		Conn: conn,
 		in:   readToServer,
@@ -150,4 +140,40 @@ func listenAndServeTLS() {
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
+}
+
+// filterDuplicateHost wraps a net.Conn and filters out duplicate Host headers from the HTTP request,
+// making the invalid requests sent by DWC acceptable to the standard library's HTTP server.
+func filterDuplicateHost(w *io.PipeWriter, r *bufio.Reader) error {
+	// Read the first line of the HTTP request
+	line, err := r.ReadString('\n')
+	_, errPipe := w.Write([]byte(line))
+	if err != nil || errPipe != nil {
+		return errPipe
+	}
+
+	// Is this an HTTP request we handle?
+	if !strings.HasSuffix(line, "HTTP/1.1\r\n") {
+		return nil
+	}
+
+	// Iterate through the HTTP headers and remove any duplicate Host headers
+	var headers bytes.Buffer
+	hostSeen := false
+	for {
+		headerLine, err := r.ReadString('\n')
+		_, wErr := w.Write([]byte(headerLine))
+		if err != nil || wErr != nil || headerLine == "\r\n" || headerLine == "\n" {
+			headers.WriteString(headerLine)
+			break
+		}
+		if strings.HasPrefix(strings.ToLower(headerLine), "host:") {
+			if hostSeen {
+				continue
+			}
+			hostSeen = true
+		}
+		headers.WriteString(headerLine)
+	}
+	return errPipe
 }
