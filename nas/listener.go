@@ -2,7 +2,6 @@ package nas
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"io"
 	"net"
@@ -135,22 +134,21 @@ func filterDuplicateHost(w *io.PipeWriter, r *bufio.Reader) error {
 	}
 
 	// Iterate through the HTTP headers and remove any duplicate Host headers
-	var headers bytes.Buffer
 	hostSeen := false
-	for {
-		headerLine, err := r.ReadString('\n')
-		_, wErr := w.Write([]byte(headerLine))
-		if err != nil || wErr != nil || headerLine == "\r\n" || headerLine == "\n" {
-			headers.WriteString(headerLine)
+	for errPipe == nil {
+		line, err = r.ReadString('\n')
+		if err != nil || line == "\r\n" || line == "\n" {
+			_, errPipe = w.Write([]byte(line))
 			break
 		}
-		if strings.HasPrefix(strings.ToLower(headerLine), "host:") {
+
+		if strings.HasPrefix(strings.ToLower(line), "host:") {
 			if hostSeen {
 				continue
 			}
 			hostSeen = true
 		}
-		headers.WriteString(headerLine)
+		_, errPipe = w.Write([]byte(line))
 	}
 	return errPipe
 }

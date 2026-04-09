@@ -274,13 +274,14 @@ var (
 
 // handleTLSHandshake handles the TLS request from the Wii or the DS, and creates tlsConn for further communication.
 // It may call handleRealTLS if the request is from a modern web browser.
-func (c *tlsConnection) handleTLSHandshake() error {
+func (c *tlsConnection) handleTLSHandshake() (err error) {
 	moduleName := "NAS-TLS:" + c.Conn.RemoteAddr().String()
 
 	// Recover from panics. TODO: is this really necessary?
 	defer func() {
 		if r := recover(); r != nil {
 			logging.Error(moduleName, "Panic:", r)
+			err = errors.New("panic occurred during TLS handshake")
 		}
 	}()
 
@@ -292,7 +293,6 @@ func (c *tlsConnection) handleTLSHandshake() error {
 	// Read client hello
 	var peekMatchWii, peekMatchDS bool
 	consumed := []byte{}
-	var err error
 	if rsaKeyDS != nil {
 		consumed, err = readBytes(c.Conn, dsClientHelloPrefix, consumed)
 		peekMatchDS = err == nil
@@ -338,6 +338,7 @@ func (c *tlsConnection) handleTLSHandshake() error {
 		Cipher:       cipher,
 		ClientCipher: clientCipher,
 		Version:      version,
+		Seq:          1,
 	}
 	c.handshake = true
 	return nil
@@ -368,7 +369,7 @@ type consoleTLSConn struct {
 	Cipher        *rc4.Cipher
 	ClientCipher  *rc4.Cipher
 	Version       uint16
-	seq           uint64
+	Seq           uint64
 	decodedBuffer bytes.Buffer
 	encodedBuffer bytes.Buffer
 }
@@ -379,7 +380,7 @@ func (c *consoleTLSConn) Read(b []byte) (n int, err error) {
 	}
 
 	recordLength := uint16(0)
-	for c.encodedBuffer.Len() < int(recordLength)+5 {
+	for {
 		for c.encodedBuffer.Len() < int(recordLength)+5 {
 			readBuf := make([]byte, 1024)
 			n, err = c.Conn.Read(readBuf)
@@ -402,10 +403,14 @@ func (c *consoleTLSConn) Read(b []byte) (n int, err error) {
 		if recordLength < 17 || (recordLength+5) > 0x1000 {
 			return 0, errors.New("invalid record length")
 		}
+
+		if c.encodedBuffer.Len() >= int(recordLength)+5 {
+			break
+		}
 	}
 
-	// Decrypt content
 	buf := c.encodedBuffer.Bytes()
+	// Decrypt content
 	c.ClientCipher.XORKeyStream(buf[5:5+recordLength], buf[5:5+recordLength])
 
 	if buf[0] != 0x17 {
@@ -419,7 +424,7 @@ func (c *consoleTLSConn) Read(b []byte) (n int, err error) {
 		return 0, errors.New("non-application data received")
 	}
 	// Write the decrypted content to the buffer
-	if int(recordLength-16) > len(b) {
+	if int(recordLength-5-16) > len(b) {
 		c.decodedBuffer.Write(buf[5+len(b) : 5+recordLength-16])
 	}
 	c.encodedBuffer.Next(5 + int(recordLength))
@@ -429,12 +434,12 @@ func (c *consoleTLSConn) Read(b []byte) (n int, err error) {
 
 func (c *consoleTLSConn) Write(b []byte) (n int, err error) {
 	var record []byte
-	record, c.seq = encryptTLS(c.MacFn, c.Cipher, b, c.seq, []byte{0x17, 0x03, 0x01, byte(len(b) >> 8), byte(len(b))})
+	record, c.Seq = encryptTLS(c.MacFn, c.Cipher, b, c.Seq, []byte{0x17, 0x03, 0x01, byte(len(b) >> 8), byte(len(b))})
 	return c.Conn.Write(record)
 }
 
 func handleWiiTLSHandshake(moduleName string, conn io.ReadWriter) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher, err error) {
-	clientHello := append(wiiClientHelloPrefix, make([]byte, 0x2-len(wiiClientHelloPrefix))...)
+	clientHello := append(wiiClientHelloPrefix, make([]byte, 0x2D-len(wiiClientHelloPrefix))...)
 	_, err = io.ReadFull(conn, clientHello[len(wiiClientHelloPrefix):])
 	if err != nil {
 		logging.Error(moduleName, "Failed to read client hello:", err)
@@ -479,7 +484,6 @@ func handleWiiTLSHandshake(moduleName string, conn io.ReadWriter) (macFn macFunc
 		return
 	}
 
-	// fmt.Printf("Client key exchange:\n")
 	buf := make([]byte, 0x1000)
 	index := 0
 	// Read client key exchange (+ change cipher spec + finished)
@@ -537,8 +541,6 @@ func handleWiiTLSHandshake(moduleName string, conn io.ReadWriter) (macFn macFunc
 		logging.Error(moduleName, "Failed to decrypt pre master secret:", err)
 		return
 	}
-
-	// fmt.Printf("Pre master secret:\n% X\n", preMasterSecret)
 
 	if len(preMasterSecret) != 48 {
 		logging.Error(moduleName, "Invalid pre master secret length:", aurora.BrightCyan(len(preMasterSecret)))
@@ -698,8 +700,6 @@ func handleDSSSLHandshake(moduleName string, conn io.ReadWriter) (macFn macFunct
 		logging.Error(moduleName, "Failed to decrypt pre master secret:", err)
 		return
 	}
-
-	// fmt.Printf("Pre master secret:\n% X\n", preMasterSecret)
 
 	if len(preMasterSecret) != 48 {
 		logging.Error(moduleName, "Invalid pre master secret length:", aurora.BrightCyan(len(preMasterSecret)))
