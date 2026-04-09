@@ -167,7 +167,7 @@ func login(moduleName string, fields map[string][]byte) map[string]string {
 		if !hasIngamesn {
 			ingamesn = devname
 		}
-		logging.Notice(moduleName, "Login (DS)", aurora.Cyan(token.UserID), aurora.Cyan(gsbrcd), "devname:", aurora.Cyan(devname), "name:", aurora.Cyan(ingamesnStr))
+		logging.Notice(moduleName, "Login (DS)", aurora.Cyan(token.UserID), aurora.Cyan(string(gsbrcd)), "devname:", aurora.Cyan(common.UTF16Decode(devname, endianness)), "name:", aurora.Cyan(ingamesnStr))
 
 	case true:
 		cfc, ok := fields["cfc"]
