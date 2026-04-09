@@ -1,7 +1,6 @@
 package nas
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/hmac"
 	"crypto/md5"
@@ -246,19 +245,39 @@ func handleIncomingTLS(rawConn net.Conn, fromServer *io.PipeReader, toServer *io
 	}
 }
 
-func peekBytes(r *bufio.Reader, expected []byte) (bool, error) {
-	buf, err := r.Peek(len(expected))
-	if err != nil {
-		if err == io.EOF {
-			return false, nil
+var errUnexpectedBytes = errors.New("unexpected bytes")
+
+func readBytes(r io.Reader, expected []byte, consumed []byte) ([]byte, error) {
+	index := len(consumed)
+	buf := make([]byte, len(expected))
+	copy(buf, consumed)
+
+	for index < len(expected) {
+		n, err := r.Read(buf[index:])
+		if err != nil {
+			return buf[:index+n], err
 		}
-		return false, err
+		if !bytes.Equal(buf[index:index+n], expected[index:index+n]) {
+			return buf[:index+n], errUnexpectedBytes
+		}
+		index += n
 	}
-	return bytes.Equal(buf, expected), nil
+	return buf, nil
 }
 
+var (
+	dsClientHelloPrefix = []byte{
+		0x16, 0x03, 0x00, 0x00, 0x2F, 0x01, 0x00, 0x00, 0x2B, 0x03, 0x00,
+	}
+	wiiClientHelloPrefix = []byte{
+		0x80, 0x2B, 0x01, 0x03, 0x01, 0x00, 0x12, 0x00, 0x00, 0x00, 0x10, 0x00,
+		0x00, 0x35, 0x00, 0x00, 0x2F, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x09, 0x00,
+		0x00, 0x05, 0x00, 0x00, 0x04,
+	}
+)
+
 // handleTLS handles the TLS request from the Wii or the DS. It may call handleRealTLS if the request is from a modern web browser.
-func handleTLS(moduleName string, rawConn net.Conn, fromServer *io.PipeReader, toServer *io.PipeWriter) (error, bool) {
+func handleTLS(moduleName string, conn net.Conn, fromServer *io.PipeReader, toServer *io.PipeWriter) (error, bool) {
 	// Recover from panics
 	defer func() {
 		if r := recover(); r != nil {
@@ -266,35 +285,28 @@ func handleTLS(moduleName string, rawConn net.Conn, fromServer *io.PipeReader, t
 		}
 	}()
 
-	r := bufio.NewReader(rawConn)
-	conn := nasInConn{
-		Conn: rawConn,
-		in:   r,
-	}
-
 	// Read client hello
 	var peekMatchWii, peekMatchDS bool
+	consumed := []byte{}
 	var err error
-	if rsaKeyWii != nil {
-		peekMatchWii, err = peekBytes(r, []byte{
-			0x80, 0x2B, 0x01, 0x03, 0x01, 0x00, 0x12, 0x00, 0x00, 0x00, 0x10, 0x00,
-			0x00, 0x35, 0x00, 0x00, 0x2F, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x09, 0x00,
-			0x00, 0x05, 0x00, 0x00, 0x04,
-		})
+	if rsaKeyDS != nil {
+		consumed, err = readBytes(conn, dsClientHelloPrefix, consumed)
+		peekMatchDS = err == nil
 	}
-	if rsaKeyDS != nil && !peekMatchWii && err == nil {
-		peekMatchDS, err = peekBytes(r, []byte{
-			0x16, 0x03, 0x00, 0x00, 0x2F, 0x01, 0x00, 0x00, 0x2B, 0x03, 0x00,
-		})
+
+	if rsaKeyWii != nil && err == errUnexpectedBytes {
+		consumed, err = readBytes(conn, wiiClientHelloPrefix, consumed)
+		peekMatchWii = err == nil
+	}
+
+	if err != nil && err != errUnexpectedBytes {
+		return err, false
 	}
 
 	var macFn macFunction
 	var cipher, clientCipher *rc4.Cipher
 	var version uint16
 	switch {
-	case err != nil:
-		return err, false
-
 	case peekMatchWii:
 		macFn, cipher, clientCipher, err = handleWiiTLSHandshake(moduleName, conn)
 		version = VersionTLS10
@@ -302,8 +314,11 @@ func handleTLS(moduleName string, rawConn net.Conn, fromServer *io.PipeReader, t
 		macFn, cipher, clientCipher, err = handleDSSSLHandshake(moduleName, conn)
 		version = VersionSSL30
 
-	default:
-		return proxyRealTLS(conn, fromServer, toServer)
+	case err == errUnexpectedBytes:
+		return proxyRealTLS(nasInConn{
+			Conn: conn,
+			in:   io.MultiReader(bytes.NewReader(consumed), conn),
+		}, fromServer, toServer)
 	}
 
 	if err != nil {
@@ -428,9 +443,9 @@ func (c *consoleTLSConn) proxyConsoleTLS(fromServer *io.PipeReader, toServer *io
 	return err, true
 }
 
-func handleWiiTLSHandshake(moduleName string, conn nasInConn) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher, err error) {
-	clientHello := make([]byte, 0x2D)
-	_, err = io.ReadFull(conn, clientHello)
+func handleWiiTLSHandshake(moduleName string, conn io.ReadWriter) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher, err error) {
+	clientHello := append(wiiClientHelloPrefix, make([]byte, 0x2-len(wiiClientHelloPrefix))...)
+	_, err = io.ReadFull(conn, clientHello[len(wiiClientHelloPrefix):])
 	if err != nil {
 		logging.Error(moduleName, "Failed to read client hello:", err)
 		return
@@ -591,9 +606,9 @@ func handleWiiTLSHandshake(moduleName string, conn nasInConn) (macFn macFunction
 	return
 }
 
-func handleDSSSLHandshake(moduleName string, conn nasInConn) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher, err error) {
-	clientHello := make([]byte, 0x34)
-	_, err = io.ReadFull(conn.in, clientHello)
+func handleDSSSLHandshake(moduleName string, conn io.ReadWriter) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher, err error) {
+	clientHello := append(dsClientHelloPrefix, make([]byte, 0x34-len(dsClientHelloPrefix))...)
+	_, err = io.ReadFull(conn, clientHello[len(dsClientHelloPrefix):])
 	if err != nil {
 		logging.Error(moduleName, "Failed to read client hello:", err)
 		return
