@@ -21,15 +21,20 @@ import (
 )
 
 func downloadStage1(w http.ResponseWriter, r *http.Request) {
-	stage1Ver := r.URL.Path[len(r.URL.Path)-1] - '0'
+	ver := r.URL.Path[len(r.URL.Path)-1] - '0'
 
 	path := "payload/stage1.bin"
-	if stage1Ver != 0 {
-		path = "payload/stage1v" + strconv.Itoa(int(stage1Ver)) + ".bin"
+	if ver != 0 {
+		path = "payload/stage1v" + strconv.Itoa(int(ver)) + ".bin"
 	}
 	dat, err := os.ReadFile(path)
 	if err != nil {
-		panic(err)
+		if err == os.ErrNotExist {
+			replyHTTPError(w, http.StatusNotFound, "404 Not Found")
+			return
+		}
+		replyHTTPError(w, http.StatusInternalServerError, "500 Internal Server Error")
+		return
 	}
 
 	payload := append([]byte{0x01, 0x2C}, dat...)
