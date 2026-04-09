@@ -24,10 +24,19 @@ var (
 
 var (
 	authMux      = http.NewServeMux()
+	dlsMux       = http.NewServeMux()
 	sakeMux      = http.NewServeMux()
 	gamestatsMux = http.NewServeMux()
 	raceMux      = http.NewServeMux()
 )
+
+var hostMuxes = map[*regexp.Regexp]*http.ServeMux{
+	regexp.MustCompile(`^(nas|naswii)\.`):                         authMux,
+	regexp.MustCompile(`^dls1\.`):                                 dlsMux,
+	regexp.MustCompile(`(\.|^)gamestats2?\.(gs\.|gamespy\.com$)`): gamestatsMux,
+	regexp.MustCompile(`(\.|^)sake\.(gs\.|gamespy\.com$)`):        sakeMux,
+	regexp.MustCompile(`(\.|^)race\.(gs\.|gamespy\.com$)`):        raceMux,
+}
 
 func StartServer(reload bool) {
 	// Get config
@@ -52,9 +61,10 @@ func StartServer(reload bool) {
 		ReadTimeout: 10 * time.Second,
 	}
 
-	authMux.HandleFunc("/ac", handleAuthRequest)
-	authMux.HandleFunc("/pr", handleAuthRequest)
-	authMux.HandleFunc("/download", handleAuthRequest)
+	authMux.HandleFunc("/ac", handleAuthAccountEndpoint)
+	authMux.HandleFunc("/pr", handleAuthProfanityEndpoint)
+
+	dlsMux.HandleFunc("/download", handleDownloadEndpoint)
 
 	if payloadServerAddress != "" {
 		// Forward the request to the payload server
@@ -109,13 +119,6 @@ func Shutdown() {
 	if err != nil {
 		logging.Error("NAS", "Error on HTTP shutdown:", err)
 	}
-}
-
-var hostMuxes = map[*regexp.Regexp]*http.ServeMux{
-	regexp.MustCompile(`^(nas|naswii|dls1)\.`):                    authMux,
-	regexp.MustCompile(`(\.|^)gamestats2?\.(gs\.|gamespy\.com$)`): gamestatsMux,
-	regexp.MustCompile(`(\.|^)sake\.(gs\.|gamespy\.com$)`):        sakeMux,
-	regexp.MustCompile(`(\.|^)race\.(gs\.|gamespy\.com$)`):        raceMux,
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {

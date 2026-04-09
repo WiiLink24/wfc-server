@@ -189,26 +189,32 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		return
 	}
 
-	gamecd, issueTime, userId, gsbrcd, cfc, region, lang, ingamesn, challenge, unitcd, isLocalhost, err := common.UnmarshalNASAuthToken(authToken)
+	authTokenObj := common.NASAuthToken{}
+	err := authTokenObj.Unmarshal(authToken)
 	if err != nil {
+		logging.Error(g.ModuleName, "Failed to unmarshal auth token:", err)
+		if err == common.ErrTokenExpired {
+			g.replyError(ErrLoginLoginTicketExpired)
+			return
+		}
 		g.replyError(ErrLogin)
-		return
-	}
-
-	currentTime := time.Now().UTC()
-	if issueTime.Before(currentTime.Add(-10*time.Minute)) || issueTime.After(currentTime) {
-		g.replyError(ErrLoginLoginTicketExpired)
 		return
 	}
 
 	g.GameName = command.OtherValues["gamename"]
 	logging.Info(g.ModuleName, "Game name:", aurora.Cyan(g.GameName))
-	g.GameCode = gamecd
-	g.Region = region
-	g.Language = lang
-	g.ConsoleFriendCode = cfc
-	g.InGameName = ingamesn
-	g.UnitCode = unitcd
+	g.GameCode = common.NullTerminatedString(authTokenObj.GameCode[:])
+	g.Region = authTokenObj.Region
+	g.Language = authTokenObj.Lang
+	g.ConsoleFriendCode = authTokenObj.ConsoleFriendCode
+	g.UnitCode = authTokenObj.UnitCode
+
+	var endianness binary.ByteOrder = binary.LittleEndian
+	if g.UnitCode == UnitCodeWii {
+		endianness = binary.BigEndian
+	}
+
+	g.InGameName = common.UTF16Decode(authTokenObj.InGameScreenName[:], endianness)
 
 	_, payloadVerExists := command.OtherValues["wl:ver"]
 	_, signatureExists := command.OtherValues["wl:sig"]
@@ -229,18 +235,18 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	logging.Event(
 		"received_login_info",
 		map[string]any{
-			"user_id":      userId,
+			"user_id":      authTokenObj.UserID,
 			"game_name":    g.GameName,
-			"wii_number":   cfc,
-			"in_game_name": ingamesn,
-			"unit_code":    unitcd,
+			"wii_number":   g.ConsoleFriendCode,
+			"in_game_name": g.InGameName,
+			"unit_code":    g.UnitCode,
 			"ip_address":   g.RemoteAddr,
 		},
 	)
 
 	expectedUnitCode := common.GetExpectedUnitCode(g.GameName)
 	if (g.UnitCode != UnitCodeDS && g.UnitCode != UnitCodeWii) || (g.UnitCode != expectedUnitCode && expectedUnitCode != UnitCodeDSAndWii) {
-		logging.Error(g.ModuleName, "Incorrect unit code specified:", aurora.Cyan(unitcd))
+		logging.Error(g.ModuleName, "Incorrect unit code specified:", aurora.Cyan(g.UnitCode))
 		g.replyError(ErrLogin)
 		return
 	}
@@ -253,7 +259,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		deviceAuth = true
 
 	case UnitCodeWii:
-		if isLocalhost && !payloadVerExists && !signatureExists {
+		if !payloadVerExists && !signatureExists {
 			// Players using the DNS, need patching using a QR2 exploit
 			if !common.DoesGameNeedExploit(g.GameName) {
 				logging.Error(g.ModuleName, "Using DNS for incompatible game:", aurora.Cyan(g.GameName))
@@ -276,18 +282,20 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		}
 
 	default:
-		logging.Error(g.ModuleName, "Invalid unit code specified:", aurora.Cyan(unitcd))
+		logging.Error(g.ModuleName, "Invalid unit code specified:", aurora.Cyan(g.UnitCode))
 		g.replyError(ErrLogin)
 		return
 	}
 
-	response := generateResponse(g.Challenge, challenge, authToken, command.OtherValues["challenge"])
+	nasChallenge := common.NullTerminatedString(authTokenObj.Challenge[:])
+
+	response := generateResponse(g.Challenge, nasChallenge, authToken, command.OtherValues["challenge"])
 	if response != command.OtherValues["response"] {
 		g.replyError(ErrLogin)
 		return
 	}
 
-	proof := generateProof(g.Challenge, challenge, command.OtherValues["authtoken"], command.OtherValues["challenge"])
+	proof := generateProof(g.Challenge, nasChallenge, command.OtherValues["authtoken"], command.OtherValues["challenge"])
 
 	cmdProfileId := uint32(0)
 	if cmdProfileIdStr, exists := command.OtherValues["profileid"]; exists {
@@ -305,7 +313,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		cmdProfileId = uint32(cmdProfileId2)
 	}
 
-	if !g.performLoginWithDatabase(userId, gsbrcd, cmdProfileId, defaultKey, deviceId, deviceAuth) {
+	if !g.performLoginWithDatabase(authTokenObj.UserID, common.NullTerminatedString(authTokenObj.GsbrCode[:]), cmdProfileId, defaultKey, deviceId, deviceAuth) {
 		return
 	}
 
@@ -353,16 +361,17 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	mutex.Unlock()
 
 	g.AuthToken = authToken
-	g.LoginTicket = common.MarshalGPCMLoginTicket(g.User.ProfileId)
+	g.LoginTicket = common.GPCMLoginTicket{ProfileID: g.User.ProfileId}.Marshal()
 	g.SessionKey = rand.Int31n(290000000) + 10000000
 
 	g.DeviceAuthenticated = deviceAuth
 	g.LoggedIn = true
+
 	g.ModuleName = "GPCM:" + strconv.FormatInt(int64(g.User.ProfileId), 10)
 	g.ModuleName += "/" + common.CalcFriendCodeString(g.User.ProfileId, g.User.GsbrCode[:4])
 
 	// Notify QR2 of the login
-	qr2.Login(g.User.ProfileId, gamecd, ingamesn, cfc, g.User.GsbrCode[:4], g.RemoteAddr, g.NeedsExploit, g.DeviceAuthenticated, g.User.Restricted)
+	qr2.Login(g.User.ProfileId, g.GameCode, g.InGameName, g.ConsoleFriendCode, g.User.GsbrCode[:4], g.RemoteAddr, g.NeedsExploit, g.DeviceAuthenticated, g.User.Restricted)
 
 	replyUserId := g.User.UserId
 	if g.UnitCode == UnitCodeDS {

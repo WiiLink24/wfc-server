@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"time"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -251,17 +250,13 @@ func getRequestIdentity(moduleName string, request StorageRequestCommon) (uint32
 		return 0, common.GameInfo{}, ResultSecretKeyInvalid
 	}
 
-	profileId, issueTime, err := common.UnmarshalGPCMLoginTicket(request.LoginTicket)
-	if err != nil {
+	loginTicket := common.GPCMLoginTicket{}
+	if err := loginTicket.Unmarshal(request.LoginTicket); err != nil {
 		logging.Error(moduleName, err)
 		return 0, common.GameInfo{}, ResultLoginTicketInvalid
 	}
 
-	if issueTime.Add(48 * time.Hour).Before(time.Now()) {
-		return 0, common.GameInfo{}, ResultLoginTicketExpired
-	}
-
-	return profileId, *gameInfo, ResultSuccess
+	return loginTicket.ProfileID, *gameInfo, ResultSuccess
 }
 
 func createRecord(moduleName string, profileId uint32, gameInfo common.GameInfo, request StorageRequestCommon) StorageResponseBody {
