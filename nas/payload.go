@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -29,7 +30,7 @@ func downloadStage1(w http.ResponseWriter, r *http.Request) {
 	}
 	dat, err := os.ReadFile(path)
 	if err != nil {
-		if err == os.ErrNotExist {
+		if errors.Is(err, os.ErrNotExist) {
 			replyHTTPError(w, http.StatusNotFound, "404 Not Found")
 			return
 		}
