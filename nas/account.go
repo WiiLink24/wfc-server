@@ -35,7 +35,7 @@ func handleAuthAccountEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if actionFunc, exists := accountActions[action]; exists {
+	if actionFunc, exists := accountActions[strings.ToLower(action)]; exists {
 		reply := actionFunc(moduleName, fields)
 		writeAuthResponse(w, reply)
 		return

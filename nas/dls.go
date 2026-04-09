@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"wwfc/common"
 	"wwfc/logging"
 
@@ -38,7 +39,7 @@ func handleDownloadEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if actionFunc, exists := dlsActions[action]; exists {
+	if actionFunc, exists := dlsActions[strings.ToLower(action)]; exists {
 		reply := actionFunc(moduleName, fields)
 		w.Header().Set("Content-Type", "text/plain")
 		w.Header().Set("Content-Length", strconv.Itoa(len(reply)))
