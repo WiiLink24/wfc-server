@@ -424,7 +424,7 @@ func (c *consoleTLSConn) Read(b []byte) (n int, err error) {
 		return 0, errors.New("non-application data received")
 	}
 	// Write the decrypted content to the buffer
-	if int(recordLength-5-16) > len(b) {
+	if int(recordLength-16) > len(b) {
 		c.decodedBuffer.Write(buf[5+len(b) : 5+recordLength-16])
 	}
 	c.encodedBuffer.Next(5 + int(recordLength))
