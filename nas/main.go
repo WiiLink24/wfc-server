@@ -68,7 +68,7 @@ func StartServer(reload bool) {
 
 	if payloadServerAddress != "" {
 		// Forward the request to the payload server
-		authMux.HandleFunc("/payload", forwardPayloadRequest)
+		authMux.HandleFunc("/payload/", forwardPayloadRequest)
 	} else {
 		authMux.HandleFunc("/payload", handlePayloadRequest)
 	}
