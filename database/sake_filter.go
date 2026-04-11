@@ -59,7 +59,22 @@ func (e *expression) filterSwitchOther(node *filter.TreeNode) {
 }
 
 func (e *expression) filterSwitchFunction(node *filter.TreeNode) {
-	val1 := node.Value.(*filter.OperatorToken)
+	switch v := node.Value.(type) {
+	case *filter.OperatorToken:
+		e.filterSwitchOperator(node, v)
+	case *filter.FuncToken:
+		switch strings.ToLower(v.Name) {
+		case "substring":
+			e.filterAppendFuncSubstring(v)
+		default:
+			panic("function not supported: " + v.Name)
+		}
+	default:
+		panic("unexpected function type: " + node.String())
+	}
+}
+
+func (e *expression) filterSwitchOperator(node *filter.TreeNode, val1 *filter.OperatorToken) {
 	switch strings.ToLower(val1.Operator) {
 	case "=", "!=":
 		e.filterAppendOperator(strings.ToLower(val1.Operator), node.Items())
@@ -73,9 +88,8 @@ func (e *expression) filterSwitchFunction(node *filter.TreeNode) {
 		e.filterAppendOr(node.Items())
 
 	default:
-		panic("function not supported: " + val1.Operator)
+		panic("operator not supported: " + val1.Operator)
 	}
-
 }
 
 func (e *expression) filterAppendNode(node *filter.TreeNode) {
@@ -84,7 +98,7 @@ func (e *expression) filterAppendNode(node *filter.TreeNode) {
 		e.query += "'" + strconv.FormatInt(v.Value, 10) + "'"
 	case *filter.IdentityToken:
 		e.filterAppendQueryValue(v)
-	case *filter.OperatorToken:
+	case *filter.OperatorToken, *filter.FuncToken:
 		e.filterSwitchFunction(node)
 	case *filter.GroupToken:
 		if v.GroupType == "()" {
@@ -147,9 +161,23 @@ func (e *expression) filterAppendMathOperator(operator string, args []*filter.Tr
 	}
 	e.query += "( ("
 	e.filterAppendNode(args[0])
-	e.query += ")::int " + operator + " ("
+	e.query += ")::bigint " + operator + " ("
 	e.filterAppendNode(args[1])
-	e.query += ")::int )"
+	e.query += ")::bigint )"
+}
+
+func (e *expression) filterAppendFuncSubstring(token *filter.FuncToken) {
+	if len(token.Arguments) != 3 {
+		panic("substring requires exactly 3 arguments")
+	}
+
+	e.query += "SUBSTRING( "
+	e.filterAppendRoot(token.Arguments[0])
+	e.query += ", ("
+	e.filterAppendRoot(token.Arguments[1])
+	e.query += ")::bigint, ("
+	e.filterAppendRoot(token.Arguments[2])
+	e.query += ")::bigint )"
 }
 
 // Get a value from the record
@@ -172,7 +200,6 @@ func (e *expression) filterAppendQueryValue(token *filter.IdentityToken) {
 	}
 
 	e.query += "COALESCE(fields->" + e.filterPushArg(token.Name) + "->>'value', '0')"
-
 }
 
 func (e *expression) filterPushArg(arg string) string {
