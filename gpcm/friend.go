@@ -261,7 +261,7 @@ func sendMessageToSession(msgType string, from uint32, session *GameSpySession, 
 	})
 	if err := common.SendPacket(ServerName, session.ConnIndex, []byte(message)); err != nil {
 		logging.Error("GPCM", "Failed to send packet:", err)
-		common.ShouldNotError(common.CloseConnection(ServerName, session.ConnIndex))
+		_ = common.CloseConnection(ServerName, session.ConnIndex)
 	}
 }
 
