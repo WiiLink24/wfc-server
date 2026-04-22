@@ -1,41 +1,31 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/url"
-	"strconv"
 	"wwfc/common"
 	"wwfc/qr2"
 )
 
-type Stats struct {
+type StatsResponseSpec struct {
 	OnlinePlayerCount int `json:"online"`
 	ActivePlayerCount int `json:"active"`
 	GroupCount        int `json:"groups"`
 }
 
 func HandleStats(w http.ResponseWriter, r *http.Request) {
-	u, err := url.Parse(r.URL.String())
+	query, err := parseGet(r, w, RoleNone)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	query, err := url.ParseQuery(u.RawQuery)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	games := query["game"]
 
-	stats := map[string]Stats{}
+	stats := map[string]StatsResponseSpec{}
 
 	servers := qr2.GetSessionServers()
 	groups := qr2.GetGroups([]string{}, []string{}, false)
 
-	globalStats := Stats{
+	globalStats := StatsResponseSpec{
 		OnlinePlayerCount: len(servers),
 		ActivePlayerCount: 0,
 		GroupCount:        len(groups),
@@ -54,7 +44,7 @@ func HandleStats(w http.ResponseWriter, r *http.Request) {
 
 		gameStats, exists := stats[gameName]
 		if !exists {
-			gameStats = Stats{
+			gameStats = StatsResponseSpec{
 				OnlinePlayerCount: 0,
 				ActivePlayerCount: 0,
 				GroupCount:        0,
@@ -76,15 +66,5 @@ func HandleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stats["global"] = globalStats
-
-	jsonData, err := json.Marshal(stats)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
-	_, _ = w.Write(jsonData)
+	replyOK(w, stats)
 }

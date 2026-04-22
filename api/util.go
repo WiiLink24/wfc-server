@@ -19,6 +19,7 @@ const (
 	APIErrorInvalidBanReason     APIErrorString = "InvalidBanReason"
 	APIErrorInvalidBanLength     APIErrorString = "InvalidBanLength"
 	APIErrorBanFailed            APIErrorString = "BanFailed"
+	APIErrorUnbanFailed          APIErrorString = "UnbanFailed"
 	APIErrorInvalidBanQuery      APIErrorString = "InvalidBanQuery"
 	APIErrorBanNotFound          APIErrorString = "BanNotFound"
 )
