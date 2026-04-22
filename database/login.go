@@ -29,10 +29,31 @@ const (
 	WHERE has_ban = true
 	  AND (profile_id = $2
 	  	OR (allow_default_keys = FALSE AND ng_device_id && (SELECT * FROM known_ng_device_ids))
-	  	OR last_ip_address = $3
+	  	OR ($3 != '' AND last_ip_address = $3)
 		OR ($4 != '' AND last_ip_address = $4))
 	  AND (ban_expires IS NULL OR ban_expires > $5)
 	ORDER BY ban_tos DESC LIMIT 1`
+
+	SearchUserBanInfo = `
+	WITH known_ng_device_ids AS (
+		WITH RECURSIVE device_tree AS (
+			SELECT unnest(ng_device_id) AS device_id
+			FROM users
+			WHERE allow_default_keys = FALSE AND $1 != 0 AND ng_device_id && array[$1]::bigint[]
+			UNION
+			SELECT unnest(ng_device_id)
+			FROM users
+			JOIN device_tree dt
+			ON allow_default_keys = FALSE AND ng_device_id && array[dt.device_id]
+		) SELECT array_agg(DISTINCT device_id) FROM device_tree
+	) SELECT has_ban, ban_tos, ban_issued, ban_expires, ban_reason, ng_device_id, profile_id, gsbrcd, last_ingamesn
+	FROM users
+	WHERE has_ban = true
+	  AND (profile_id = $2
+	  	OR (allow_default_keys = FALSE AND ng_device_id && (SELECT * FROM known_ng_device_ids))
+	  	OR ($3 != '' AND last_ip_address = $3)
+		OR ($4 != '' AND last_ip_address = $4))
+	ORDER BY ban_expires DESC LIMIT 1`
 )
 
 var (

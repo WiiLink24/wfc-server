@@ -155,3 +155,18 @@ func (c *Connection) UnbanUser(profileId uint32) bool {
 	_, err := c.pool.Exec(c.ctx, DisableUserBan, profileId)
 	return err == nil
 }
+
+func (c *Connection) SearchUserBan(profileId uint32, ngDeviceId uint32, ipAddress string, lastIpAddress string) (
+	tos bool, issued time.Time, expires time.Time, reason string, bannedProfileId uint32, gsbrCode string, inGameName string, err error) {
+	row := c.pool.QueryRow(c.ctx, SearchUserBanInfo, ngDeviceId, profileId, ipAddress, lastIpAddress)
+	var hasBan bool
+	var bannedNgDeviceId []uint32
+	err = row.Scan(&hasBan, &tos, &issued, &expires, &reason, &bannedNgDeviceId, &bannedProfileId, &gsbrCode, &inGameName)
+	if err == nil && !hasBan {
+		err = errors.New("no ban found")
+	}
+	if len(gsbrCode) > 4 {
+		gsbrCode = gsbrCode[:4]
+	}
+	return tos, issued, expires, reason, bannedProfileId, gsbrCode, inGameName, err
+}
