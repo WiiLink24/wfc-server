@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"wwfc/gpcm"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 type KickRequestSpec struct {
@@ -24,7 +26,7 @@ func HandleKick(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Reason == "" {
-		replyError(w, http.StatusBadRequest, APIErrorInvalidBanReason)
+		replyError(w, http.StatusBadRequest, APIErrorInvalidReason)
 		return
 	}
 
@@ -36,4 +38,6 @@ func HandleKick(w http.ResponseWriter, r *http.Request) {
 		"profile_id": req.ProfileID,
 		"reason":     req.Reason,
 	})
+
+	logging.Notice("API:admin", "Kick:", aurora.Cyan(req.ProfileID), "Reason:", aurora.BrightCyan(req.Reason))
 }

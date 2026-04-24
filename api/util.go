@@ -13,15 +13,14 @@ import (
 type APIErrorString string
 
 const (
-	APIErrorAuthenticationFailed APIErrorString = "AuthenticationFailed"
-	APIErrorInvalidQuery         APIErrorString = "InvalidQuery"
-	APIErrorInvalidProfileID     APIErrorString = "InvalidProfileID"
-	APIErrorInvalidBanReason     APIErrorString = "InvalidBanReason"
-	APIErrorInvalidBanLength     APIErrorString = "InvalidBanLength"
-	APIErrorBanFailed            APIErrorString = "BanFailed"
-	APIErrorUnbanFailed          APIErrorString = "UnbanFailed"
-	APIErrorInvalidBanQuery      APIErrorString = "InvalidBanQuery"
-	APIErrorBanNotFound          APIErrorString = "BanNotFound"
+	APIErrorFailedAuthentication APIErrorString = "failed_authentication"
+	APIErrorInvalidQuery         APIErrorString = "invalid_query"
+	APIErrorInvalidProfileID     APIErrorString = "invalid_profile_id"
+	APIErrorInvalidReason        APIErrorString = "invalid_reason"
+	APIErrorInvalidBanLength     APIErrorString = "invalid_ban_length"
+	APIErrorBanFailed            APIErrorString = "ban_failed"
+	APIErrorUnbanFailed          APIErrorString = "unban_failed"
+	APIErrorBanNotFound          APIErrorString = "ban_not_found"
 )
 
 type APIError struct {
@@ -80,7 +79,7 @@ func parseGet(r *http.Request, w http.ResponseWriter, requiredRole Role) (query 
 
 	authInfo := makeAuthInfo(query)
 	if !authenticate(authInfo, requiredRole) {
-		replyError(w, http.StatusUnauthorized, APIErrorAuthenticationFailed)
+		replyError(w, http.StatusUnauthorized, APIErrorFailedAuthentication)
 		return nil, errAuthFailed
 	}
 	return query, nil
@@ -127,7 +126,7 @@ func parsePost(r *http.Request, w http.ResponseWriter, parsed any, requiredRole 
 		return errNoAuthInfo
 	}
 	if !authenticate(authInfo, requiredRole) {
-		replyError(w, http.StatusUnauthorized, APIErrorAuthenticationFailed)
+		replyError(w, http.StatusUnauthorized, APIErrorFailedAuthentication)
 		return errAuthFailed
 	}
 	return nil
@@ -159,11 +158,19 @@ func replyOK(w http.ResponseWriter, data any) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	var jsonData []byte
+	if reflect.ValueOf(data).Kind() == reflect.String {
+		// Assume it's already JSON
+		jsonData = []byte(data.(string))
+	} else {
+		var err error
+		jsonData, err = json.Marshal(data)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
+
 	w.Header().Set("Content-Length", strconv.Itoa(len(jsonData)))
 	_, _ = w.Write(jsonData)
 }

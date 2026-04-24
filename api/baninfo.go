@@ -26,7 +26,7 @@ func HandleBanInfo(w http.ResponseWriter, r *http.Request) {
 
 	search := query.Get("q")
 	if search == "" {
-		replyError(w, http.StatusBadRequest, APIErrorInvalidBanQuery)
+		replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
 		return
 	}
 
@@ -37,14 +37,14 @@ func HandleBanInfo(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(search, "NG") {
 		ngId, err := strconv.ParseUint(search[2:], 16, 32)
 		if err != nil {
-			replyError(w, http.StatusBadRequest, APIErrorInvalidBanQuery)
+			replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
 			return
 		}
 		ngDeviceId = uint32(ngId)
 	} else {
 		pId, err := strconv.ParseUint(search, 10, 64)
 		if err != nil {
-			replyError(w, http.StatusBadRequest, APIErrorInvalidBanQuery)
+			replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
 			return
 		}
 		// Truncate to 32 bits as that's how friend codes work

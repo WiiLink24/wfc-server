@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 	"wwfc/logging"
+
+	"github.com/logrusorgru/aurora/v3"
 )
 
 type UnbanRequestSpec struct {
@@ -31,4 +33,6 @@ func HandleUnban(w http.ResponseWriter, r *http.Request) {
 	logging.Event("profile_unbanned", map[string]any{
 		"profile_id": req.ProfileID,
 	})
+
+	logging.Notice("API:admin", "Unban:", aurora.Cyan(req.ProfileID))
 }

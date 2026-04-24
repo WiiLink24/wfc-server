@@ -34,7 +34,7 @@ func HandleBan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Reason == "" {
-		replyError(w, http.StatusBadRequest, APIErrorInvalidBanReason)
+		replyError(w, http.StatusBadRequest, APIErrorInvalidReason)
 		return
 	}
 
@@ -50,8 +50,6 @@ func HandleBan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	length := time.Duration(minutes) * time.Minute
-
-	logging.Notice("API:"+moderator, "Ban profile:", aurora.Cyan(req.ProfileID), "TOS:", aurora.Cyan(req.Tos), "Length:", aurora.Cyan(length), "Reason:", aurora.BrightCyan(req.Reason), "Reason (Hidden):", aurora.BrightCyan(req.ReasonHidden))
 
 	if !db.BanUser(req.ProfileID, req.Tos, length, req.Reason, req.ReasonHidden, moderator) {
 		replyError(w, http.StatusInternalServerError, APIErrorBanFailed)
@@ -70,4 +68,6 @@ func HandleBan(w http.ResponseWriter, r *http.Request) {
 		"reason_hidden":  req.ReasonHidden,
 		"moderator":      moderator,
 	})
+
+	logging.Notice("API:"+moderator, "Ban:", aurora.Cyan(req.ProfileID), "TOS:", aurora.Cyan(req.Tos), "Length:", aurora.Cyan(length), "Reason:", aurora.BrightCyan(req.Reason), "Reason (Hidden):", aurora.BrightCyan(req.ReasonHidden))
 }
