@@ -93,7 +93,7 @@ func StartServer(reload bool) {
 
 		// Close the listener when the application closes.
 		defer func() {
-			common.ShouldNotError(conn.Close())
+			_ = conn.Close()
 		}()
 		logging.Notice("QR2", "Listening on", aurora.BrightCyan(address))
 

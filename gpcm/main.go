@@ -110,7 +110,6 @@ func Shutdown() {
 	db.Close()
 
 	logging.Notice("GPCM", "Saved", aurora.Cyan(len(sessions)), "sessions")
-
 }
 
 func CloseConnection(index uint64) {

@@ -359,8 +359,10 @@ func frontendMain(noSignal, noBackend bool) {
 	rpcMutex.Unlock()
 
 	logging.Notice("FRONTEND", "Sending RPCPacket.Shutdown")
-	common.ShouldNotError(rpcClient.Call("RPCPacket.Shutdown", "", nil))
-	common.ShouldNotError(rpcClient.Close())
+	if err := rpcClient.Call("RPCPacket.Shutdown", "", nil); err != nil {
+		logging.Error("FRONTEND", "Error during backend shutdown:", err.Error())
+	}
+	_ = rpcClient.Close()
 }
 
 // startFrontendServer starts the frontend RPC server.
