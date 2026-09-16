@@ -1,0 +1,36 @@
+<Config>
+     <gsAddress>0.0.0.0</gsAddress>
+     <nasAddress>0.0.0.0</nasAddress>
+     <nasPort>80</nasPort>
+     <nasAddressHttps>0.0.0.0</nasAddressHttps>
+     <nasPortHttps>443</nasPortHttps>
+     <enableHttps>true</enableHttps>
+
+     <enableHttpsExploitWii>true</enableHttpsExploitWii>
+     <enableHttpsExploitDS>true</enableHttpsExploitDS>
+
+     <certPath>fullchain.pem</certPath>
+     <keyPath>privkey.pem</keyPath>
+
+     <certDerPathWii>naswii-cert.der</certDerPathWii>
+     <keyPathWii>naswii-key.pem</keyPathWii>
+
+     <certDerPathDS>nas-cert.der</certDerPathDS>
+     <wiiCertDerPathDS>nwc.der</wiiCertDerPathDS>
+     <keyPathDS>nas-key.pem</keyPathDS>
+
+     <allowDefaultDolphinKeys>true</allowDefaultDolphinKeys>
+
+     <username>wiilink</username>
+     <password>__DB_PASSWORD__</password>
+     <!-- 127.0.0.1 assumes network_mode: host in docker-compose (see NOTE
+          in docker-compose.deploy.yml). If using the default Docker bridge
+          network instead, change this to "postgres" (the service name). -->
+     <databaseAddress>127.0.0.1</databaseAddress>
+     <databaseName>wwfc</databaseName>
+
+     <logLevel>4</logLevel>
+     <logOutput>StdOutAndFile</logOutput>
+
+     <apiSecret>__API_SECRET__</apiSecret>
+</Config>

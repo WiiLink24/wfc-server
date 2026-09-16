@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wfc_postgres
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - wfc_net
+
+  wfc-server:
+    image: ghcr.io/YOUR_GITHUB_USERNAME/wfc-server:latest
+    container_name: wiilink_wfc_server
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./config.xml:/app/config.xml:ro
+      - ./fullchain.pem:/app/fullchain.pem:ro
+      - ./privkey.pem:/app/privkey.pem:ro
+      - ./nas-cert.der:/app/nas-cert.der:ro
+      - ./nas-key.pem:/app/nas-key.pem:ro
+      - ./nwc.der:/app/nwc.der:ro
+      - ./naswii-cert.der:/app/naswii-cert.der:ro
+      - ./naswii-key.pem:/app/naswii-key.pem:ro
+
+volumes:
+  pgdata:
+
+networks:
+  wfc_net:
+    driver: bridge
+# NOTE: wfc-server runs with network_mode: host, so it is NOT part of the
+# wfc_net network and cannot reach Postgres via the hostname "postgres"
+# anymore. Postgres is therefore also exposed on 127.0.0.1:5432.
+# In config.xml, <databaseAddress> must be changed from "postgres" to "127.0.0.1".
+#
+# DEPLOY VARIANT: Uses the pre-built multi-arch image from the GitHub Actions
+# pipeline instead of building locally. Before the first start:
+#   1. Replace "YOUR_GITHUB_USERNAME" above with your actual username
+#   2. docker login ghcr.io -u YOUR_GITHUB_USERNAME
+#   3. Place config.xml, fullchain.pem, privkey.pem, nas-cert.der, nas-key.pem,
+#      nwc.der, plus schema.sql and .env, in this folder
+#      (schema.sql lives in the wfc-server source repo; generate .env via setup.sh)
+#   4. docker compose -f docker-compose.deploy.yml up -d
