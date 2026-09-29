@@ -9,6 +9,11 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 )
 
+// Per-game overrides for \getpd\, keyed by GameSpy game name.
+var publicDataTransforms = map[string]func(string, string, string) string{
+	"gtacwarsds": gtacwarsdsPublicData,
+}
+
 func (g *GameStatsSession) getpd(command common.GameSpyCommand) {
 	errMsg := common.GameSpyCommand{
 		Command:      "getpdr",
@@ -64,6 +69,10 @@ func (g *GameStatsSession) getpd(command common.GameSpyCommand) {
 		logging.Warn(g.ModuleName, "No data found")
 		g.Write(errMsg)
 		return
+	}
+
+	if transform, transformExists := publicDataTransforms[g.GameName]; transformExists {
+		data = transform(g.ModuleName, command.OtherValues["keys"], data)
 	}
 
 	g.Write(common.GameSpyCommand{
