@@ -336,6 +336,11 @@ func handleServerListRequest(moduleName string, connIndex uint64, address string
 
 func handleSendMessageRequest(moduleName string, connIndex uint64, address string, buffer []byte) {
 	common.MaybeUnused(connIndex)
+
+	if len(buffer) < 9 {
+		return
+	}
+
 	// Read search ID from buffer
 	searchID := uint64(binary.BigEndian.Uint32(buffer[3:7]))
 	searchID |= uint64(binary.BigEndian.Uint16(buffer[7:9])) << 32
